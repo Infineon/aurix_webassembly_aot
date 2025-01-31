@@ -1,0 +1,16 @@
+{
+    "rust-analyzer.cargo.allTargets": false,
+    "rust-analyzer.check.targets": ["tc162-htc-none"],
+    
+    "rust-analyzer.check.extraArgs": [
+        "-Z", "unstable-options"
+    ],
+    "rust-analyzer.cargo.extraArgs": [
+        "-Z", "unstable-options"
+    ],
+    "rust-analyzer.check.command": "check",
+    "rust-analyzer.cargo.features": [
+        "tsim"
+    ],
+
+}

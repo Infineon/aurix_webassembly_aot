@@ -1,0 +1,110 @@
+
+#![no_std]
+#![no_main]
+
+extern crate alloc;
+mod test_utilities;
+#[cfg(test)]
+#[defmt_test::tests]
+mod tests {
+    #[allow(unused_imports)]
+    use aot_wasm::isa_model::{Immediate,ValueSize};
+    use aot_wasm::parse_and_translate::WasmRuntime;
+    use defmt as _;
+
+    #[allow(unused_imports)]
+    use alloc::vec;
+
+    #[init]
+    fn init() -> WasmRuntime<'static> {
+            use crate::test_utilities;
+            let mut runtime = test_utilities::init();
+
+            let wasm_code = include_bytes!(concat!("../mvp-tests/", "store.0.wasm"));
+            assert!(runtime.parse_and_translate(wasm_code).is_ok());
+            runtime
+        
+    }
+
+    
+    // Command line number: 44
+    #[test]
+    fn test_0(runtime : &mut WasmRuntime<'static>){
+        let args = vec![];
+        let result = runtime.call_exported_function("as-block-value", args, None);
+        assert_eq!(result, None);
+    }
+    
+
+    // Command line number: 45
+    #[test]
+    fn test_1(runtime : &mut WasmRuntime<'static>){
+        let args = vec![];
+        let result = runtime.call_exported_function("as-loop-value", args, None);
+        assert_eq!(result, None);
+    }
+    
+
+    // Command line number: 47
+    #[test]
+    fn test_2(runtime : &mut WasmRuntime<'static>){
+        let args = vec![];
+        let result = runtime.call_exported_function("as-br-value", args, None);
+        assert_eq!(result, None);
+    }
+    
+
+    // Command line number: 48
+    #[test]
+    fn test_3(runtime : &mut WasmRuntime<'static>){
+        let args = vec![];
+        let result = runtime.call_exported_function("as-br_if-value", args, None);
+        assert_eq!(result, None);
+    }
+    
+
+    // Command line number: 49
+    #[test]
+    fn test_4(runtime : &mut WasmRuntime<'static>){
+        let args = vec![];
+        let result = runtime.call_exported_function("as-br_if-value-cond", args, None);
+        assert_eq!(result, None);
+    }
+    
+
+    // Command line number: 50
+    #[test]
+    fn test_5(runtime : &mut WasmRuntime<'static>){
+        let args = vec![];
+        let result = runtime.call_exported_function("as-br_table-value", args, None);
+        assert_eq!(result, None);
+    }
+    
+
+    // Command line number: 52
+    #[test]
+    fn test_6(runtime : &mut WasmRuntime<'static>){
+        let args = vec![];
+        let result = runtime.call_exported_function("as-return-value", args, None);
+        assert_eq!(result, None);
+    }
+    
+
+    // Command line number: 54
+    #[test]
+    fn test_7(runtime : &mut WasmRuntime<'static>){
+        let args = vec![];
+        let result = runtime.call_exported_function("as-if-then", args, None);
+        assert_eq!(result, None);
+    }
+    
+
+    // Command line number: 55
+    #[test]
+    fn test_8(runtime : &mut WasmRuntime<'static>){
+        let args = vec![];
+        let result = runtime.call_exported_function("as-if-else", args, None);
+        assert_eq!(result, None);
+    }
+    
+}

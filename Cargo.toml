@@ -1,0 +1,2923 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "tc162-rt",
+    "defmt-test",
+    "tsim-semihosting",
+    "probe-semihosting",
+    "tc37x-hal"
+]
+
+
+[package]
+name = "aot_wasm"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+wasmparser = {git= "https://github.com/BilelGho/wasm-tools.git" , branch="fix-aurix-compatibility", default-features = false}
+libm ={version = "*"}
+defmt = {version="~0.3.9"}
+embedded-alloc = {version="*"}
+fnv = { version = "1.0.7", default-features = false }
+indexmap = { version = "2.6.0", default-features = false }
+compiler_builtins={ git= "https://github.com/BilelGho/compiler-builtins.git", default-features=false }
+
+
+embedded-hal = "0.2.7"
+
+[build-dependencies]
+serde_json = "1.0.128"
+
+[features]
+tsim=[]
+board=[]
+
+
+
+[dev-dependencies]
+defmt-test = {path="defmt-test"}
+tc37x-hal = {path = "./tc37x-hal"}
+tsim-semihosting = {path="tsim-semihosting"}
+probe-semihosting = {path="./probe-semihosting"}
+tc162-rt = { path ="tc162-rt"}
+
+
+[profile.release.package.wasmparser]
+opt-level = 0
+
+
+[lib]
+harness = false
+
+
+[[example]]
+name = "benchmark"
+harness = false
+
+[[test]] 
+name = "address_0" 
+harness = false 
+ 
+[[test]] 
+name = "address_2" 
+harness = false 
+ 
+[[test]] 
+name = "address_3" 
+harness = false 
+ 
+[[test]] 
+name = "address_4" 
+harness = false 
+ 
+[[test]] 
+name = "align_0" 
+harness = false 
+ 
+[[test]] 
+name = "align_1" 
+harness = false 
+ 
+[[test]] 
+name = "align_10" 
+harness = false 
+ 
+[[test]] 
+name = "align_106" 
+harness = false 
+ 
+[[test]] 
+name = "align_107" 
+harness = false 
+ 
+[[test]] 
+name = "align_11" 
+harness = false 
+ 
+[[test]] 
+name = "align_12" 
+harness = false 
+ 
+[[test]] 
+name = "align_13" 
+harness = false 
+ 
+[[test]] 
+name = "align_14" 
+harness = false 
+ 
+[[test]] 
+name = "align_15" 
+harness = false 
+ 
+[[test]] 
+name = "align_16" 
+harness = false 
+ 
+[[test]] 
+name = "align_17" 
+harness = false 
+ 
+[[test]] 
+name = "align_18" 
+harness = false 
+ 
+[[test]] 
+name = "align_19" 
+harness = false 
+ 
+[[test]] 
+name = "align_2" 
+harness = false 
+ 
+[[test]] 
+name = "align_20" 
+harness = false 
+ 
+[[test]] 
+name = "align_21" 
+harness = false 
+ 
+[[test]] 
+name = "align_22" 
+harness = false 
+ 
+[[test]] 
+name = "align_3" 
+harness = false 
+ 
+[[test]] 
+name = "align_4" 
+harness = false 
+ 
+[[test]] 
+name = "align_5" 
+harness = false 
+ 
+[[test]] 
+name = "align_6" 
+harness = false 
+ 
+[[test]] 
+name = "align_7" 
+harness = false 
+ 
+[[test]] 
+name = "align_8" 
+harness = false 
+ 
+[[test]] 
+name = "align_9" 
+harness = false 
+ 
+[[test]] 
+name = "binary_0" 
+harness = false 
+ 
+[[test]] 
+name = "binary_1" 
+harness = false 
+ 
+[[test]] 
+name = "binary_2" 
+harness = false 
+ 
+[[test]] 
+name = "binary_3" 
+harness = false 
+ 
+[[test]] 
+name = "binary_48" 
+harness = false 
+ 
+[[test]] 
+name = "binary_53" 
+harness = false 
+ 
+[[test]] 
+name = "binary_54" 
+harness = false 
+ 
+[[test]] 
+name = "binary_55" 
+harness = false 
+ 
+[[test]] 
+name = "binary_58" 
+harness = false 
+ 
+[[test]] 
+name = "binary_61" 
+harness = false 
+ 
+[[test]] 
+name = "binary_63" 
+harness = false 
+ 
+[[test]] 
+name = "binary_65" 
+harness = false 
+ 
+[[test]] 
+name = "binary_68" 
+harness = false 
+ 
+[[test]] 
+name = "binary_71" 
+harness = false 
+ 
+[[test]] 
+name = "binary_74" 
+harness = false 
+ 
+[[test]] 
+name = "binary_79" 
+harness = false 
+ 
+[[test]] 
+name = "binary_82" 
+harness = false 
+ 
+[[test]] 
+name = "block_0" 
+harness = false 
+ 
+[[test]] 
+name = "break-drop_0" 
+harness = false 
+ 
+[[test]] 
+name = "br_0" 
+harness = false 
+ 
+[[test]] 
+name = "br_if_0" 
+harness = false 
+ 
+[[test]] 
+name = "br_table_0" 
+harness = false 
+ 
+[[test]] 
+name = "call_0" 
+harness = false 
+ 
+[[test]] 
+name = "call_indirect_0" 
+harness = false 
+ 
+[[test]] 
+name = "comments_0" 
+harness = false 
+ 
+[[test]] 
+name = "comments_1" 
+harness = false 
+ 
+[[test]] 
+name = "comments_2" 
+harness = false 
+ 
+[[test]] 
+name = "comments_3" 
+harness = false 
+ 
+[[test]] 
+name = "const_0" 
+harness = false 
+ 
+[[test]] 
+name = "const_1" 
+harness = false 
+ 
+[[test]] 
+name = "const_102" 
+harness = false 
+ 
+[[test]] 
+name = "const_103" 
+harness = false 
+ 
+[[test]] 
+name = "const_106" 
+harness = false 
+ 
+[[test]] 
+name = "const_107" 
+harness = false 
+ 
+[[test]] 
+name = "const_110" 
+harness = false 
+ 
+[[test]] 
+name = "const_111" 
+harness = false 
+ 
+[[test]] 
+name = "const_114" 
+harness = false 
+ 
+[[test]] 
+name = "const_115" 
+harness = false 
+ 
+[[test]] 
+name = "const_116" 
+harness = false 
+ 
+[[test]] 
+name = "const_117" 
+harness = false 
+ 
+[[test]] 
+name = "const_118" 
+harness = false 
+ 
+[[test]] 
+name = "const_119" 
+harness = false 
+ 
+[[test]] 
+name = "const_12" 
+harness = false 
+ 
+[[test]] 
+name = "const_120" 
+harness = false 
+ 
+[[test]] 
+name = "const_121" 
+harness = false 
+ 
+[[test]] 
+name = "const_122" 
+harness = false 
+ 
+[[test]] 
+name = "const_123" 
+harness = false 
+ 
+[[test]] 
+name = "const_128" 
+harness = false 
+ 
+[[test]] 
+name = "const_129" 
+harness = false 
+ 
+[[test]] 
+name = "const_13" 
+harness = false 
+ 
+[[test]] 
+name = "const_132" 
+harness = false 
+ 
+[[test]] 
+name = "const_133" 
+harness = false 
+ 
+[[test]] 
+name = "const_136" 
+harness = false 
+ 
+[[test]] 
+name = "const_137" 
+harness = false 
+ 
+[[test]] 
+name = "const_138" 
+harness = false 
+ 
+[[test]] 
+name = "const_139" 
+harness = false 
+ 
+[[test]] 
+name = "const_14" 
+harness = false 
+ 
+[[test]] 
+name = "const_140" 
+harness = false 
+ 
+[[test]] 
+name = "const_141" 
+harness = false 
+ 
+[[test]] 
+name = "const_142" 
+harness = false 
+ 
+[[test]] 
+name = "const_143" 
+harness = false 
+ 
+[[test]] 
+name = "const_148" 
+harness = false 
+ 
+[[test]] 
+name = "const_149" 
+harness = false 
+ 
+[[test]] 
+name = "const_15" 
+harness = false 
+ 
+[[test]] 
+name = "const_152" 
+harness = false 
+ 
+[[test]] 
+name = "const_153" 
+harness = false 
+ 
+[[test]] 
+name = "const_156" 
+harness = false 
+ 
+[[test]] 
+name = "const_157" 
+harness = false 
+ 
+[[test]] 
+name = "const_158" 
+harness = false 
+ 
+[[test]] 
+name = "const_159" 
+harness = false 
+ 
+[[test]] 
+name = "const_16" 
+harness = false 
+ 
+[[test]] 
+name = "const_166" 
+harness = false 
+ 
+[[test]] 
+name = "const_167" 
+harness = false 
+ 
+[[test]] 
+name = "const_168" 
+harness = false 
+ 
+[[test]] 
+name = "const_169" 
+harness = false 
+ 
+[[test]] 
+name = "const_17" 
+harness = false 
+ 
+[[test]] 
+name = "const_170" 
+harness = false 
+ 
+[[test]] 
+name = "const_171" 
+harness = false 
+ 
+[[test]] 
+name = "const_172" 
+harness = false 
+ 
+[[test]] 
+name = "const_173" 
+harness = false 
+ 
+[[test]] 
+name = "const_174" 
+harness = false 
+ 
+[[test]] 
+name = "const_175" 
+harness = false 
+ 
+[[test]] 
+name = "const_176" 
+harness = false 
+ 
+[[test]] 
+name = "const_177" 
+harness = false 
+ 
+[[test]] 
+name = "const_178" 
+harness = false 
+ 
+[[test]] 
+name = "const_179" 
+harness = false 
+ 
+[[test]] 
+name = "const_18" 
+harness = false 
+ 
+[[test]] 
+name = "const_180" 
+harness = false 
+ 
+[[test]] 
+name = "const_181" 
+harness = false 
+ 
+[[test]] 
+name = "const_182" 
+harness = false 
+ 
+[[test]] 
+name = "const_183" 
+harness = false 
+ 
+[[test]] 
+name = "const_184" 
+harness = false 
+ 
+[[test]] 
+name = "const_185" 
+harness = false 
+ 
+[[test]] 
+name = "const_186" 
+harness = false 
+ 
+[[test]] 
+name = "const_187" 
+harness = false 
+ 
+[[test]] 
+name = "const_188" 
+harness = false 
+ 
+[[test]] 
+name = "const_189" 
+harness = false 
+ 
+[[test]] 
+name = "const_19" 
+harness = false 
+ 
+[[test]] 
+name = "const_190" 
+harness = false 
+ 
+[[test]] 
+name = "const_191" 
+harness = false 
+ 
+[[test]] 
+name = "const_192" 
+harness = false 
+ 
+[[test]] 
+name = "const_193" 
+harness = false 
+ 
+[[test]] 
+name = "const_194" 
+harness = false 
+ 
+[[test]] 
+name = "const_195" 
+harness = false 
+ 
+[[test]] 
+name = "const_196" 
+harness = false 
+ 
+[[test]] 
+name = "const_197" 
+harness = false 
+ 
+[[test]] 
+name = "const_198" 
+harness = false 
+ 
+[[test]] 
+name = "const_199" 
+harness = false 
+ 
+[[test]] 
+name = "const_20" 
+harness = false 
+ 
+[[test]] 
+name = "const_200" 
+harness = false 
+ 
+[[test]] 
+name = "const_201" 
+harness = false 
+ 
+[[test]] 
+name = "const_202" 
+harness = false 
+ 
+[[test]] 
+name = "const_203" 
+harness = false 
+ 
+[[test]] 
+name = "const_204" 
+harness = false 
+ 
+[[test]] 
+name = "const_205" 
+harness = false 
+ 
+[[test]] 
+name = "const_206" 
+harness = false 
+ 
+[[test]] 
+name = "const_207" 
+harness = false 
+ 
+[[test]] 
+name = "const_208" 
+harness = false 
+ 
+[[test]] 
+name = "const_209" 
+harness = false 
+ 
+[[test]] 
+name = "const_21" 
+harness = false 
+ 
+[[test]] 
+name = "const_210" 
+harness = false 
+ 
+[[test]] 
+name = "const_211" 
+harness = false 
+ 
+[[test]] 
+name = "const_212" 
+harness = false 
+ 
+[[test]] 
+name = "const_213" 
+harness = false 
+ 
+[[test]] 
+name = "const_214" 
+harness = false 
+ 
+[[test]] 
+name = "const_215" 
+harness = false 
+ 
+[[test]] 
+name = "const_216" 
+harness = false 
+ 
+[[test]] 
+name = "const_217" 
+harness = false 
+ 
+[[test]] 
+name = "const_218" 
+harness = false 
+ 
+[[test]] 
+name = "const_219" 
+harness = false 
+ 
+[[test]] 
+name = "const_22" 
+harness = false 
+ 
+[[test]] 
+name = "const_220" 
+harness = false 
+ 
+[[test]] 
+name = "const_221" 
+harness = false 
+ 
+[[test]] 
+name = "const_222" 
+harness = false 
+ 
+[[test]] 
+name = "const_223" 
+harness = false 
+ 
+[[test]] 
+name = "const_224" 
+harness = false 
+ 
+[[test]] 
+name = "const_225" 
+harness = false 
+ 
+[[test]] 
+name = "const_226" 
+harness = false 
+ 
+[[test]] 
+name = "const_227" 
+harness = false 
+ 
+[[test]] 
+name = "const_228" 
+harness = false 
+ 
+[[test]] 
+name = "const_229" 
+harness = false 
+ 
+[[test]] 
+name = "const_23" 
+harness = false 
+ 
+[[test]] 
+name = "const_230" 
+harness = false 
+ 
+[[test]] 
+name = "const_231" 
+harness = false 
+ 
+[[test]] 
+name = "const_232" 
+harness = false 
+ 
+[[test]] 
+name = "const_233" 
+harness = false 
+ 
+[[test]] 
+name = "const_234" 
+harness = false 
+ 
+[[test]] 
+name = "const_235" 
+harness = false 
+ 
+[[test]] 
+name = "const_236" 
+harness = false 
+ 
+[[test]] 
+name = "const_237" 
+harness = false 
+ 
+[[test]] 
+name = "const_238" 
+harness = false 
+ 
+[[test]] 
+name = "const_239" 
+harness = false 
+ 
+[[test]] 
+name = "const_24" 
+harness = false 
+ 
+[[test]] 
+name = "const_240" 
+harness = false 
+ 
+[[test]] 
+name = "const_241" 
+harness = false 
+ 
+[[test]] 
+name = "const_242" 
+harness = false 
+ 
+[[test]] 
+name = "const_243" 
+harness = false 
+ 
+[[test]] 
+name = "const_244" 
+harness = false 
+ 
+[[test]] 
+name = "const_245" 
+harness = false 
+ 
+[[test]] 
+name = "const_246" 
+harness = false 
+ 
+[[test]] 
+name = "const_247" 
+harness = false 
+ 
+[[test]] 
+name = "const_248" 
+harness = false 
+ 
+[[test]] 
+name = "const_249" 
+harness = false 
+ 
+[[test]] 
+name = "const_25" 
+harness = false 
+ 
+[[test]] 
+name = "const_250" 
+harness = false 
+ 
+[[test]] 
+name = "const_251" 
+harness = false 
+ 
+[[test]] 
+name = "const_252" 
+harness = false 
+ 
+[[test]] 
+name = "const_253" 
+harness = false 
+ 
+[[test]] 
+name = "const_254" 
+harness = false 
+ 
+[[test]] 
+name = "const_255" 
+harness = false 
+ 
+[[test]] 
+name = "const_256" 
+harness = false 
+ 
+[[test]] 
+name = "const_257" 
+harness = false 
+ 
+[[test]] 
+name = "const_258" 
+harness = false 
+ 
+[[test]] 
+name = "const_259" 
+harness = false 
+ 
+[[test]] 
+name = "const_26" 
+harness = false 
+ 
+[[test]] 
+name = "const_260" 
+harness = false 
+ 
+[[test]] 
+name = "const_261" 
+harness = false 
+ 
+[[test]] 
+name = "const_262" 
+harness = false 
+ 
+[[test]] 
+name = "const_263" 
+harness = false 
+ 
+[[test]] 
+name = "const_264" 
+harness = false 
+ 
+[[test]] 
+name = "const_265" 
+harness = false 
+ 
+[[test]] 
+name = "const_266" 
+harness = false 
+ 
+[[test]] 
+name = "const_267" 
+harness = false 
+ 
+[[test]] 
+name = "const_268" 
+harness = false 
+ 
+[[test]] 
+name = "const_269" 
+harness = false 
+ 
+[[test]] 
+name = "const_27" 
+harness = false 
+ 
+[[test]] 
+name = "const_270" 
+harness = false 
+ 
+[[test]] 
+name = "const_271" 
+harness = false 
+ 
+[[test]] 
+name = "const_272" 
+harness = false 
+ 
+[[test]] 
+name = "const_273" 
+harness = false 
+ 
+[[test]] 
+name = "const_274" 
+harness = false 
+ 
+[[test]] 
+name = "const_275" 
+harness = false 
+ 
+[[test]] 
+name = "const_276" 
+harness = false 
+ 
+[[test]] 
+name = "const_277" 
+harness = false 
+ 
+[[test]] 
+name = "const_278" 
+harness = false 
+ 
+[[test]] 
+name = "const_279" 
+harness = false 
+ 
+[[test]] 
+name = "const_28" 
+harness = false 
+ 
+[[test]] 
+name = "const_280" 
+harness = false 
+ 
+[[test]] 
+name = "const_281" 
+harness = false 
+ 
+[[test]] 
+name = "const_282" 
+harness = false 
+ 
+[[test]] 
+name = "const_283" 
+harness = false 
+ 
+[[test]] 
+name = "const_284" 
+harness = false 
+ 
+[[test]] 
+name = "const_285" 
+harness = false 
+ 
+[[test]] 
+name = "const_286" 
+harness = false 
+ 
+[[test]] 
+name = "const_287" 
+harness = false 
+ 
+[[test]] 
+name = "const_288" 
+harness = false 
+ 
+[[test]] 
+name = "const_289" 
+harness = false 
+ 
+[[test]] 
+name = "const_29" 
+harness = false 
+ 
+[[test]] 
+name = "const_290" 
+harness = false 
+ 
+[[test]] 
+name = "const_291" 
+harness = false 
+ 
+[[test]] 
+name = "const_292" 
+harness = false 
+ 
+[[test]] 
+name = "const_293" 
+harness = false 
+ 
+[[test]] 
+name = "const_294" 
+harness = false 
+ 
+[[test]] 
+name = "const_295" 
+harness = false 
+ 
+[[test]] 
+name = "const_296" 
+harness = false 
+ 
+[[test]] 
+name = "const_297" 
+harness = false 
+ 
+[[test]] 
+name = "const_298" 
+harness = false 
+ 
+[[test]] 
+name = "const_299" 
+harness = false 
+ 
+[[test]] 
+name = "const_30" 
+harness = false 
+ 
+[[test]] 
+name = "const_300" 
+harness = false 
+ 
+[[test]] 
+name = "const_301" 
+harness = false 
+ 
+[[test]] 
+name = "const_302" 
+harness = false 
+ 
+[[test]] 
+name = "const_303" 
+harness = false 
+ 
+[[test]] 
+name = "const_304" 
+harness = false 
+ 
+[[test]] 
+name = "const_305" 
+harness = false 
+ 
+[[test]] 
+name = "const_306" 
+harness = false 
+ 
+[[test]] 
+name = "const_307" 
+harness = false 
+ 
+[[test]] 
+name = "const_308" 
+harness = false 
+ 
+[[test]] 
+name = "const_309" 
+harness = false 
+ 
+[[test]] 
+name = "const_31" 
+harness = false 
+ 
+[[test]] 
+name = "const_310" 
+harness = false 
+ 
+[[test]] 
+name = "const_311" 
+harness = false 
+ 
+[[test]] 
+name = "const_312" 
+harness = false 
+ 
+[[test]] 
+name = "const_313" 
+harness = false 
+ 
+[[test]] 
+name = "const_314" 
+harness = false 
+ 
+[[test]] 
+name = "const_315" 
+harness = false 
+ 
+[[test]] 
+name = "const_316" 
+harness = false 
+ 
+[[test]] 
+name = "const_317" 
+harness = false 
+ 
+[[test]] 
+name = "const_318" 
+harness = false 
+ 
+[[test]] 
+name = "const_319" 
+harness = false 
+ 
+[[test]] 
+name = "const_32" 
+harness = false 
+ 
+[[test]] 
+name = "const_320" 
+harness = false 
+ 
+[[test]] 
+name = "const_321" 
+harness = false 
+ 
+[[test]] 
+name = "const_322" 
+harness = false 
+ 
+[[test]] 
+name = "const_323" 
+harness = false 
+ 
+[[test]] 
+name = "const_324" 
+harness = false 
+ 
+[[test]] 
+name = "const_325" 
+harness = false 
+ 
+[[test]] 
+name = "const_326" 
+harness = false 
+ 
+[[test]] 
+name = "const_327" 
+harness = false 
+ 
+[[test]] 
+name = "const_328" 
+harness = false 
+ 
+[[test]] 
+name = "const_329" 
+harness = false 
+ 
+[[test]] 
+name = "const_33" 
+harness = false 
+ 
+[[test]] 
+name = "const_330" 
+harness = false 
+ 
+[[test]] 
+name = "const_331" 
+harness = false 
+ 
+[[test]] 
+name = "const_332" 
+harness = false 
+ 
+[[test]] 
+name = "const_333" 
+harness = false 
+ 
+[[test]] 
+name = "const_334" 
+harness = false 
+ 
+[[test]] 
+name = "const_335" 
+harness = false 
+ 
+[[test]] 
+name = "const_336" 
+harness = false 
+ 
+[[test]] 
+name = "const_337" 
+harness = false 
+ 
+[[test]] 
+name = "const_338" 
+harness = false 
+ 
+[[test]] 
+name = "const_339" 
+harness = false 
+ 
+[[test]] 
+name = "const_34" 
+harness = false 
+ 
+[[test]] 
+name = "const_340" 
+harness = false 
+ 
+[[test]] 
+name = "const_341" 
+harness = false 
+ 
+[[test]] 
+name = "const_342" 
+harness = false 
+ 
+[[test]] 
+name = "const_343" 
+harness = false 
+ 
+[[test]] 
+name = "const_344" 
+harness = false 
+ 
+[[test]] 
+name = "const_345" 
+harness = false 
+ 
+[[test]] 
+name = "const_346" 
+harness = false 
+ 
+[[test]] 
+name = "const_347" 
+harness = false 
+ 
+[[test]] 
+name = "const_348" 
+harness = false 
+ 
+[[test]] 
+name = "const_349" 
+harness = false 
+ 
+[[test]] 
+name = "const_35" 
+harness = false 
+ 
+[[test]] 
+name = "const_350" 
+harness = false 
+ 
+[[test]] 
+name = "const_351" 
+harness = false 
+ 
+[[test]] 
+name = "const_352" 
+harness = false 
+ 
+[[test]] 
+name = "const_353" 
+harness = false 
+ 
+[[test]] 
+name = "const_354" 
+harness = false 
+ 
+[[test]] 
+name = "const_355" 
+harness = false 
+ 
+[[test]] 
+name = "const_356" 
+harness = false 
+ 
+[[test]] 
+name = "const_357" 
+harness = false 
+ 
+[[test]] 
+name = "const_358" 
+harness = false 
+ 
+[[test]] 
+name = "const_359" 
+harness = false 
+ 
+[[test]] 
+name = "const_360" 
+harness = false 
+ 
+[[test]] 
+name = "const_361" 
+harness = false 
+ 
+[[test]] 
+name = "const_362" 
+harness = false 
+ 
+[[test]] 
+name = "const_363" 
+harness = false 
+ 
+[[test]] 
+name = "const_364" 
+harness = false 
+ 
+[[test]] 
+name = "const_365" 
+harness = false 
+ 
+[[test]] 
+name = "const_366" 
+harness = false 
+ 
+[[test]] 
+name = "const_367" 
+harness = false 
+ 
+[[test]] 
+name = "const_368" 
+harness = false 
+ 
+[[test]] 
+name = "const_369" 
+harness = false 
+ 
+[[test]] 
+name = "const_370" 
+harness = false 
+ 
+[[test]] 
+name = "const_371" 
+harness = false 
+ 
+[[test]] 
+name = "const_372" 
+harness = false 
+ 
+[[test]] 
+name = "const_373" 
+harness = false 
+ 
+[[test]] 
+name = "const_374" 
+harness = false 
+ 
+[[test]] 
+name = "const_375" 
+harness = false 
+ 
+[[test]] 
+name = "const_376" 
+harness = false 
+ 
+[[test]] 
+name = "const_377" 
+harness = false 
+ 
+[[test]] 
+name = "const_378" 
+harness = false 
+ 
+[[test]] 
+name = "const_379" 
+harness = false 
+ 
+[[test]] 
+name = "const_380" 
+harness = false 
+ 
+[[test]] 
+name = "const_381" 
+harness = false 
+ 
+[[test]] 
+name = "const_382" 
+harness = false 
+ 
+[[test]] 
+name = "const_383" 
+harness = false 
+ 
+[[test]] 
+name = "const_384" 
+harness = false 
+ 
+[[test]] 
+name = "const_385" 
+harness = false 
+ 
+[[test]] 
+name = "const_386" 
+harness = false 
+ 
+[[test]] 
+name = "const_387" 
+harness = false 
+ 
+[[test]] 
+name = "const_388" 
+harness = false 
+ 
+[[test]] 
+name = "const_389" 
+harness = false 
+ 
+[[test]] 
+name = "const_390" 
+harness = false 
+ 
+[[test]] 
+name = "const_391" 
+harness = false 
+ 
+[[test]] 
+name = "const_392" 
+harness = false 
+ 
+[[test]] 
+name = "const_393" 
+harness = false 
+ 
+[[test]] 
+name = "const_394" 
+harness = false 
+ 
+[[test]] 
+name = "const_395" 
+harness = false 
+ 
+[[test]] 
+name = "const_396" 
+harness = false 
+ 
+[[test]] 
+name = "const_397" 
+harness = false 
+ 
+[[test]] 
+name = "const_398" 
+harness = false 
+ 
+[[test]] 
+name = "const_399" 
+harness = false 
+ 
+[[test]] 
+name = "const_400" 
+harness = false 
+ 
+[[test]] 
+name = "const_401" 
+harness = false 
+ 
+[[test]] 
+name = "const_402" 
+harness = false 
+ 
+[[test]] 
+name = "const_403" 
+harness = false 
+ 
+[[test]] 
+name = "const_404" 
+harness = false 
+ 
+[[test]] 
+name = "const_405" 
+harness = false 
+ 
+[[test]] 
+name = "const_406" 
+harness = false 
+ 
+[[test]] 
+name = "const_407" 
+harness = false 
+ 
+[[test]] 
+name = "const_408" 
+harness = false 
+ 
+[[test]] 
+name = "const_409" 
+harness = false 
+ 
+[[test]] 
+name = "const_410" 
+harness = false 
+ 
+[[test]] 
+name = "const_411" 
+harness = false 
+ 
+[[test]] 
+name = "const_412" 
+harness = false 
+ 
+[[test]] 
+name = "const_413" 
+harness = false 
+ 
+[[test]] 
+name = "const_414" 
+harness = false 
+ 
+[[test]] 
+name = "const_415" 
+harness = false 
+ 
+[[test]] 
+name = "const_416" 
+harness = false 
+ 
+[[test]] 
+name = "const_417" 
+harness = false 
+ 
+[[test]] 
+name = "const_418" 
+harness = false 
+ 
+[[test]] 
+name = "const_419" 
+harness = false 
+ 
+[[test]] 
+name = "const_420" 
+harness = false 
+ 
+[[test]] 
+name = "const_421" 
+harness = false 
+ 
+[[test]] 
+name = "const_422" 
+harness = false 
+ 
+[[test]] 
+name = "const_423" 
+harness = false 
+ 
+[[test]] 
+name = "const_424" 
+harness = false 
+ 
+[[test]] 
+name = "const_425" 
+harness = false 
+ 
+[[test]] 
+name = "const_426" 
+harness = false 
+ 
+[[test]] 
+name = "const_427" 
+harness = false 
+ 
+[[test]] 
+name = "const_428" 
+harness = false 
+ 
+[[test]] 
+name = "const_429" 
+harness = false 
+ 
+[[test]] 
+name = "const_430" 
+harness = false 
+ 
+[[test]] 
+name = "const_431" 
+harness = false 
+ 
+[[test]] 
+name = "const_432" 
+harness = false 
+ 
+[[test]] 
+name = "const_433" 
+harness = false 
+ 
+[[test]] 
+name = "const_434" 
+harness = false 
+ 
+[[test]] 
+name = "const_435" 
+harness = false 
+ 
+[[test]] 
+name = "const_436" 
+harness = false 
+ 
+[[test]] 
+name = "const_437" 
+harness = false 
+ 
+[[test]] 
+name = "const_438" 
+harness = false 
+ 
+[[test]] 
+name = "const_439" 
+harness = false 
+ 
+[[test]] 
+name = "const_440" 
+harness = false 
+ 
+[[test]] 
+name = "const_441" 
+harness = false 
+ 
+[[test]] 
+name = "const_442" 
+harness = false 
+ 
+[[test]] 
+name = "const_443" 
+harness = false 
+ 
+[[test]] 
+name = "const_444" 
+harness = false 
+ 
+[[test]] 
+name = "const_445" 
+harness = false 
+ 
+[[test]] 
+name = "const_446" 
+harness = false 
+ 
+[[test]] 
+name = "const_447" 
+harness = false 
+ 
+[[test]] 
+name = "const_448" 
+harness = false 
+ 
+[[test]] 
+name = "const_449" 
+harness = false 
+ 
+[[test]] 
+name = "const_450" 
+harness = false 
+ 
+[[test]] 
+name = "const_451" 
+harness = false 
+ 
+[[test]] 
+name = "const_452" 
+harness = false 
+ 
+[[test]] 
+name = "const_453" 
+harness = false 
+ 
+[[test]] 
+name = "const_454" 
+harness = false 
+ 
+[[test]] 
+name = "const_455" 
+harness = false 
+ 
+[[test]] 
+name = "const_456" 
+harness = false 
+ 
+[[test]] 
+name = "const_457" 
+harness = false 
+ 
+[[test]] 
+name = "const_458" 
+harness = false 
+ 
+[[test]] 
+name = "const_459" 
+harness = false 
+ 
+[[test]] 
+name = "const_460" 
+harness = false 
+ 
+[[test]] 
+name = "const_461" 
+harness = false 
+ 
+[[test]] 
+name = "const_462" 
+harness = false 
+ 
+[[test]] 
+name = "const_463" 
+harness = false 
+ 
+[[test]] 
+name = "const_464" 
+harness = false 
+ 
+[[test]] 
+name = "const_465" 
+harness = false 
+ 
+[[test]] 
+name = "const_55" 
+harness = false 
+ 
+[[test]] 
+name = "const_56" 
+harness = false 
+ 
+[[test]] 
+name = "const_57" 
+harness = false 
+ 
+[[test]] 
+name = "const_58" 
+harness = false 
+ 
+[[test]] 
+name = "const_59" 
+harness = false 
+ 
+[[test]] 
+name = "const_6" 
+harness = false 
+ 
+[[test]] 
+name = "const_60" 
+harness = false 
+ 
+[[test]] 
+name = "const_61" 
+harness = false 
+ 
+[[test]] 
+name = "const_62" 
+harness = false 
+ 
+[[test]] 
+name = "const_63" 
+harness = false 
+ 
+[[test]] 
+name = "const_64" 
+harness = false 
+ 
+[[test]] 
+name = "const_65" 
+harness = false 
+ 
+[[test]] 
+name = "const_66" 
+harness = false 
+ 
+[[test]] 
+name = "const_67" 
+harness = false 
+ 
+[[test]] 
+name = "const_68" 
+harness = false 
+ 
+[[test]] 
+name = "const_69" 
+harness = false 
+ 
+[[test]] 
+name = "const_7" 
+harness = false 
+ 
+[[test]] 
+name = "const_70" 
+harness = false 
+ 
+[[test]] 
+name = "const_71" 
+harness = false 
+ 
+[[test]] 
+name = "const_72" 
+harness = false 
+ 
+[[test]] 
+name = "const_73" 
+harness = false 
+ 
+[[test]] 
+name = "const_74" 
+harness = false 
+ 
+[[test]] 
+name = "const_75" 
+harness = false 
+ 
+[[test]] 
+name = "const_76" 
+harness = false 
+ 
+[[test]] 
+name = "const_77" 
+harness = false 
+ 
+[[test]] 
+name = "const_78" 
+harness = false 
+ 
+[[test]] 
+name = "const_98" 
+harness = false 
+ 
+[[test]] 
+name = "const_99" 
+harness = false 
+ 
+[[test]] 
+name = "conversions_0" 
+harness = false 
+ 
+[[test]] 
+name = "conversions_0_1" 
+harness = false 
+ 
+[[test]] 
+name = "custom_0" 
+harness = false 
+ 
+[[test]] 
+name = "custom_1" 
+harness = false 
+ 
+[[test]] 
+name = "custom_2" 
+harness = false 
+ 
+[[test]] 
+name = "data_0" 
+harness = false 
+ 
+[[test]] 
+name = "data_1" 
+harness = false 
+ 
+[[test]] 
+name = "data_10" 
+harness = false 
+ 
+[[test]] 
+name = "data_12" 
+harness = false 
+ 
+[[test]] 
+name = "data_13" 
+harness = false 
+ 
+[[test]] 
+name = "data_14" 
+harness = false 
+ 
+[[test]] 
+name = "data_15" 
+harness = false 
+ 
+[[test]] 
+name = "data_16" 
+harness = false 
+ 
+[[test]] 
+name = "data_17" 
+harness = false 
+ 
+[[test]] 
+name = "data_18" 
+harness = false 
+ 
+[[test]] 
+name = "data_19" 
+harness = false 
+ 
+[[test]] 
+name = "data_2" 
+harness = false 
+ 
+[[test]] 
+name = "data_20" 
+harness = false 
+ 
+[[test]] 
+name = "data_23" 
+harness = false 
+ 
+[[test]] 
+name = "data_24" 
+harness = false 
+ 
+[[test]] 
+name = "data_3" 
+harness = false 
+ 
+[[test]] 
+name = "data_4" 
+harness = false 
+ 
+[[test]] 
+name = "data_9" 
+harness = false 
+ 
+[[test]] 
+name = "endianness_0" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0_1" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0_10" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0_11" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0_2" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0_3" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0_4" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0_5" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0_6" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0_7" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0_8" 
+harness = false 
+ 
+[[test]] 
+name = "f32_0_9" 
+harness = false 
+ 
+[[test]] 
+name = "f32_bitwise_0" 
+harness = false 
+ 
+[[test]] 
+name = "f32_bitwise_0_1" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0_1" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0_10" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0_11" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0_2" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0_3" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0_4" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0_5" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0_6" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0_7" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0_8" 
+harness = false 
+ 
+[[test]] 
+name = "f32_cmp_0_9" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_1" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_10" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_11" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_12" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_2" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_3" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_4" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_5" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_6" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_7" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_8" 
+harness = false 
+ 
+[[test]] 
+name = "f64_0_9" 
+harness = false 
+ 
+[[test]] 
+name = "f64_bitwise_0" 
+harness = false 
+ 
+[[test]] 
+name = "f64_bitwise_0_1" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0_1" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0_10" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0_11" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0_2" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0_3" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0_4" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0_5" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0_6" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0_7" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0_8" 
+harness = false 
+ 
+[[test]] 
+name = "f64_cmp_0_9" 
+harness = false 
+ 
+[[test]] 
+name = "fac_0" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_0" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_1" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_10" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_11" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_12" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_13" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_14" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_15" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_16" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_17" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_18" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_19" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_2" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_20" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_21" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_22" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_23" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_24" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_25" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_26" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_27" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_28" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_29" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_3" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_30" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_31" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_32" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_33" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_34" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_35" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_36" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_37" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_38" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_39" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_4" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_40" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_41" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_42" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_43" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_44" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_45" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_46" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_47" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_48" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_49" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_5" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_50" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_51" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_52" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_53" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_54" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_55" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_56" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_57" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_58" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_59" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_6" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_60" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_61" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_62" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_63" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_64" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_65" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_66" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_67" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_68" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_69" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_7" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_70" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_71" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_72" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_73" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_74" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_75" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_76" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_77" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_78" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_79" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_8" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_80" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_81" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_82" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_83" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_84" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_85" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_86" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_87" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_88" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_89" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_9" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_90" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_91" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_92" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_93" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_94" 
+harness = false 
+ 
+[[test]] 
+name = "float_exprs_95" 
+harness = false 
+ 
+[[test]] 
+name = "float_literals_0" 
+harness = false 
+ 
+[[test]] 
+name = "float_literals_1" 
+harness = false 
+ 
+[[test]] 
+name = "float_memory_0" 
+harness = false 
+ 
+[[test]] 
+name = "float_memory_1" 
+harness = false 
+ 
+[[test]] 
+name = "float_memory_2" 
+harness = false 
+ 
+[[test]] 
+name = "float_memory_3" 
+harness = false 
+ 
+[[test]] 
+name = "float_memory_4" 
+harness = false 
+ 
+[[test]] 
+name = "float_memory_5" 
+harness = false 
+ 
+[[test]] 
+name = "float_misc_0" 
+harness = false 
+ 
+[[test]] 
+name = "float_misc_0_1" 
+harness = false 
+ 
+[[test]] 
+name = "float_misc_0_2" 
+harness = false 
+ 
+[[test]] 
+name = "forward_0" 
+harness = false 
+ 
+[[test]] 
+name = "func_0" 
+harness = false 
+ 
+[[test]] 
+name = "func_1" 
+harness = false 
+ 
+[[test]] 
+name = "func_3" 
+harness = false 
+ 
+[[test]] 
+name = "func_ptrs_0" 
+harness = false 
+ 
+[[test]] 
+name = "func_ptrs_8" 
+harness = false 
+ 
+[[test]] 
+name = "func_ptrs_9" 
+harness = false 
+ 
+[[test]] 
+name = "global_0" 
+harness = false 
+ 
+[[test]] 
+name = "global_14" 
+harness = false 
+ 
+[[test]] 
+name = "global_17" 
+harness = false 
+ 
+[[test]] 
+name = "global_2" 
+harness = false 
+ 
+[[test]] 
+name = "global_3" 
+harness = false 
+ 
+[[test]] 
+name = "i32_0" 
+harness = false 
+ 
+[[test]] 
+name = "i32_0_1" 
+harness = false 
+ 
+[[test]] 
+name = "i64_0" 
+harness = false 
+ 
+[[test]] 
+name = "i64_0_1" 
+harness = false 
+ 
+[[test]] 
+name = "if_0" 
+harness = false 
+ 
+[[test]] 
+name = "inline-module_0" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_0" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_1" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_10" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_11" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_12" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_13" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_14" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_15" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_16" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_17" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_18" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_2" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_3" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_4" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_5" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_6" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_7" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_8" 
+harness = false 
+ 
+[[test]] 
+name = "int_exprs_9" 
+harness = false 
+ 
+[[test]] 
+name = "int_literals_0" 
+harness = false 
+ 
+[[test]] 
+name = "labels_0" 
+harness = false 
+ 
+[[test]] 
+name = "left-to-right_0" 
+harness = false 
+ 
+[[test]] 
+name = "load_0" 
+harness = false 
+ 
+[[test]] 
+name = "local_get_0" 
+harness = false 
+ 
+[[test]] 
+name = "local_set_0" 
+harness = false 
+ 
+[[test]] 
+name = "local_tee_0" 
+harness = false 
+ 
+[[test]] 
+name = "loop_0" 
+harness = false 
+ 
+[[test]] 
+name = "memory_0" 
+harness = false 
+ 
+[[test]] 
+name = "memory_1" 
+harness = false 
+ 
+[[test]] 
+name = "memory_2" 
+harness = false 
+ 
+[[test]] 
+name = "memory_25" 
+harness = false 
+ 
+[[test]] 
+name = "memory_3" 
+harness = false 
+ 
+[[test]] 
+name = "memory_6" 
+harness = false 
+ 
+[[test]] 
+name = "memory_7" 
+harness = false 
+ 
+[[test]] 
+name = "memory_8" 
+harness = false 
+ 
+[[test]] 
+name = "memory_grow_0" 
+harness = false 
+ 
+[[test]] 
+name = "memory_grow_1" 
+harness = false 
+ 
+[[test]] 
+name = "memory_grow_2" 
+harness = false 
+ 
+[[test]] 
+name = "memory_grow_3" 
+harness = false 
+ 
+[[test]] 
+name = "memory_grow_4" 
+harness = false 
+ 
+[[test]] 
+name = "memory_redundancy_0" 
+harness = false 
+ 
+[[test]] 
+name = "memory_size_0" 
+harness = false 
+ 
+[[test]] 
+name = "memory_size_1" 
+harness = false 
+ 
+[[test]] 
+name = "memory_size_2" 
+harness = false 
+ 
+ 
+[[test]] 
+name = "memory_trap_0" 
+harness = false 
+ 
+[[test]] 
+name = "memory_trap_1" 
+harness = false 
+ 
+[[test]] 
+name = "nop_0" 
+harness = false 
+ 
+[[test]] 
+name = "return_0" 
+harness = false 
+ 
+[[test]] 
+name = "select_0" 
+harness = false 
+
+[[test]] 
+name = "stack_0" 
+harness = false 
+ 
+[[test]] 
+name = "stack_1" 
+harness = false 
+ 
+[[test]] 
+name = "start_3" 
+harness = false 
+ 
+[[test]] 
+name = "start_4" 
+harness = false 
+ 
+[[test]] 
+name = "store_0" 
+harness = false 
+ 
+[[test]] 
+name = "switch_0" 
+harness = false 
+ 
+[[test]] 
+name = "traps_0" 
+harness = false 
+ 
+[[test]] 
+name = "traps_1" 
+harness = false 
+ 
+[[test]] 
+name = "traps_2" 
+harness = false 
+ 
+[[test]] 
+name = "traps_3" 
+harness = false 
+ 
+[[test]] 
+name = "type_0" 
+harness = false 
+ 
+[[test]] 
+name = "unreachable_0" 
+harness = false 
+ 
+[[test]] 
+name = "unwind_0" 
+harness = false 
+ 
+
+ 
+
+
+
+
+#[profile.dev.package."*"]
+#opt-level = "s"
+
+#[profile.release]
+#opt-level = "s"
+
+
+
+

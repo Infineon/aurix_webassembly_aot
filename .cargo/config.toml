@@ -1,0 +1,14 @@
+[net]
+git-fetch-with-cli = true
+
+[target.tc162-htc-none]
+rustflags = ["-C", "link-args=-Llinker-scripts -Tdefmt.ld -Ttc37xA_memory.ld -Map memory.map --whole-archive --cref","-Z", "dwarf-version=4"]
+
+# Use real hardware
+# runner = "tricore-probe.exe -c 1"
+
+# Use instruction simulator
+runner = ".\\instruction_simulator_runner.bat"
+
+[build]
+target = "tc162-htc-none"

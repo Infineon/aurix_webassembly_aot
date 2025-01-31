@@ -1,0 +1,12 @@
+/target
+/sim.out
+/Sim.traceinstr
+/Sim64.out
+/memory_tc39x.map
+/memory_tc39x_map.txt
+/Sim_traceinstr.txt
+/error.txt
+/.idea
+/memory_map.txt
+/memory.map
+*.profraw

@@ -1,0 +1,47 @@
+
+#![no_std]
+#![no_main]
+
+extern crate alloc;
+mod test_utilities;
+#[cfg(test)]
+#[defmt_test::tests]
+mod tests {
+    #[allow(unused_imports)]
+    use aot_wasm::isa_model::{Immediate,ValueSize};
+    use aot_wasm::parse_and_translate::WasmRuntime;
+    use defmt as _;
+
+    #[allow(unused_imports)]
+    use alloc::vec;
+
+    #[init]
+    fn init() -> WasmRuntime<'static> {
+            use crate::test_utilities;
+            let mut runtime = test_utilities::init();
+
+            let wasm_code = include_bytes!(concat!("../mvp-tests/", "float_exprs.84.wasm"));
+            assert!(runtime.parse_and_translate(wasm_code).is_ok());
+            runtime
+        
+    }
+
+    
+    // Command line number: 2157
+    #[test]
+    fn test_0(runtime : &mut WasmRuntime<'static>){
+        let args = vec![];
+        let result = runtime.call_exported_function("f32.epsilon", args, Some(ValueSize::Word));
+        assert_eq!(result, Some(Immediate::Word(3019898880 as u32)));
+    }
+    
+
+    // Command line number: 2158
+    #[test]
+    fn test_1(runtime : &mut WasmRuntime<'static>){
+        let args = vec![];
+        let result = runtime.call_exported_function("f64.epsilon", args, Some(ValueSize::DoubleWord));
+        assert_eq!(result, Some(Immediate::DoubleWord(4372995238176751616 as u64)));
+    }
+    
+}
