@@ -161,7 +161,7 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
             },
 
             FunctionSection(function_section_reader) => {
-                global_translator.function_type_map = function_section_reader.into_iter().map(Result::unwrap).collect();
+                global_translator.function_type_map.append(&mut function_section_reader.into_iter().map(Result::unwrap).collect());
             }
 
             CodeSectionEntry(body) => {
@@ -299,6 +299,23 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                         }
                         _ => {}
                     }
+                });
+            }
+
+            ImportSection(import_section_reader) => {
+                import_section_reader.into_iter().map(Result::unwrap).for_each(|import|{
+                        let address = match (import.module,import.name) {
+                            ("env","__write__") => Some(WasmRuntime::__write__ as u32),
+                            ("env","__read__") => Some(WasmRuntime::__read__ as u32),
+                            _ => None
+                        };
+
+                        match import.ty {
+                            wasmparser::TypeRef::Func(func_type) => global_translator.function_type_map.push(func_type),
+                            _ => panic!("unspported import type")
+                        };
+
+                        address.map(|address| self.function_labels.push(address)); 
                 });
             }
 
