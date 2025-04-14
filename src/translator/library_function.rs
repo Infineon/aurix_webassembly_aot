@@ -1,3 +1,5 @@
+use core::arch::asm;
+
 use alloc::vec;
 use alloc::vec::Vec;
 use defmt::Format;
@@ -399,5 +401,32 @@ impl <'a> WasmRuntime <'a> {
         unsafe {
             assert_eq!((*ty).composite_type, (*target_ty).composite_type)
         }
+    }
+
+    pub extern "C" fn __write__(){
+        unsafe{
+        asm!("LD.A {addr}, [%a10], 4",
+            "ADD.A {addr}, %a6",
+             "LD.W {val}, [%a10], 0",
+             "ST.W [{addr}], {val}",
+             addr = lateout(reg_ptr) _,
+             val = lateout(reg32) _,
+             out("a6") _,
+            options(nostack, preserves_flags)
+        );
+        }
+    }
+
+    pub extern "C" fn __read__(){
+        unsafe{
+        asm!("LD.A {addr}, [%a10], 0",
+             "ADD.A {addr}, %a6",
+             "LD.W %d0, [{addr}], 0",
+            addr = lateout(reg_ptr) _,
+            out("d0") _,
+            out("a6") _,
+            options(nostack, preserves_flags)
+        );
+    }
     }
 }
