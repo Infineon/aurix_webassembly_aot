@@ -57,6 +57,10 @@ harness = false
 name = "benchmark"
 harness = false
 
+[[example]]
+name = "demo"
+harness = false
+
 [[test]] 
 name = "address_0" 
 harness = false 
