@@ -3,7 +3,7 @@ use alloc::boxed::Box;
 use wasmparser::{BlockType, BrTable, Ieee32, Ieee64, MemArg, ValType, VisitOperator};
 
 
-use crate::isa_model::{self, Const10, DataRegister, ExtendedRegister, RegisterOrConst, RegisterOrSmallConst, GLOBAL_BASE, STACK_BASE, STACK_POINTER};
+use crate::isa_model::{self, Const10, DataRegister, ExtendedRegister, RegisterOrConst, RegisterOrSmallConst, ADDRESS_ACCUMULATOR, GLOBAL_BASE, STACK_BASE, STACK_POINTER};
 use crate::parse_and_translate::WasmRuntime;
 use crate::vb::{Address, AtomicVB, BinaryVB, UnaryVB, VB};
 use crate::translator::{BlockLabel, BlockTypes, Translator};
@@ -633,7 +633,25 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         let function_type = self.wasm_runtime.types[self.global_translator.function_type_map[function_index as usize] as usize].unwrap_func().clone();
         self.resolve_all();
         self.push_instruction(Instr::SVLCX);
-        self.push_instruction(Instr::CALL{target: function_index});
+
+        let target_label =  self.wasm_runtime.function_labels.get(function_index as usize);
+        let current_ptr = ( self.wasm_runtime.instructions.as_ptr() as u32) + ( (self.wasm_runtime.instructions_count as u32) << 2);
+
+        match target_label {
+            Some(function_label) if {
+                let disp = function_label.wrapping_sub(current_ptr);
+                assert_eq!(disp & 1 , 0);
+                let disp = disp >> 1;
+                disp.wrapping_add(1<<23) & 0xff000000 != 0
+            } => {
+                let fun_ptr_lower =  *function_label as u16;
+                let fun_ptr_upper = (function_label.wrapping_add(0x8000) >> 16) as u16;
+                self.push_instruction(Instr::MOVHA { src: Const16(fun_ptr_upper), dest: ADDRESS_ACCUMULATOR });
+                self.push_instruction(Instr::LEA { base:ADDRESS_ACCUMULATOR,  offset: Const16(fun_ptr_lower), dest: ADDRESS_ACCUMULATOR });
+                self.push_instruction(Instr::CALLI { target: ADDRESS_ACCUMULATOR });
+            },
+            _ =>   self.push_instruction(Instr::CALL{target: function_index})
+        };
 
         let params_count = function_type.params().len();
         self.vb_stack.truncate(self.vb_stack.len() - params_count);

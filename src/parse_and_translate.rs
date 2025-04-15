@@ -93,7 +93,12 @@ pub fn swap_target_with_disp_jump(&mut self, index:usize, cfg_label_map: &Vec<Op
 pub fn swap_target_with_disp_call(&mut self, index:usize) {
     let instruction = self.instructions[index];
     let target = instruction >> 8;
-    let disp = ((self.function_labels[target as usize] as i32 - (index as i32))<<1) & 0xffffff;
+    let disp = (self.function_labels[target as usize] as u32).wrapping_sub(((index<<2) as u32 ) + (self.instructions.as_ptr() as u32));
+    assert_eq!(disp & 1 , 0);
+    let disp = disp >> 1;
+    if (disp + (1<< 23)) & 0xff000000 != 0 {
+        todo!("unimplemented huge displacement, target is at {}, call is at {}", self.function_labels[target as usize] as u32, ((index<<2) as u32 ) + (self.instructions.as_ptr() as u32));
+    } 
     let disp_upper = disp as u32 >> 16 ;
     let disp_lower = disp as u32 & 0xffff;
     self.instructions[index] = 0x6d | (disp_upper << 8)| (disp_lower << 16);
@@ -168,7 +173,7 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                 let type_index = global_translator.function_type_map[code_index];
                 let locals_reader = body.get_locals_reader()?;
                 let mut operators_reader = body.get_operators_reader()?;
-                self.function_labels.push(self.instructions_count as u32);
+                self.function_labels.push(((self.instructions_count as u32) << 2) + (self.instructions.as_ptr() as u32) );
                 
                 let mut translator = Translator::new(type_index, locals_reader, &mut global_translator, self);
                 while let Ok( ..) = operators_reader.visit_operator(&mut translator){}
@@ -315,6 +320,8 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                             _ => panic!("unspported import type")
                         };
 
+                        code_index+=1;
+
                         address.map(|address| self.function_labels.push(address)); 
                 });
             }
@@ -332,10 +339,6 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
         self.swap_target_with_disp_call(index);
     }
     
-    for func_label in self.function_labels.iter_mut(){
-        *func_label = (*func_label << 2) + (self.instructions.as_ptr() as u32);
-    }
-
     for i in 0..table_size{
         if self.table[i] != -1i32 as u32 {
             self.table[i] = self.function_labels[self.table[i] as usize];
