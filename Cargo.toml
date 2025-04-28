@@ -24,6 +24,7 @@ embedded-alloc = {version="*"}
 fnv = { version = "1.0.7", default-features = false }
 indexmap = { version = "2.6.0", default-features = false }
 compiler_builtins={ git= "https://github.com/BilelGho/compiler-builtins.git", default-features=false }
+env_wrapper= {path="env_wrapper"}
 
 
 embedded-hal = "0.2.7"

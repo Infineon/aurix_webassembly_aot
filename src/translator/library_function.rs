@@ -1,5 +1,7 @@
 use core::arch::asm;
 
+use env_wrapper::wrap_env;
+
 use alloc::vec;
 use alloc::vec::Vec;
 use defmt::Format;
@@ -403,30 +405,28 @@ impl <'a> WasmRuntime <'a> {
         }
     }
 
-    pub extern "C" fn __write__(){
-        unsafe{
-        asm!("LD.A {addr}, [%a10], 4",
-            "ADD.A {addr}, %a6",
-             "LD.W {val}, [%a10], 0",
-             "ST.W [{addr}], {val}",
-             addr = lateout(reg_ptr) _,
-             val = lateout(reg32) _,
-             out("a6") _,
-            options(nostack, preserves_flags)
-        );
+    wrap_env!{
+        fn __write__(address: i32, value: i32){
+            let mem_ptr: *mut i32;
+            unsafe{
+                asm!("mov.aa {mem_ptr} , %a6",
+                mem_ptr = out(reg_ptr) mem_ptr);
+            
+            *(mem_ptr.wrapping_add(address as usize))=value;
+            }
         }
     }
 
-    pub extern "C" fn __read__(){
-        unsafe{
-        asm!("LD.A {addr}, [%a10], 0",
-             "ADD.A {addr}, %a6",
-             "LD.W %d0, [{addr}], 0",
-            addr = lateout(reg_ptr) _,
-            out("d0") _,
-            out("a6") _,
-            options(nostack, preserves_flags)
-        );
+    wrap_env!{
+        fn __read__(address:i32) -> i32 {
+            let mem_ptr: *const i32;
+            unsafe{
+                asm!("mov.aa {mem_ptr} , %a6",
+                mem_ptr = out(reg_ptr) mem_ptr);
+            
+            *(mem_ptr.wrapping_add(address as usize))
+            }
+        }
     }
-    }
+
 }
