@@ -42,6 +42,9 @@ impl <'a,'b> Translator<'a,'b> {
 
         let mut data_register_allocation_vec = vec![false; MAX_ALL_REGISTERS as usize];
 
+        //exclude D[0] to dedicate it for virtual address bitmasking
+        data_register_allocation_vec[0] = true;
+
         self.locals_map.iter().chain(scratch_variable_map.iter()).map(location_to_register).chain(iter::once(self.locked_register.clone())).for_each(|register| {
             match register {
                 Some(Register::DataRegister(DataRegister(index))) => data_register_allocation_vec[index as usize] = true,
