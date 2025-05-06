@@ -7,6 +7,7 @@ use core::{arch::asm, panic};
 
 use wasmparser::{BinaryReaderError, Parser, Payload::*, RecGroup, SubType};
 
+use crate::utils::bitmasking_ops::compute_effective_sandboxed_memory_space;
 use crate::{constant_expression_eval::ConstantExpressionEval, isa_model::{Immediate, ValueSize}, translator::Translator};
 use crate::isa_model::machine_instructions::Instr;
 
@@ -205,12 +206,13 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
             }
 
             MemorySection(memory_section_reader) => {
-                let available_pages_count = self.linear_memory.len() as u32 >> 16;
+                let available_pages_count = compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32) >> 16;
                memory_section_reader.into_iter().next().map(Result::unwrap).map(
                     |memory| {
                         let memory_size_pages = memory.initial as u32;
                         global_translator.memory_size_limit = available_pages_count;
                         memory.maximum.map(|max|  if max as u32 <= available_pages_count { global_translator.memory_size_limit = max as u32 });
+
 
                         let memory_size = memory_size_pages << 16;
                         if memory_size > self.linear_memory.len() as u32 {
