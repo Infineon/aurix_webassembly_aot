@@ -24,6 +24,7 @@ embedded-alloc = {version="*"}
 fnv = { version = "1.0.7", default-features = false }
 indexmap = { version = "2.6.0", default-features = false }
 compiler_builtins={ git= "https://github.com/BilelGho/compiler-builtins.git", default-features=false }
+env_wrapper= {path="env_wrapper"}
 
 
 embedded-hal = "0.2.7"
@@ -55,6 +56,10 @@ harness = false
 
 [[example]]
 name = "benchmark"
+harness = false
+
+[[example]]
+name = "demo"
 harness = false
 
 [[test]] 
@@ -1874,15 +1879,7 @@ name = "data_1"
 harness = false 
  
 [[test]] 
-name = "data_10" 
-harness = false 
- 
-[[test]] 
 name = "data_12" 
-harness = false 
- 
-[[test]] 
-name = "data_13" 
 harness = false 
  
 [[test]] 
@@ -1898,40 +1895,13 @@ name = "data_16"
 harness = false 
  
 [[test]] 
-name = "data_17" 
-harness = false 
- 
-[[test]] 
 name = "data_18" 
-harness = false 
- 
-[[test]] 
-name = "data_19" 
-harness = false 
- 
-[[test]] 
-name = "data_2" 
-harness = false 
- 
-[[test]] 
-name = "data_20" 
-harness = false 
- 
-[[test]] 
-name = "data_23" 
-harness = false 
- 
-[[test]] 
-name = "data_24" 
 harness = false 
  
 [[test]] 
 name = "data_3" 
 harness = false 
  
-[[test]] 
-name = "data_4" 
-harness = false 
  
 [[test]] 
 name = "data_9" 

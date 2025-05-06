@@ -1,3 +1,7 @@
+use core::arch::asm;
+
+use env_wrapper::wrap_env;
+
 use alloc::vec;
 use alloc::vec::Vec;
 use defmt::Format;
@@ -400,4 +404,29 @@ impl <'a> WasmRuntime <'a> {
             assert_eq!((*ty).composite_type, (*target_ty).composite_type)
         }
     }
+
+    wrap_env!{
+        fn __write__(address: i32, value: i32){
+            let mem_ptr: *mut i32;
+            unsafe{
+                asm!("mov.aa {mem_ptr} , %a6",
+                mem_ptr = out(reg_ptr) mem_ptr);
+            
+            *(mem_ptr.wrapping_add(address as usize))=value;
+            }
+        }
+    }
+
+    wrap_env!{
+        fn __read__(address:i32) -> i32 {
+            let mem_ptr: *const i32;
+            unsafe{
+                asm!("mov.aa {mem_ptr} , %a6",
+                mem_ptr = out(reg_ptr) mem_ptr);
+            
+            *(mem_ptr.wrapping_add(address as usize))
+            }
+        }
+    }
+
 }

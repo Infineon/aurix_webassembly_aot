@@ -11,6 +11,7 @@ dependencies = [
  "defmt-test",
  "embedded-alloc",
  "embedded-hal",
+ "env_wrapper",
  "fnv",
  "indexmap",
  "libm",
@@ -145,6 +146,15 @@ checksum = "35949884794ad573cf46071e41c9b60efb0cb311e3ca01f7af807af1debc66ff"
 dependencies = [
  "nb 0.1.3",
  "void",
+]
+
+[[package]]
+name = "env_wrapper"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.89",
 ]
 
 [[package]]
