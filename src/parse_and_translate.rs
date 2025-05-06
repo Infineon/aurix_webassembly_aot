@@ -371,6 +371,7 @@ fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_siz
     let linear_memory_ptr = self.linear_memory.as_ptr() as u32;
     let global_space_ptr = self.global_space.as_ptr() as u32;
     let table_ptr = self.table.as_ptr() as u32;
+    let bitmask = compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32)-1;    
 
     unsafe{
         asm!(
@@ -386,6 +387,7 @@ fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_siz
             "J 1b",
             "2:",
             "ADDSC.A %a10, %a10, {arg_len}, 0",
+            "MOV %d0, {bitmask}",
             "CALLI {function_label}",
             "MOV.AA %a10 , %a15",
             "MOV {result}, %d1, %d0",
@@ -396,6 +398,7 @@ fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_siz
             global_space = in(reg_ptr) global_space_ptr,
             linear_memory = in(reg_ptr) linear_memory_ptr,
             function_label = in(reg_ptr) function_label,
+            bitmask = in(reg32) bitmask,
             out("a4") _, out("a5") _, out("a6") _,  out("a15") _, out("d0") _
         );
     }
