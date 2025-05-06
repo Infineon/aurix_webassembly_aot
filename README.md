@@ -7,7 +7,7 @@
 ### Using instruction simulator
 
 - Tricore Instruction simulator version >= 1.18.196
-  - TSIM is included in PLS debugger. A standalone free distribution is in development. In the meantime, please create an issue [here](https://mycases.infineon.com/) mentioning that this is required for Aurix WebAssembly AoT to get TSIM.
+  - TSIM is included in PLS debugger. [A standalone free distribution is available from Infineon Developer center](https://softwaretools.infineon.com/tools/com.ifx.tb.tool.tsimtricoreinstructionsetsimulator).
   - folder `<TSIM_path>/bin/<host architecture>` shall be added to the `PATH`
 - [rustfilt](https://crates.io/crates/rustfilt)
 - [defmt-print](https://crates.io/crates/defmt-print) 
