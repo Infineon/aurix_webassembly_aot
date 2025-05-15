@@ -15,7 +15,7 @@ static HEAP: Heap = Heap::empty();
 #[allow(unused_imports)]
 use alloc::vec;
 
-const MAX_MEMORY_SIZE: u32 = 1 << 16;
+const MAX_MEMORY_SIZE: u32 = (1 << 16) + 7;
 
 #[link_section = ".CPU0.ramcode"]
 static mut INSTRUCTIONS: [u32; 4096] = [0; 4096];
