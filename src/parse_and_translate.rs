@@ -1,9 +1,10 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::vec;
+use defmt::panic;
 use fnv::FnvBuildHasher;
 use indexmap::IndexMap;
-use core::{arch::asm, panic};
+use core::arch::asm;
 
 use wasmparser::{BinaryReaderError, Parser, Payload::*, RecGroup, SubType};
 
@@ -130,6 +131,8 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
     let mut table_size: usize = 0;
     
     let mut start_function: Option<u32> = None;
+
+    let mut memory_size = 0;
     
     self.instructions_count = 0;
     self.function_labels.clear();
@@ -214,7 +217,7 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                         memory.maximum.map(|max|  if max as u32 <= available_pages_count { global_translator.memory_size_limit = max as u32 });
 
 
-                        let memory_size = memory_size_pages << 16;
+                        memory_size = memory_size_pages << 16;
                         if memory_size > self.linear_memory.len() as u32 {
                             panic!("Memory size too large");
                         }
@@ -255,6 +258,12 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                         }
                     };
                     let data = data_segment.data;
+
+                    if memory_size < (offset + data.len()) as u32 {
+                        panic!("Data segment exceeded memory size")
+                    }
+
+                    
 
                     //write data to memory at offset
                     self.linear_memory[offset..(offset + data.len())].copy_from_slice(data);
