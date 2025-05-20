@@ -677,6 +677,28 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         self.push_instruction(Instr::RSLCX);
     }
 
+    /*
+        Here we generate the machine code for an indirect call, which goes as follows:
+        1) resolve all VBs on the stack (TODO: see if this can be refined to resolve only when necessary.
+            Optimizing resolving should be a task on its own).
+            The subroutine panics if any of the checks fails  
+        2) Call the indirect call safety subroutine:
+            - The subroutine checks whether the dynamic index is valid (smaller than the table size)
+            then checks the type of the dynamically referenced function to the statically provided type.
+            - The subroutine is provided as a runtime function that is to be compiled according to the C ABI.
+              It should be called using the following parameters:
+                - indirect call dynamic index (element index of the function reference in the table) in D[4]
+                - type index of the statically provided type in D[5]
+                - size of the table in D[6]
+                - pointer to the types array in A[4]
+                - pointer to the table type indices array (maps function references to their respective type indices) in A[5]
+            - The subroutine start address (statically known) is loaded to the address accumulator  
+        3) Load the start address of the callee into the address accumulator: The address is located in the table in the
+            corresponding dynamic index (which is guaranteed to be safe after the check)
+        4) Perform the call (indirect call using CALLI)
+            - parameters are expected to be on the stack thanks to the already performed resolve_all
+        5) place result on the stack if exists (similarly to direct calls)
+     */
     fn visit_call_indirect(&mut self,type_index:u32,_table_index:u32, _table_byte: u8) {
 
         let dead_code_flag = *self.dead_code_flag_stack.last().unwrap_or(&false);
