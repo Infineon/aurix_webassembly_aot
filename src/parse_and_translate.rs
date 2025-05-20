@@ -30,6 +30,7 @@ pub struct GlobalTranslator{
     pub globals_map: Vec<(u32, ValueSize)>,
     pub memory_size_limit: u32,
     pub function_call_jobs: Vec<usize>,
+    pub table_size: usize,
 }
 
 impl <'a> WasmRuntime <'a> {
@@ -124,11 +125,10 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
         globals_map: Vec::new(),
         memory_size_limit: 0,
         function_call_jobs: Vec::new(),
+        table_size: 0
     };
     
     let mut code_index = 0;
-
-    let mut table_size: usize = 0;
     
     let mut start_function: Option<u32> = None;
 
@@ -195,12 +195,12 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                         if !table_object.ty.element_type.is_func_ref() {
                             panic!("Unexpected table element type");
                         }
-                        table_size = table_object.ty.initial as usize;
-                        if self.table.len() < table_size as usize {
+                        global_translator.table_size = table_object.ty.initial as usize;
+                        if self.table.len() < global_translator.table_size as usize {
                             panic!("Not enough table space allocated");
                         }
-                        self.table_type_indices = vec![0; table_size];
-                        for i in 0..table_size {
+                        self.table_type_indices = vec![0; global_translator.table_size];
+                        for i in 0..global_translator.table_size {
                             self.table[i] = -1i32 as u32;
                         }
                     },
@@ -350,7 +350,7 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
         self.swap_target_with_disp_call(index);
     }
     
-    for i in 0..table_size{
+    for i in 0..global_translator.table_size{
         if self.table[i] != -1i32 as u32 {
             self.table[i] = self.function_labels[self.table[i] as usize];
         }

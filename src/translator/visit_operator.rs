@@ -690,13 +690,14 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
 
         self.vb_stack.push(function_index_vb);
 
-        // TODO: should we check if the operand exceeds the table length?
         let table_offset = self.resolve_with_target(None).map_to_data_register(None, self, &mut vec![], &vec![]);
         self.push_instruction(Instr::SVLCX);
         if table_offset != DataRegister(4) {
             self.push_instruction(Instr::MOV {src: isa_model::RegisterOrLargeConst::DataRegister(table_offset), dest: Register::DataRegister(DataRegister(4))});
         }
         self.push_instruction(Instr::MOVU { src: Const16::new(type_index as u16), dest: DataRegister(5) });
+
+        self.push_instruction(Instr::MOVU { src: Const16::new(self.global_translator.table_size as u16), dest: DataRegister(6)});
 
         let types_ptr = self.wasm_runtime.types.as_ptr() as u32;
         let types_ptr_upper = ((types_ptr+0x8000) >> 16) as u16;
