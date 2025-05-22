@@ -14,6 +14,7 @@
 ///  the effective available space in Bytes
 ///  
 /// cf. https://codeforces.com/blog/entry/138850
+#[cfg(feature="address-masking")]
 pub fn compute_effective_sandboxed_memory_space(allocated_space_size: u32) -> u32 {
     // No memory access can be guaranteed to be safe if the space is less than 8 Bytes.
     if allocated_space_size < 8 {

@@ -8,6 +8,7 @@ use defmt::Format;
 use wasmparser::ValType;
 use crate::isa_model::machine_instructions::Instr;
 use crate::translator::Translator;
+#[cfg(feature="address-masking")]
 use crate::utils::bitmasking_ops::compute_effective_sandboxed_memory_space;
 
 #[derive(Copy,Clone, PartialEq, Debug)]
@@ -159,14 +160,29 @@ fn process_memory_access_offset<'a,'b>(dynamic_offset: &Option<Box<MapperLocatio
         }
     };
 
-    let bitmask: u32 = compute_effective_sandboxed_memory_space(translator.wasm_runtime.linear_memory.len() as u32)-1;
     let mut base = LINEAR_MEMORY_BASE;
+    compute_offset(translator, scratch_variable_map, used_registers, &mut offset, dynamic_offset, &mut base);
+    (offset, base)
+}
+
+#[cfg(not(feature="address-masking"))]
+fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_map: &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>, _offset: &mut u32, dynamic_offset: Option<&Box<MapperLocation>>, base: &mut AddressRegister) {
+    if let Some (dynamic_offset) = dynamic_offset {
+        let dynamic_register = dynamic_offset.map_to_data_register(None, translator, scratch_variable_map, used_registers);
+        translator.push_instruction(Instr::ADDSCA { lhs:LINEAR_MEMORY_BASE, rhs: dynamic_register, dest: ADDRESS_ACCUMULATOR, shift: Const4(0) });
+        *base = ADDRESS_ACCUMULATOR;
+    }
+}   
+
+#[cfg(feature="address-masking")]
+fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_map: &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>, offset: &mut u32, dynamic_offset: Option<&Box<MapperLocation>>, base: &mut AddressRegister) {
+    let bitmask: u32 = compute_effective_sandboxed_memory_space(translator.wasm_runtime.linear_memory.len() as u32)-1;
     match dynamic_offset {
-        None => offset &= bitmask,
+        None => *offset &= bitmask,
         Some(dynamic_offset) => {
             let mut dynamic_register = dynamic_offset.map_to_data_register(None, translator, scratch_variable_map, used_registers);
             let higher_offset = (offset.wrapping_add(0x8000)>>16) as u16;
-            let lower_offset = (offset & 0xffff) as u16;
+            let lower_offset = (*offset & 0xffff) as u16;
 
             let scratch_register = translator.next_available_data_register(scratch_variable_map, used_registers);
 
@@ -181,11 +197,10 @@ fn process_memory_access_offset<'a,'b>(dynamic_offset: &Option<Box<MapperLocatio
             }
             translator.push_instruction(Instr::AND { lhs: dynamic_register, rhs: RegisterOrConst::new_register(0), dest: scratch_register });
             translator.push_instruction(Instr::ADDSCA { lhs:LINEAR_MEMORY_BASE, rhs: scratch_register, dest: ADDRESS_ACCUMULATOR, shift: Const4(0) });
-            base = ADDRESS_ACCUMULATOR;
-            offset = 0;
+            *base = ADDRESS_ACCUMULATOR;
+            *offset = 0;
         }
     }
-    (offset, base)
 }
 
 #[derive(Copy,Clone, PartialEq, Debug, Format)]

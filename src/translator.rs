@@ -81,7 +81,10 @@ impl<'a,'b> Translator<'a,'b> {
         };
 
         //exclude D[0] to dedicate it for virtual address bitmasking
+        #[cfg(feature="address-masking")]
         let mut alloc_register_index:u8 = 1;
+        #[cfg(not(feature="address-masking"))]
+        let mut alloc_register_index:u8 = 0;
         let mut missed_register: Option<u8> = None;
         let mut locals_map = Vec::new();
 

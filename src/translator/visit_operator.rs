@@ -719,6 +719,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         }
         self.push_instruction(Instr::MOVU { src: Const16::new(type_index as u16), dest: DataRegister(5) });
 
+        #[cfg(feature="address-masking")]
         self.push_instruction(Instr::MOVU { src: Const16::new(self.global_translator.table_size as u16), dest: DataRegister(6)});
 
         let types_ptr = self.wasm_runtime.types.as_ptr() as u32;

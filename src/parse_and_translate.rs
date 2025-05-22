@@ -8,6 +8,7 @@ use core::arch::asm;
 
 use wasmparser::{BinaryReaderError, Parser, Payload::*, RecGroup, SubType};
 
+#[cfg(feature="address-masking")]
 use crate::utils::bitmasking_ops::compute_effective_sandboxed_memory_space;
 use crate::{constant_expression_eval::ConstantExpressionEval, isa_model::{Immediate, ValueSize}, translator::Translator};
 use crate::isa_model::machine_instructions::Instr;
@@ -209,7 +210,10 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
             }
 
             MemorySection(memory_section_reader) => {
+                #[cfg(feature="address-masking")]
                 let available_pages_count = compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32) >> 16;
+                #[cfg(not(feature="address-masking"))]
+                let available_pages_count = (self.linear_memory.len() as u32) >> 16;
                memory_section_reader.into_iter().next().map(Result::unwrap).map(
                     |memory| {
                         let memory_size_pages = memory.initial as u32;
@@ -380,11 +384,15 @@ fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_siz
     let linear_memory_ptr = self.linear_memory.as_ptr() as u32;
     let global_space_ptr = self.global_space.as_ptr() as u32;
     let table_ptr = self.table.as_ptr() as u32;
-    let bitmask = compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32)-1;    
 
-    unsafe{
-        asm!(
-            "MOV.AA %a4, {table}",
+    #[cfg(feature="address-masking")]
+    let bitmask = compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32)-1;
+
+
+    macro_rules! initialization_asm {
+        ($($instruction:tt , $bitmask_ident:ident)?  ) => {
+            unsafe{
+                asm!("MOV.AA %a4, {table}",
             "MOV.AA %a5, {global_space}",
             "MOV.AA %a6, {linear_memory}",
             "MOV.AA %a15 , %a10",
@@ -396,7 +404,7 @@ fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_siz
             "J 1b",
             "2:",
             "ADDSC.A %a10, %a10, {arg_len}, 0",
-            "MOV %d0, {bitmask}",
+            $($instruction,)?
             "CALLI {function_label}",
             "MOV.AA %a10 , %a15",
             "MOV {result}, %d1, %d0",
@@ -407,10 +415,19 @@ fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_siz
             global_space = in(reg_ptr) global_space_ptr,
             linear_memory = in(reg_ptr) linear_memory_ptr,
             function_label = in(reg_ptr) function_label,
-            bitmask = in(reg32) bitmask,
-            out("a4") _, out("a5") _, out("a6") _,  out("a15") _, out("d0") _
-        );
-    }
+            $($bitmask_ident = in(reg32) $bitmask_ident,)?
+            out("a4") _, out("a5") _, out("a6") _,  out("a15") _, out("d0") _)
+            }
+            
+        };
+    }   
+
+      #[cfg(feature="address-masking")]
+      initialization_asm!("MOV %d0, {bitmask}", bitmask);
+
+      #[cfg(not(feature="address-masking"))]
+       initialization_asm!();
+
         match return_size {
             Some(ValueSize::Word) => {
                 Some(Immediate::Word(result  as u32))

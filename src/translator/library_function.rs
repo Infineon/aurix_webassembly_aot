@@ -397,6 +397,7 @@ impl <'a> WasmRuntime <'a> {
     }
 
     pub extern "C" fn compare_subtypes(types: *const SubType, table_type_indices: *const u32, table_offset :u32, target_type_index : u32, _table_size: u32)  {
+        #[cfg(feature="address-masking")]
         assert!(table_offset < _table_size);
         let type_index =  unsafe{ *table_type_indices.wrapping_add(table_offset as usize)};
         let ty = types.wrapping_add(type_index as usize);
