@@ -1,3 +1,5 @@
+#[cfg(feature="address-masking")]
+pub const BUFFER_SIZE: u32 = 7; 
 
 /// computes effective available space for the linear memory from the allocated one.
 /// This computation is used for the implementation of bitmask-based sandboxing.
@@ -14,15 +16,16 @@
 ///  the effective available space in Bytes
 ///  
 /// cf. https://codeforces.com/blog/entry/138850
+/// 
 #[cfg(feature="address-masking")]
 pub fn compute_effective_sandboxed_memory_space(allocated_space_size: u32) -> u32 {
     // No memory access can be guaranteed to be safe if the space is less than 8 Bytes.
-    if allocated_space_size < 8 {
+    if allocated_space_size < BUFFER_SIZE+1 {
         return 0;
     }
 
     // reserve buffer for boundary  memory access
-    let mut result = allocated_space_size-7;
+    let mut result = allocated_space_size - BUFFER_SIZE;
 
     //set all bits that are less significant than the MSB
     result>>=1;

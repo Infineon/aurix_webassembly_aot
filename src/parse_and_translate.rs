@@ -9,7 +9,7 @@ use core::arch::asm;
 use wasmparser::{BinaryReaderError, Parser, Payload::*, RecGroup, SubType};
 
 #[cfg(feature="address-masking")]
-use crate::utils::bitmasking_ops::compute_effective_sandboxed_memory_space;
+use crate::utils::bitmasking_ops::{compute_effective_sandboxed_memory_space, BUFFER_SIZE};
 use crate::{constant_expression_eval::ConstantExpressionEval, isa_model::{Immediate, ValueSize}, translator::Translator};
 use crate::isa_model::machine_instructions::Instr;
 
@@ -210,9 +210,11 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
             }
 
             MemorySection(memory_section_reader) => {
+                
                 #[cfg(feature="address-masking")]
-                let available_pages_count = compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32) >> 16;
-                #[cfg(not(feature="address-masking"))]
+                if compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32) + BUFFER_SIZE != self.linear_memory.len() as u32{
+                    panic!("Allocated memory for cannot be efficiently used due to the sandboxing scheme. Consider resizing the allocated space to some power of 2 + 7 (i.e: size = 2**x +7 for some x)")
+                }
                 let available_pages_count = (self.linear_memory.len() as u32) >> 16;
                memory_section_reader.into_iter().next().map(Result::unwrap).map(
                     |memory| {
