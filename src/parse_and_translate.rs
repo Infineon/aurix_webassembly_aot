@@ -215,15 +215,16 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                 if compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32) + BUFFER_SIZE != self.linear_memory.len() as u32{
                     panic!("Allocated memory for cannot be efficiently used due to the sandboxing scheme. Consider resizing the allocated space to some power of 2 + 7 (i.e: size = 2**x +7 for some x)")
                 }
-                let available_pages_count = (self.linear_memory.len() as u32) >> 16;
                memory_section_reader.into_iter().next().map(Result::unwrap).map(
                     |memory| {
+                        let page_size = memory.page_size_log2.unwrap_or(16);
+                        let available_pages_count: u32 = (self.linear_memory.len() as u32) >> page_size;
                         let memory_size_pages = memory.initial as u32;
                         global_translator.memory_size_limit = available_pages_count;
                         memory.maximum.map(|max|  if max as u32 <= available_pages_count { global_translator.memory_size_limit = max as u32 });
 
 
-                        memory_size = memory_size_pages << 16;
+                        memory_size = memory_size_pages << page_size;
                         if memory_size > self.linear_memory.len() as u32 {
                             panic!("Memory size too large");
                         }
