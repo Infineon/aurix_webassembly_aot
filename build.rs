@@ -55,6 +55,11 @@ fn escape_string_literal(input: &str) -> String {
     }).collect()
 }
 
+struct TestFilter{file_name:& 'static str, feature: & 'static str} 
+
+ 
+const TEST_FILTERS: [TestFilter;1] = [TestFilter { file_name: "wrap-around-memory", feature: "address-masking" }];
+
 
 fn main() {
     let src_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -134,7 +139,7 @@ fn main() {
                     format!(
     r#"
     // Command line number: {line_number}
-    #[test]
+    #[test]{feature_filter}
     fn test_{test_name}(runtime : &mut WasmRuntime<'static>){{
         let args = vec![{args}];
         let result = runtime.call_exported_function("{function_name}", args, {return_type});
@@ -146,6 +151,7 @@ fn main() {
                         args = args,
                         function_name = escape_string_literal(function_name),
                         return_type = return_type,
+                        feature_filter = TEST_FILTERS.into_iter().find( |test_filter| Some(test_filter.file_name) == filename.split('.').next()).map_or( "".to_string() , |test_filter| format!("\n    #[cfg(feature=\"{}\")]",test_filter.feature)),
                         assertion = match expected {
                             ReturnValue::Value(expected) => format!("assert_eq!(result, {});", expected),
                             ReturnValue::ArithmeticNanF32 => format!("assert!(f32::from_bits(result.unwrap().as_u32()).is_nan());"),

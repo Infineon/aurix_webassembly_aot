@@ -29,6 +29,7 @@ mod tests {
     
     // Command line number: 38
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_0(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65536 as u32)];
         let result = runtime.call_exported_function("load8", args, Some(ValueSize::Word));
@@ -38,6 +39,7 @@ mod tests {
 
     // Command line number: 41
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_1(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65536 as u32)];
         let result = runtime.call_exported_function("load16", args, Some(ValueSize::Word));
@@ -47,6 +49,7 @@ mod tests {
 
     // Command line number: 44
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_2(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65536 as u32)];
         let result = runtime.call_exported_function("load32", args, Some(ValueSize::Word));
@@ -56,6 +59,7 @@ mod tests {
 
     // Command line number: 48
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_3(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65533 as u32)];
         let result = runtime.call_exported_function("load32", args, Some(ValueSize::Word));
@@ -65,6 +69,7 @@ mod tests {
 
     // Command line number: 51
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_4(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65534 as u32)];
         let result = runtime.call_exported_function("load32", args, Some(ValueSize::Word));
@@ -74,6 +79,7 @@ mod tests {
 
     // Command line number: 54
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_5(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65535 as u32)];
         let result = runtime.call_exported_function("load32", args, Some(ValueSize::Word));
@@ -83,6 +89,7 @@ mod tests {
 
     // Command line number: 57
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_6(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65535 as u32)];
         let result = runtime.call_exported_function("load16", args, Some(ValueSize::Word));
@@ -92,6 +99,7 @@ mod tests {
 
     // Command line number: 60
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_7(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65535 as u32)];
         let result = runtime.call_exported_function("load8", args, Some(ValueSize::Word));
@@ -101,6 +109,7 @@ mod tests {
 
     // Command line number: 63
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_8(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(4294967292 as u32)];
         let result = runtime.call_exported_function("load32", args, Some(ValueSize::Word));
@@ -110,6 +119,7 @@ mod tests {
 
     // Command line number: 71
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_9(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(0 as u32)];
         let result = runtime.call_exported_function("load64", args, Some(ValueSize::DoubleWord));
@@ -119,6 +129,7 @@ mod tests {
 
     // Command line number: 77
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_10(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65528 as u32)];
         let result = runtime.call_exported_function("load64", args, Some(ValueSize::DoubleWord));
@@ -128,6 +139,7 @@ mod tests {
 
     // Command line number: 83
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_11(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65529 as u32)];
         let result = runtime.call_exported_function("load64", args, Some(ValueSize::DoubleWord));
@@ -137,6 +149,7 @@ mod tests {
 
     // Command line number: 89
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_12(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65534 as u32)];
         let result = runtime.call_exported_function("load64", args, Some(ValueSize::DoubleWord));
@@ -146,6 +159,7 @@ mod tests {
 
     // Command line number: 95
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_13(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65535 as u32)];
         let result = runtime.call_exported_function("load64", args, Some(ValueSize::DoubleWord));
@@ -155,6 +169,7 @@ mod tests {
 
     // Command line number: 101
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_14(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65536 as u32)];
         let result = runtime.call_exported_function("load64", args, Some(ValueSize::DoubleWord));
@@ -164,6 +179,7 @@ mod tests {
 
     // Command line number: 107
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_15(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(131070 as u32)];
         let result = runtime.call_exported_function("load64", args, Some(ValueSize::DoubleWord));
@@ -173,6 +189,7 @@ mod tests {
 
     // Command line number: 116
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_16(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65536 as u32),Immediate::Word(3735928559 as u32)];
         let result = runtime.call_exported_function("store32", args, None);
@@ -182,6 +199,7 @@ mod tests {
 
     // Command line number: 117
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_17(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(0 as u32)];
         let result = runtime.call_exported_function("load32", args, Some(ValueSize::Word));
@@ -191,6 +209,7 @@ mod tests {
 
     // Command line number: 120
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_18(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65534 as u32),Immediate::DoubleWord(1234605616436508552 as u64)];
         let result = runtime.call_exported_function("store64", args, None);
@@ -200,6 +219,7 @@ mod tests {
 
     // Command line number: 121
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_19(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65534 as u32)];
         let result = runtime.call_exported_function("load16", args, Some(ValueSize::Word));
@@ -209,6 +229,7 @@ mod tests {
 
     // Command line number: 122
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_20(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65534 as u32)];
         let result = runtime.call_exported_function("load64", args, Some(ValueSize::DoubleWord));
@@ -218,6 +239,7 @@ mod tests {
 
     // Command line number: 125
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_21(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65533 as u32),Immediate::Word(2864434397 as u32)];
         let result = runtime.call_exported_function("store32", args, None);
@@ -227,6 +249,7 @@ mod tests {
 
     // Command line number: 126
     #[test]
+    #[cfg(feature="address-masking")]
     fn test_22(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(65533 as u32)];
         let result = runtime.call_exported_function("load32", args, Some(ValueSize::Word));
