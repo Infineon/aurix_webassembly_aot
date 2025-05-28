@@ -147,7 +147,7 @@ impl Instr {
                 binary_fields!((offset_upper as u32, 28), (0x14,22), (offset_lower as u32, 16), (b as u32, 12), (a as u32, 8), (0x89, 0))
             },
             Instr::MOVH { src: Const16(const16), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (const16 as u32, 12), (0x7b, 0)),
-            Instr::CLZ { src: DataRegister(a), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (0x1b,20), (a as u32, 12), (0xf, 0)),
+            Instr::CLZ { src: DataRegister(a), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (0x1b,20), (a as u32, 8), (0xf, 0)),
             Instr::SHUFFLE { src: DataRegister(a), dest: DataRegister(c), mask: Const9(const9) } => binary_fields!((c as u32, 28), (0x7,21), (const9 as u32, 12), (a as u32, 8), (0x8f, 0)),
             Instr::POPCNT { src: DataRegister(a), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (0x22, 20), (0,16), (a as u32, 8), (0x4b, 0)),
             Instr::AND { lhs: DataRegister(a), rhs, dest: DataRegister(c)  } => match rhs {

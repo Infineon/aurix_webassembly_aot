@@ -35,6 +35,7 @@ serde_json = "1.0.128"
 [features]
 tsim=[]
 board=[]
+address-masking=[]
 
 
 
@@ -2587,9 +2588,6 @@ harness = false
 name = "global_0" 
 harness = false 
  
-[[test]] 
-name = "global_14" 
-harness = false 
  
 [[test]] 
 name = "global_17" 
@@ -2875,7 +2873,10 @@ harness = false
 [[test]] 
 name = "unwind_0" 
 harness = false 
- 
+
+[[test]]
+name = "wrap-around-memory_0"
+harness = false
 
  
 

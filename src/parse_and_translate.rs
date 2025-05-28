@@ -1,12 +1,15 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::vec;
+use defmt::panic;
 use fnv::FnvBuildHasher;
 use indexmap::IndexMap;
-use core::{arch::asm, panic};
+use core::arch::asm;
 
 use wasmparser::{BinaryReaderError, Parser, Payload::*, RecGroup, SubType};
 
+#[cfg(feature="address-masking")]
+use crate::utils::bitmasking_ops::{compute_effective_sandboxed_memory_space, BUFFER_SIZE};
 use crate::{constant_expression_eval::ConstantExpressionEval, isa_model::{Immediate, ValueSize}, translator::Translator};
 use crate::isa_model::machine_instructions::Instr;
 
@@ -28,6 +31,7 @@ pub struct GlobalTranslator{
     pub globals_map: Vec<(u32, ValueSize)>,
     pub memory_size_limit: u32,
     pub function_call_jobs: Vec<usize>,
+    pub table_size: usize,
 }
 
 impl <'a> WasmRuntime <'a> {
@@ -122,13 +126,14 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
         globals_map: Vec::new(),
         memory_size_limit: 0,
         function_call_jobs: Vec::new(),
+        table_size: 0
     };
     
     let mut code_index = 0;
-
-    let mut table_size: usize = 0;
     
     let mut start_function: Option<u32> = None;
+
+    let mut memory_size = 0;
     
     self.instructions_count = 0;
     self.function_labels.clear();
@@ -191,12 +196,12 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                         if !table_object.ty.element_type.is_func_ref() {
                             panic!("Unexpected table element type");
                         }
-                        table_size = table_object.ty.initial as usize;
-                        if self.table.len() < table_size as usize {
+                        global_translator.table_size = table_object.ty.initial as usize;
+                        if self.table.len() < global_translator.table_size as usize {
                             panic!("Not enough table space allocated");
                         }
-                        self.table_type_indices = vec![0; table_size];
-                        for i in 0..table_size {
+                        self.table_type_indices = vec![0; global_translator.table_size];
+                        for i in 0..global_translator.table_size {
                             self.table[i] = -1i32 as u32;
                         }
                     },
@@ -205,14 +210,20 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
             }
 
             MemorySection(memory_section_reader) => {
-                let available_pages_count = self.linear_memory.len() as u32 >> 16;
+                
+                #[cfg(feature="address-masking")]
+                if compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32) + BUFFER_SIZE != self.linear_memory.len() as u32{
+                    panic!("Allocated memory for cannot be efficiently used due to the sandboxing scheme. Consider resizing the allocated space to some power of 2 + 7 (i.e: size = 2**x +7 for some x)")
+                }
+                let available_pages_count = (self.linear_memory.len() as u32) >> 16;
                memory_section_reader.into_iter().next().map(Result::unwrap).map(
                     |memory| {
                         let memory_size_pages = memory.initial as u32;
                         global_translator.memory_size_limit = available_pages_count;
                         memory.maximum.map(|max|  if max as u32 <= available_pages_count { global_translator.memory_size_limit = max as u32 });
 
-                        let memory_size = memory_size_pages << 16;
+
+                        memory_size = memory_size_pages << 16;
                         if memory_size > self.linear_memory.len() as u32 {
                             panic!("Memory size too large");
                         }
@@ -253,6 +264,12 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                         }
                     };
                     let data = data_segment.data;
+
+                    if memory_size < (offset + data.len()) as u32 {
+                        panic!("Data segment exceeded memory size")
+                    }
+
+                    
 
                     //write data to memory at offset
                     self.linear_memory[offset..(offset + data.len())].copy_from_slice(data);
@@ -339,7 +356,7 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
         self.swap_target_with_disp_call(index);
     }
     
-    for i in 0..table_size{
+    for i in 0..global_translator.table_size{
         if self.table[i] != -1i32 as u32 {
             self.table[i] = self.function_labels[self.table[i] as usize];
         }
@@ -370,9 +387,14 @@ fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_siz
     let global_space_ptr = self.global_space.as_ptr() as u32;
     let table_ptr = self.table.as_ptr() as u32;
 
-    unsafe{
-        asm!(
-            "MOV.AA %a4, {table}",
+    #[cfg(feature="address-masking")]
+    let bitmask = compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32)-1;
+
+
+    macro_rules! initialization_asm {
+        ($($instruction:tt , $bitmask_ident:ident)?  ) => {
+            unsafe{
+                asm!("MOV.AA %a4, {table}",
             "MOV.AA %a5, {global_space}",
             "MOV.AA %a6, {linear_memory}",
             "MOV.AA %a15 , %a10",
@@ -384,6 +406,7 @@ fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_siz
             "J 1b",
             "2:",
             "ADDSC.A %a10, %a10, {arg_len}, 0",
+            $($instruction,)?
             "CALLI {function_label}",
             "MOV.AA %a10 , %a15",
             "MOV {result}, %d1, %d0",
@@ -394,9 +417,19 @@ fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_siz
             global_space = in(reg_ptr) global_space_ptr,
             linear_memory = in(reg_ptr) linear_memory_ptr,
             function_label = in(reg_ptr) function_label,
-            out("a4") _, out("a5") _, out("a6") _,  out("a15") _, out("d0") _
-        );
-    }
+            $($bitmask_ident = in(reg32) $bitmask_ident,)?
+            out("a4") _, out("a5") _, out("a6") _,  out("a15") _, out("d0") _)
+            }
+            
+        };
+    }   
+
+      #[cfg(feature="address-masking")]
+      initialization_asm!("MOV %d0, {bitmask}", bitmask);
+
+      #[cfg(not(feature="address-masking"))]
+       initialization_asm!();
+
         match return_size {
             Some(ValueSize::Word) => {
                 Some(Immediate::Word(result  as u32))
