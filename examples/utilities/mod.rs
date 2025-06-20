@@ -17,7 +17,11 @@ use alloc::vec;
 
 #[repr(C,align(4))]
 struct GlobalSpace([u8; 256]);
-const MAX_MEMORY_SIZE: u32 = (1 << 16) + 7;
+
+// Thanks to the usage of a custom page size within the wasm module,
+// the memory in the benchmark modules has a size of 32KiB. 
+// This allows allocating a smaller space for the linear memory.
+const MAX_MEMORY_SIZE: u32 = (1 << 15) + 7;
 
 #[repr(C,align(4))]
 struct LinearMemory([u8; MAX_MEMORY_SIZE as usize]);
