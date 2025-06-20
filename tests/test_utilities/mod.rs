@@ -14,15 +14,22 @@ static HEAP: Heap = Heap::empty();
 #[allow(unused_imports)]
 use alloc::vec;
 
+
+#[repr(C,align(4))]
+struct GlobalSpace([u8;256]);
+
 // add padding to make boundary access safe  
 const MAX_MEMORY_SIZE: u32 = (1 << 16) + 7;
+
+#[repr(C,align(4))]
+struct LinearMemory([u8; MAX_MEMORY_SIZE as usize]);
 
 #[link_section = ".CPU0.ramcode"]
 static mut INSTRUCTIONS: [u32; 4096] = [0; 4096];
 #[link_section = ".CPU0.data"]
-static mut LINEAR_MEMORY: [u8; MAX_MEMORY_SIZE as usize] = [0; MAX_MEMORY_SIZE as usize];
+static mut LINEAR_MEMORY: LinearMemory = LinearMemory([0; MAX_MEMORY_SIZE as usize]);
 #[link_section = ".CPU0.data"]
-static mut GLOBAL_SPACE: [u8; 256] = [0; 256];
+static mut GLOBAL_SPACE: GlobalSpace = GlobalSpace([0; 256]);
 #[link_section = ".CPU0.data"]
 static mut TABLE: [u32; 256] = [0; 256];
 
@@ -50,8 +57,8 @@ pub fn init() -> WasmRuntime<'static> {
 
         let runtime = WasmRuntime::new(
             &mut INSTRUCTIONS,
-            &mut LINEAR_MEMORY,
-            &mut GLOBAL_SPACE,
+            &mut LINEAR_MEMORY.0,
+            &mut GLOBAL_SPACE.0,
             &mut TABLE,
         );
         runtime
