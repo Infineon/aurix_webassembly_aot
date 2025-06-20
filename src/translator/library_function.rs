@@ -407,6 +407,17 @@ impl <'a> WasmRuntime <'a> {
         }
     }
 
+    pub extern "C" fn grow_memory(current_size: &mut u32, grow_size:u32, maximum_size:u32) -> u32 {
+        let previous_size = *current_size;
+        match previous_size.checked_add(grow_size){
+            Some (new_size) if new_size <= maximum_size => {
+                *current_size = new_size;
+                previous_size
+            }
+            _ => u32::MAX
+        }
+    }
+
     wrap_env!{
         fn __write__(address: i32, value: i32){
             let mem_ptr: *mut i32;
