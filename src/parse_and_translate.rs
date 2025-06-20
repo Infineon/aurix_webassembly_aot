@@ -235,18 +235,7 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
 
                      self.global_space[0..4].copy_from_slice(&memory_size_pages.to_le_bytes());
 
-                    let mem_ptr = self.linear_memory.as_ptr();
-                    unsafe{
-                            asm!(
-                            "MOV %e0, 0",
-                            "LEA %a15, 0x1fff",
-                            "1:",
-                            "ST.D [{mem_ptr}+], 8, %e0",
-                            "LOOP %a15,1b",
-                            mem_ptr = in(reg_ptr) mem_ptr,
-                            out("a15") _, out("e0") _
-                        );
-                    }
+                    self.linear_memory.fill(0);
                 }
             );        
         }
