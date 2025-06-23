@@ -962,25 +962,37 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         let offset_vb = self.vb_stack.pop().unwrap();
         self.resolve_all();
         self.vb_stack.push(offset_vb);
-        let grow_offset_register = self.resolve_with_target(None).map_to_data_register(None, self, &mut vec![], &vec![]);
-        let current_memory_size_register = self.next_available_data_register(&mut vec![MapperLocation::DataRegister(grow_offset_register)], &mut vec![]);
-        self.push_instruction(Instr::LDW{base: GLOBAL_BASE, offset: Const16(0), dest: current_memory_size_register});
-        self.push_instruction(Instr::STWPI { src: current_memory_size_register, base: STACK_POINTER, offset: Const10(-4) });
-        self.push_instruction(Instr::ADD{lhs: current_memory_size_register, rhs: RegisterOrConst::DataRegister(grow_offset_register), dest: current_memory_size_register});
-        self.push_instruction(Instr::LT{lhs: current_memory_size_register, rhs: RegisterOrConst::Const9(isa_model::Const9(self.global_translator.memory_size_limit as u16 + 1)), dest: grow_offset_register});
-        self.push_instruction(Instr::JEQ { target: self.cfg_label_map.len(), lhs: grow_offset_register, rhs: RegisterOrSmallConst::new_const(0) });
-        self.push_instruction(Instr::STW{base: GLOBAL_BASE, offset: Const16(0), src: current_memory_size_register});
-        self.push_instruction(Instr::J{target: self.cfg_label_map.len()+1});
-        self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));
-        self.push_instruction(Instr::MOV { src: isa_model::RegisterOrLargeConst::Const16(isa_model::Const16(0xffff)), dest: isa_model::Register::DataRegister(current_memory_size_register) });
-        self.push_instruction(Instr::STW { src: current_memory_size_register, base: STACK_POINTER, offset: Const16(0) });
-        self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));
+        self.push_instruction(Instr::SVLCX);
+        let grow_offset_register = self.resolve_with_target(Some(&MapperLocation::new_data_register(4)));
+        
+        let lower_memory_size_limit = self.global_translator.memory_size_limit as u16;
+        let upper_memory_size_limit = (self.global_translator.memory_size_limit.wrapping_add(0x8000) >> 16) as u16;
+
+        if upper_memory_size_limit == 0 {
+            self.push_instruction(Instr::MOVU{src:Const16(lower_memory_size_limit), dest: DataRegister::new(5)});
+        } else {
+            self.push_instruction(Instr::MOVH { src: Const16(upper_memory_size_limit), dest: DataRegister::new(5)});
+            self.push_instruction(Instr::ADDI {lhs:DataRegister::new(5), rhs: Const16(lower_memory_size_limit), dest: DataRegister::new(5)});
+        }
+
+        self.push_instruction(Instr::MOVAA { src: GLOBAL_BASE , dest: AddressRegister::new(4) });
+
+        let call_ptr = WasmRuntime::grow_memory as u32;
+        let call_ptr_upper = (call_ptr.wrapping_add(0x8000) >> 16) as u16;
+        let call_ptr_lower = call_ptr as u16;
+        self.push_instruction(Instr::MOVHA { src: Const16::new(call_ptr_upper), dest: AddressRegister(2) });
+        self.push_instruction(Instr::LEA { base: AddressRegister(2), offset: Const16::new(call_ptr_lower), dest: AddressRegister(2) });
+        self.push_instruction(Instr::CALLI{target: AddressRegister(2)});
+        self.push_instruction(Instr::STWPI { src: DataRegister::new(2), base: STACK_POINTER , offset: Const10(-4) });
+
         let offset = match self.vb_stack.last(){
             Some(VB::AtomicVB(AtomicVB::Resolved { offset, .. })) => *offset+4,
             None => 0,
             _ => panic!("Expected resolved atomic value")
         };
         self.add_atomic_vb(AtomicVB::Resolved{size: ValueSize::Word, offset});
+
+        self.push_instruction(Instr::RSLCX);
     }
 
     fn visit_i32_const(&mut self,value:i32) {

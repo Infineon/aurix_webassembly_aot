@@ -96,5 +96,6 @@ pub enum Instr{
     EXTRU{src: DataRegister, width_pos: ExtendedRegister, dest: DataRegister},
     EXTRUI{src: DataRegister, width: Const9, pos: Const9, dest: DataRegister},
     JZT {src: DataRegister, n: u8, target: usize},
-    LOOPU {target: usize}
+    LOOPU {target: usize},
+    MOVAA {src: AddressRegister, dest: AddressRegister}
 }

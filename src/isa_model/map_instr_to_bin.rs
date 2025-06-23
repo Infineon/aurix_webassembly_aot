@@ -332,7 +332,8 @@ impl Instr {
             },
             Instr::EXTRU { src: DataRegister(a), width_pos:ExtendedRegister(d), dest: DataRegister(c)} => binary_fields!((c as u32, 28), (d as u32, 24), (0x3,21), (a as u32, 8), (0x17, 0)),
             Instr::EXTRUI { src: DataRegister(a), width:Const9(width), pos:Const9(pos) , dest: DataRegister(c)} => binary_fields!((c as u32, 28), (pos as u32, 23), (0x3,21), (width as u32, 16), (a as u32, 8), (0x37, 0)),
-            Instr::JZT { src: DataRegister(a), n, target } =>binary_fields!((0,31),(target as u32 & 0x7fff, 16), ( (n &0xf) as u32, 12), (a as u32,8), ((n >>4 & 0x1) as u32 ,7), (0x6f, 0))
+            Instr::JZT { src: DataRegister(a), n, target } =>binary_fields!((0,31),(target as u32 & 0x7fff, 16), ( (n &0xf) as u32, 12), (a as u32,8), ((n >>4 & 0x1) as u32 ,7), (0x6f, 0)),
+            Instr::MOVAA { src: AddressRegister(b), dest:AddressRegister(a) } => binary_fields!((b as u32,12), (a as u32,8), (0x40,0))
         }
     }
 }          
