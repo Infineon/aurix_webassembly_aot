@@ -213,7 +213,7 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                 
                 #[cfg(feature="address-masking")]
                 if compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32) + BUFFER_SIZE != self.linear_memory.len() as u32{
-                    panic!("Allocated memory for cannot be efficiently used due to the sandboxing scheme. Consider resizing the allocated space to some power of 2 + 7 (i.e: size = 2**x +7 for some x)")
+                    panic!("Allocated memory cannot be efficiently used due to the sandboxing scheme. Consider resizing the allocated space to some power of 2 + 7 (i.e., size = 2**x + 7 for some x)")
                 }
                memory_section_reader.into_iter().next().map(Result::unwrap).map(
                     |memory| {
