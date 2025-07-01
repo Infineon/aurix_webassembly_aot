@@ -15,11 +15,11 @@ pub fn wrap_env(input: TokenStream) -> TokenStream {
 
     let arg_count = inputs.len();
     let arg_pop = match arg_count {
-        0 => quote!{},
-        1 => quote!{
+        0 => quote! {},
+        1 => quote! {
             "LD.W %d4, [%a10], 0",
         },
-        2 => quote!{
+        2 => quote! {
             "LD.W %d4, [%a10], 4",
             "LD.W %d5, [%a10], 0",
         },
@@ -27,10 +27,10 @@ pub fn wrap_env(input: TokenStream) -> TokenStream {
     };
 
     let return_instr = match output_type {
-        ReturnType::Default => quote!{},
-        ReturnType::Type(_, _) => quote!{ "mov %d0, %d2",},
+        ReturnType::Default => quote! {},
+        ReturnType::Type(_, _) => quote! { "mov %d0, %d2",},
     };
-    
+
     let expanded = quote! {
         #[naked]
         pub unsafe extern "C" fn #fn_name() {
@@ -45,6 +45,7 @@ pub fn wrap_env(input: TokenStream) -> TokenStream {
 
         #[inline(never)]
         #[no_mangle]
+        #[allow(non_snake_case)]
         pub fn #inner_name(#inputs) #output_type {
             #block
         }

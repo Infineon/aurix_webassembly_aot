@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 pub mod map_instr_to_bin;
 pub(crate) mod machine_instructions;
 

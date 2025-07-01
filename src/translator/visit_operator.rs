@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use alloc::vec;
 use alloc::boxed::Box;
 use wasmparser::{BlockType, BrTable, Ieee32, Ieee64, MemArg, ValType, VisitOperator};

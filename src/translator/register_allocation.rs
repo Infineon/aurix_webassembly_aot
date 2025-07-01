@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use alloc::vec;
 use alloc::vec::Vec;
 use core::iter;

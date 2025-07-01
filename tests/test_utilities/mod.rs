@@ -1,9 +1,10 @@
 extern crate alloc;
 use embedded_alloc::LlffHeap as Heap;
 use aot_wasm::parse_and_translate::WasmRuntime;
+use core::ptr::addr_of_mut;
 // use aot_wasm::handle_misaligned_load_store;
 use tc162_rt as _;
-#[cfg(feature="tsim")]
+#[cfg(feature = "tsim")]
 use tsim_semihosting::exit_prog;
 #[cfg(feature="board")]
 use probe_semihosting::exit_prog;
@@ -14,14 +15,13 @@ static HEAP: Heap = Heap::empty();
 #[allow(unused_imports)]
 use alloc::vec;
 
+#[repr(C, align(4))]
+struct GlobalSpace([u8; 256]);
 
-#[repr(C,align(4))]
-struct GlobalSpace([u8;256]);
-
-// add padding to make boundary access safe  
+// add padding to make boundary access safe
 const MAX_MEMORY_SIZE: u32 = (1 << 16) + 7;
 
-#[repr(C,align(4))]
+#[repr(C, align(4))]
 struct LinearMemory([u8; MAX_MEMORY_SIZE as usize]);
 
 #[link_section = ".CPU0.ramcode"]
@@ -32,7 +32,6 @@ static mut LINEAR_MEMORY: LinearMemory = LinearMemory([0; MAX_MEMORY_SIZE as usi
 static mut GLOBAL_SPACE: GlobalSpace = GlobalSpace([0; 256]);
 #[link_section = ".CPU0.data"]
 static mut TABLE: [u32; 256] = [0; 256];
-
 
 fn exception_handler(status: u32) -> ! {
     let b = status.to_le_bytes();
@@ -54,12 +53,11 @@ pub fn init() -> WasmRuntime<'static> {
         defmt::println!("End init");
         set_exception_handler(exception_handler);
 
-
         let runtime = WasmRuntime::new(
-            &mut INSTRUCTIONS,
+            &mut *addr_of_mut!(INSTRUCTIONS),
             &mut LINEAR_MEMORY.0,
             &mut GLOBAL_SPACE.0,
-            &mut TABLE,
+            &mut *addr_of_mut!(TABLE),
         );
         runtime
     }
