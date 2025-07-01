@@ -16,7 +16,7 @@ use core::arch::asm;
 use crate::vio_syscalls::VioSyscalls;
 
 #[no_mangle]
-#[allow(unused_variables)]
+#[inline(never)]
 pub fn write(fd: u32, buf: *const u8, len: u32) -> i32 {
     let x: u32 = VioSyscalls::SysWrite as u32;
     unsafe {
