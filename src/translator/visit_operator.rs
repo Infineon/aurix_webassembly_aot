@@ -4,7 +4,7 @@ use alloc::boxed::Box;
 use wasmparser::{BlockType, BrTable, Ieee32, Ieee64, MemArg, ValType, VisitOperator};
 
 
-use crate::isa_model::{self, Const10, DataRegister, ExtendedRegister, RegisterOrConst, RegisterOrSmallConst, ADDRESS_ACCUMULATOR, GLOBAL_BASE, STACK_BASE, STACK_POINTER};
+use crate::isa_model::{self, Const10, DataRegister, ExtendedRegister, RegisterOrSmallConst, ADDRESS_ACCUMULATOR, GLOBAL_BASE, STACK_BASE, STACK_POINTER};
 use crate::parse_and_translate::WasmRuntime;
 use crate::vb::{Address, AtomicVB, BinaryVB, UnaryVB, VB};
 use crate::translator::{BlockLabel, BlockTypes, Translator};
