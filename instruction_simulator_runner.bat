@@ -5,7 +5,7 @@ if exist Sim.traceinstr del Sim.traceinstr
 REM TSIM tracing disable faster execution
 tsim16p_e.exe -tc162p -config_file_path tsim-config-tc162  -s  -x 565600000 -H -o %1 > sim.out 2>error.txt
 REM TSIM Tracing enabled
-REM .\TC_MODELS_1.18.196\bin\Win64\tsim16p_e.exe -tc162p -config_file_path tsim-config-tc162  -s -U  -x 565600000 -e -H -o %1 > sim.out 2>error.txt
+REM tsim16p_e.exe -tc162p -config_file_path tsim-config-tc162  -s -U  -x 565600000 -e -H -o %1 > sim.out 2>error.txt
 set _LOCALERROR=%ERRORLEVEL%
 type sim.out | defmt-print.exe -v -e %1
 if exist memory_map.txt  del memory_map.txt
