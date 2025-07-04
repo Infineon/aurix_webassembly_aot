@@ -2,7 +2,7 @@
   "rust-analyzer.cargo.allTargets": false,
   "rust-analyzer.check.allTargets": false,
   "rust-analyzer.check.targets": ["tc162-htc-none"],
-  "rust-analyzer.check.features": ["tsim"],
+  "rust-analyzer.check.features": ["tsim", "address-masking"],
 
   // "rust-analyzer.check.extraArgs": [
   //     "-Z", "unstable-options"
@@ -11,7 +11,7 @@
   //     "-Z", "unstable-options"
   // ],
   "rust-analyzer.check.command": "check",
-  "rust-analyzer.cargo.features": ["tsim"],
+  "rust-analyzer.cargo.features": ["tsim", "address-masking"],
   "rust-analyzer.imports.group.enable": false,
   "rust-analyzer.imports.merge.glob": false,
   "editor.formatOnSaveMode": "modifications"

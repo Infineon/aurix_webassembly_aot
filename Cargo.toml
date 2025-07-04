@@ -45,6 +45,12 @@ tsim-semihosting = { path = "tsim-semihosting" }
 probe-semihosting = { path = "./probe-semihosting" }
 tc162-rt = { path = "tc162-rt" }
 
+[profile.release]
+opt-level = "s"
+
+[profile.test]
+opt-level = "s"
+
 [lib]
 harness = false
 
