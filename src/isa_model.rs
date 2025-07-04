@@ -9,8 +9,6 @@ use defmt::Format;
 use wasmparser::ValType;
 use crate::isa_model::machine_instructions::Instr;
 use crate::translator::Translator;
-#[cfg(feature="address-masking")]
-use crate::utils::bitmasking_ops::compute_effective_sandboxed_memory_space;
 
 #[derive(Copy,Clone, PartialEq, Debug)]
 pub enum Immediate {
@@ -177,7 +175,9 @@ fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_m
 
 #[cfg(feature="address-masking")]
 fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_map: &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>, offset: &mut u32, dynamic_offset: Option<&Box<MapperLocation>>, base: &mut AddressRegister) {
-    let bitmask: u32 = compute_effective_sandboxed_memory_space(translator.wasm_runtime.linear_memory.len() as u32)-1;
+    use crate::parse_and_translate::BUFFER_SIZE;
+
+    let bitmask: u32 = (translator.wasm_runtime.linear_memory.len() - BUFFER_SIZE -1) as u32;
     match dynamic_offset {
         None => *offset &= bitmask,
         Some(dynamic_offset) => {
