@@ -358,13 +358,18 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
 }
 
 #[cfg(feature="address-masking")]
-#[inline(never)] // Very important to get panic when optimizations are enabled and lto is enabled
+#[inline(always)]
 unsafe  fn call_function_asm(function_label:u32,arg_bytes_ptr:*const u32,arg_len:i32,linear_memory_ptr:u32,global_space_ptr:u32,table_ptr:u32,bitmask:u32) ->u64 {
-     use core::mem::MaybeUninit;
-
-    let mut result: MaybeUninit<u64>;
-       unsafe{
-                asm!(
+    let mut result:u64;
+    unsafe{
+        // The following assembly code is used to call a function with the given arguments.
+        // We assume that the called function can modify any registers including the one not restored when returning.
+        // For this reason all register are marked as clobbered.
+        // If this is not done we can potentially have a corrupted state after the function call and therefore undefined behavior.
+        // Actually happened that if we don't declare the registers as clobbered, this function is inlined and optimization level is 3 the heap memory allocator reported a corrupted state.
+        // When not inlined the function works as expected because the compiler assume that all lower context registers are modified.
+        //:TODO: It is possible to optimize the code by saving lower context registers in the stack and restoring them after the function call. (use SVLCX and RSLCX)
+        asm!(
             "MOV.AA %a15 , %a10",
             "ADDSC.A %a10, %a10, {arg_len}, 0",
             "1:",
@@ -374,33 +379,37 @@ unsafe  fn call_function_asm(function_label:u32,arg_bytes_ptr:*const u32,arg_len
             "J 1b",
             "2:",
             "ADDSC.A %a10, %a10, {arg_len}, 0",
-            "MOV %d0, %d1",
+            "MOV %d0, {bitmask}",
             "CALLI {function_label}",
             "MOV.AA %a10 , %a15",
-            // "MOV {result}, %d1, %d0",
-            lateout("e0") result,
-            arg_bytes = in(reg_ptr) arg_bytes_ptr,
-            arg_len = in(reg32) arg_len,
-            in("a4") table_ptr,
-            in("a5") global_space_ptr,
-            in("a6") linear_memory_ptr,
-            in("d1") bitmask,
-            function_label = in(reg_ptr) function_label,
-            out("a15") _ ,out("d2") _ , out("d3") _, out("d4") _, out("d5") _, out("d6") _, out("d7") _);
-            result.assume_init()
+            out("e0") result,
+            arg_bytes = inout(reg_ptr) arg_bytes_ptr => _,
+            arg_len = inout(reg32) arg_len => _,
+            inout("a4") table_ptr => _,
+            inout("a5") global_space_ptr => _,
+            inout("a6") linear_memory_ptr => _,
+            bitmask=inout(reg32) bitmask => _,
+            function_label = inout(reg_ptr) function_label => _,
+            out("a15") _ ,out("d2") _ , out("d3") _, out("d4") _, out("d5") _, out("d6") _, out("d7") _,out("a2") _,out("a3") _, out("a7") _);
             
         }
+        result
         
 }
 
 #[cfg(not(feature="address-masking"))]
-#[inline(never)] // Very important to get panic when optimizations are enabled and lto is enabled
+#[inline(always)]
 unsafe  fn call_function_asm(function_label:u32,arg_bytes_ptr:*const u32,arg_len:i32,linear_memory_ptr:u32,global_space_ptr:u32,table_ptr:u32) ->u64 {
-    use core::mem::MaybeUninit;
-
-   let mut result: MaybeUninit<u64>;
+   let mut result: u64;
     unsafe{
-                asm!(
+        // The following assembly code is used to call a function with the given arguments.
+        // We assume that the called function can modify any registers including the one not restored when returning.
+        // For this reason all register are marked as clobbered.
+        // If this is not done we can potentially have a corrupted state after the function call and therefore undefined behavior.
+        // Actually happened that if we don't declare the registers as clobbered, this function is inlined and optimization level is 3 the heap memory allocator reported a corrupted state.
+        // When not inlined the function works as expected because the compiler assume that all lower context registers are modified.
+        //:TODO: It is possible to optimize the code by saving lower context registers in the stack and restoring them after the function call. (use SVLCX and RSLCX)
+        asm!(
             "MOV.AA %a15 , %a10",
             "ADDSC.A %a10, %a10, {arg_len}, 0",
             "1:",
@@ -412,18 +421,16 @@ unsafe  fn call_function_asm(function_label:u32,arg_bytes_ptr:*const u32,arg_len
             "ADDSC.A %a10, %a10, {arg_len}, 0",
             "CALLI {function_label}",
             "MOV.AA %a10 , %a15",
-            // "MOV {result}, %d1, %d0",
             out("e0") result,
-            arg_bytes = in(reg_ptr) arg_bytes_ptr,
-            arg_len = in(reg32) arg_len,
-            in("a4") table_ptr,
-            in("a5") global_space_ptr,
-            in("a6") linear_memory_ptr,
-            function_label = in(reg_ptr) function_label,
-            out("a15") _ , out("d2") _ , out("d3") _, out("d4") _, out("d5") _, out("d6") _, out("d7") _);
-            result.assume_init()
-            
+            arg_bytes = inout(reg_ptr) arg_bytes_ptr => _,
+            arg_len = inout(reg32) arg_len => _,
+            inout("a4") table_ptr => _,
+            inout("a5") global_space_ptr => _,
+            inout("a6") linear_memory_ptr => _,
+            function_label = inout(reg_ptr) function_label => _,
+            out("a15") _ ,out("d2") _ , out("d3") _, out("d4") _, out("d5") _, out("d6") _, out("d7") _,out("a2") _,out("a3") _, out("a7") _);
         }
+        result
         
 }
 
@@ -451,9 +458,9 @@ fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_siz
 
       #[cfg(feature="address-masking")]
       let result = unsafe{Self::call_function_asm(function_label,arg_bytes_ptr,arg_len,linear_memory_ptr,global_space_ptr,table_ptr,bitmask)};
+
       #[cfg(not(feature="address-masking"))]
       let result = unsafe{Self::call_function_asm(function_label,arg_bytes_ptr,arg_len,linear_memory_ptr,global_space_ptr,table_ptr)};
-
         match return_size {
             Some(ValueSize::Word) => {
                 Some(Immediate::Word(result  as u32))
