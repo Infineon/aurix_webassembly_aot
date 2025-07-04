@@ -46,10 +46,10 @@ probe-semihosting = { path = "./probe-semihosting" }
 tc162-rt = { path = "tc162-rt" }
 
 [profile.release]
-opt-level = "s"
+opt-level = "z"
 
 [profile.test]
-opt-level = "s"
+opt-level = "z"
 
 [lib]
 harness = false
