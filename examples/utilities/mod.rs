@@ -3,6 +3,7 @@ use aot_wasm::parse_and_translate::WasmRuntime;
 use embedded_alloc::LlffHeap as Heap;
 use tc37x_hal::tc37xpd::{stm0::Stm0, RegisterValue, STM0};
 use core::arch::tricore::intrinsics::*;
+use core::ptr;
 #[cfg(feature = "board")]
 use probe_semihosting::exit_prog;
 use tc162_rt as _;
@@ -56,10 +57,10 @@ pub fn init() -> WasmRuntime<'static> {
         set_exception_handler(exception_handler);
 
         let runtime = WasmRuntime::new(
-            &mut INSTRUCTIONS,
+            &mut *ptr::addr_of_mut!(INSTRUCTIONS),
             &mut LINEAR_MEMORY.0,
             &mut GLOBAL_SPACE.0,
-            &mut TABLE,
+            &mut *ptr::addr_of_mut!(TABLE),
         );
         runtime
     }
