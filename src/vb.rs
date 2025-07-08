@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use alloc::{boxed::Box,vec::Vec};
 use defmt::Format;
 use crate::isa_model::{MapperLocation, ValueSize};

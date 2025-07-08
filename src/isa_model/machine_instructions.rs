@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use defmt::Format;
 use crate::isa_model::{AddressRegister, Const10, Const16, Const18, Const4, Const9, DataRegister, ExtendedRegister, Register, RegisterOrConst, RegisterOrLargeConst, RegisterOrSmallConst};
 

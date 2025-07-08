@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 pub mod map_instr_to_bin;
 pub(crate) mod machine_instructions;
 
@@ -804,8 +805,8 @@ impl LocationCouple for  (&MapperLocation,&MapperLocation) {
 
 #[derive(Copy,Clone, PartialEq, Debug, Format)]
 pub enum ValueSize {
-    Word=1, //Need to specify enum value to avoid compiler bug activated by optimization.
-    DoubleWord=2
+    Word,
+    DoubleWord
 }
 
 impl ValueSize {

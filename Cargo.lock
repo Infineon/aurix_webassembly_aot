@@ -49,8 +49,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "compiler_builtins"
-version = "0.1.109"
-source = "git+https://github.com/BilelGho/compiler-builtins.git#d178da55c717953e539d47c3fedc7e7c470486f9"
+version = "0.1.120"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38c44e9c76d996d8049dee591a997eab801069ad86ed892ed3039f68b73d301c"
 
 [[package]]
 name = "const-default"
@@ -437,7 +438,8 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 [[package]]
 name = "wasmparser"
 version = "0.207.0"
-source = "git+https://github.com/BilelGho/wasm-tools.git?branch=fix-aurix-compatibility#289856a1d8af5897bda42f737e9d92846af79833"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e19bb9f8ab07616da582ef8adb24c54f1424c7ec876720b7da9db8ec0626c92c"
 dependencies = [
  "bitflags 2.6.0",
 ]

@@ -76,6 +76,7 @@ fn main() {
         }
     });
     for json_tests_file in json_files {
+        println!("cargo::rerun-if-changed={}", json_tests_file.display());
         let json_file = fs::read(&json_tests_file).unwrap();
         let json_tests = json_file.as_slice();
 

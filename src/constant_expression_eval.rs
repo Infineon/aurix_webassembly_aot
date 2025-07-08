@@ -1,5 +1,5 @@
-
-use wasmparser::{ ConstExpr,Ieee32, Ieee64};
+#![forbid(unsafe_code)]
+use wasmparser::{ConstExpr, Ieee32, Ieee64};
 
 use crate::{isa_model::Immediate};
 
@@ -42,25 +42,24 @@ impl ConstantExpressionEval {
     }
 }
 
-impl <'a> wasmparser::VisitOperator <'a> for ConstantExpressionEval {
-
+impl<'a> wasmparser::VisitOperator<'a> for ConstantExpressionEval {
     type Output = ();
 
     wasmparser::for_each_operator!(_visit_only_const);
 
-    fn visit_i32_const(&mut self, value:i32) {
+    fn visit_i32_const(&mut self, value: i32) {
         self.emitted_value = Some(Immediate::Word(value as u32));
     }
 
-    fn visit_i64_const(&mut self,value:i64) {
+    fn visit_i64_const(&mut self, value: i64) {
         self.emitted_value = Some(Immediate::DoubleWord(value as u64));
     }
 
-    fn visit_f32_const(&mut self,value:Ieee32) {
+    fn visit_f32_const(&mut self, value: Ieee32) {
         self.emitted_value = Some(Immediate::Word(value.bits()));
     }
 
-    fn visit_f64_const(&mut self,value:Ieee64) {
+    fn visit_f64_const(&mut self, value: Ieee64) {
         self.emitted_value = Some(Immediate::DoubleWord(value.bits()));
     }
 

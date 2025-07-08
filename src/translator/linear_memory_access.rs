@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use alloc::vec;
 use alloc::vec::Vec;
 use crate::isa_model::{AddressRegister, Const10, Const16, Const9, DataRegister, ExtendedRegister, MapperLocation, Register, RegisterOrConst, RegisterOrLargeConst, SignValue, ADDRESS_ACCUMULATOR};

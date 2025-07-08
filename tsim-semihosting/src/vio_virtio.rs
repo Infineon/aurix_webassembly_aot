@@ -19,6 +19,7 @@ extern "C" {
 }
 
 #[no_mangle]
+#[inline(never)]
 pub fn __virtio_dummy_hnd() -> () {
     unsafe {
         ___virtio();

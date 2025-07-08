@@ -2,7 +2,7 @@
 
 ## Required tools
 
-- [Hightec Compiler for Aurix](https://hightec-rt.com/rust) 
+- [Hightec Compiler for Aurix](https://hightec-rt.com/rust) min version 1.77.2-dev2
 
 ### Using instruction simulator
 
