@@ -7,7 +7,8 @@
 ### Using instruction simulator
 
 - Tricore Instruction simulator version >= 1.18.196
-  - TSIM is included in PLS debugger. [A standalone free distribution is available from Infineon Developer center](https://softwaretools.infineon.com/tools/com.ifx.tb.tool.tsimtricoreinstructionsetsimulator).
+  - TSIM is included in PLS debugger. 
+  - [A standalone free distribution is available from Infineon Developer center](https://softwaretools.infineon.com/tools/com.ifx.tb.tool.tsimtricoreinstructionsetsimulator).
   - folder `<TSIM_path>/bin/<host architecture>` shall be added to the `PATH`
 - [rustfilt](https://crates.io/crates/rustfilt)
 - [defmt-print](https://crates.io/crates/defmt-print) 
@@ -17,6 +18,9 @@
 - [Board Aurix lite kit v2 board](https://www.infineon.com/cms/en/product/promopages/AURIX-microcontroller-boards/low-cost-arduino-kits/aurix-tc375-lite-kit/)
 - [tricore-probe version >= 2.1](https://github.com/veecle/tricore-probe)
 
+### VSCode `rust-analyzer` extension
+
+1.77.2 Rust compiler and related rust-analyzer is not compatible with latest version of VSCode `rust-analyzer` extension. It is recommended to use version `0.3.2011`
 
 ## How to switch from simulator execution to board execution
 

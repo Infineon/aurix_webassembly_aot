@@ -9,7 +9,6 @@ pub mod parse_and_translate;
 mod translator;
 mod vb;
 mod handle_misaligned_load_store;
-mod utils;
 pub use handle_misaligned_load_store::handle_misaligned_load_store;
 
 #[cfg(test)]

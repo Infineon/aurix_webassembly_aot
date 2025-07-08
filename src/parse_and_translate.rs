@@ -8,10 +8,63 @@ use core::arch::asm;
 
 use wasmparser::{BinaryReaderError, Parser, Payload::*, RecGroup, SubType};
 
-#[cfg(feature="address-masking")]
-use crate::utils::bitmasking_ops::{compute_effective_sandboxed_memory_space, BUFFER_SIZE};
+
 use crate::{constant_expression_eval::ConstantExpressionEval, isa_model::{Immediate, ValueSize}, translator::Translator};
 use crate::isa_model::machine_instructions::Instr;
+
+#[cfg(feature = "address-masking")]
+pub const BUFFER_SIZE: usize = 7;
+
+
+/// A wrapper struct representing a linear memory buffer of fixed size.
+///
+/// # Type Parameters
+/// - `SIZE`: The size of the memory buffer in bytes.
+///
+/// # Examples
+/// ```
+/// let memory = LinearMemory::<1024>::new();
+/// ```
+#[repr(C,align(4))]
+pub struct LinearMemory<const SIZE: usize>(
+    [u8; SIZE]
+);
+
+impl<const SIZE: usize> LinearMemory<SIZE> {
+    pub const fn new() -> Self {
+        #[cfg(not(feature = "address-masking"))]
+        assert!(SIZE > 0, "Linear memory size must be greater than 0 bytes for the buffer");  
+        #[cfg(feature = "address-masking")]
+        assert!(SIZE > BUFFER_SIZE + 1, "Linear memory size must be greater than 7 bytes for the buffer");
+        #[cfg(feature = "address-masking")]
+        assert!((SIZE - BUFFER_SIZE).is_power_of_two(), "Linear memory size must be a power of two plus 7 bytes for the buffer");
+        LinearMemory([0u8; SIZE])
+    }
+}
+
+
+#[repr(C,align(4))]
+/// A fixed-size global memory space represented as an array of bytes.
+///
+/// # Type Parameters
+/// - `SIZE`: The size of the global space in bytes.
+///
+/// # Examples
+/// ```
+/// let globals = GlobalSpace::<1024>::new();
+/// ```
+pub struct GlobalSpace<const SIZE: usize>(
+    [u8; SIZE]
+);
+
+impl<const SIZE: usize> GlobalSpace<SIZE> {
+    pub const fn new() -> Self {
+        GlobalSpace([0u8; SIZE])
+    }
+}
+
+
+
 
 
 pub struct WasmRuntime <'a> {
@@ -36,7 +89,9 @@ pub struct GlobalTranslator{
 
 impl <'a> WasmRuntime <'a> {
 
-
+pub fn new <const SIZE_LINEAR:usize,const SIZE_GLOBAL:usize>(instructions: &'a mut[u32], linear_memory: &'a mut LinearMemory<SIZE_LINEAR>, global_space: &'a mut GlobalSpace<SIZE_GLOBAL>, table: &'a mut[u32]) -> Self {
+    Self::__new(instructions, &mut linear_memory.0, &mut global_space.0, table)
+}
     /// Creates a new `WasmRuntime` instance.
     ///
     /// # Arguments
@@ -49,7 +104,7 @@ impl <'a> WasmRuntime <'a> {
     /// # Returns
     ///
     /// A new instance of `WasmRuntime`.    
-pub fn new(instructions: &'a mut[u32], linear_memory: &'a mut[u8], global_space: &'a mut[u8], table: &'a mut[u32]) -> Self {
+fn __new(instructions: &'a mut[u32], linear_memory: &'a mut [u8], global_space: &'a mut[u8], table: &'a mut[u32]) -> Self {
     WasmRuntime {
         instructions,
         instructions_count: 0,
@@ -211,10 +266,6 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
 
             MemorySection(memory_section_reader) => {
                 
-                #[cfg(feature="address-masking")]
-                if compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32) + BUFFER_SIZE != self.linear_memory.len() as u32{
-                    panic!("Allocated memory cannot be efficiently used due to the sandboxing scheme. Consider resizing the allocated space to some power of 2 + 7 (i.e., size = 2**x + 7 for some x)")
-                }
                memory_section_reader.into_iter().next().map(Result::unwrap).map(
                     |memory| {
                         let page_size = memory.page_size_log2.unwrap_or(16);
@@ -454,7 +505,7 @@ fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_siz
     let table_ptr = self.table.as_ptr() as u32;
 
     #[cfg(feature="address-masking")]
-    let bitmask = compute_effective_sandboxed_memory_space(self.linear_memory.len() as u32)-1;
+    let bitmask = (self.linear_memory.len() - BUFFER_SIZE - 1) as u32;
 
       #[cfg(feature="address-masking")]
       let result = unsafe{Self::call_function_asm(function_label,arg_bytes_ptr,arg_len,linear_memory_ptr,global_space_ptr,table_ptr,bitmask)};
