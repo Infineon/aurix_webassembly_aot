@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+/// This module contains methods that match each wasm instruction to the expected behavior. 
 use alloc::vec;
 use alloc::boxed::Box;
 use wasmparser::{BlockType, BrTable, Ieee32, Ieee64, MemArg, ValType, VisitOperator};
@@ -11,6 +12,7 @@ use crate::translator::{BlockLabel, BlockTypes, Translator};
 
 use crate::isa_model::{Const4, Const16, AddressRegister, TABLE_BASE, machine_instructions::Instr, Register, ValueSize, Memsize, SignValue, MapperLocation};
 
+/// macro helps implementing the OperatorVisitor trait. The MVP instructions are left to be implemented manually, while the others default to a panic.
 macro_rules! _visit_only_mvp {
      // delegate the macro invocation to sub-invocations of this macro to
     // deal with each instruction on a case-by-case basis.
@@ -37,15 +39,21 @@ enum BlockStyle {
     Loop
 }
 impl<'a,'b> Translator<'a,'b> {
+
+    /// helper method to be called while entering a new block.
+    /// modifies the internal state of the translator to keep track of the currently open blocks while passing through the wasm function.
     fn enter_block(&mut self, blockty: BlockType, block_style: BlockStyle) {
 
+        // keep track whether the current block is inside dead code
         let dead_code_flag = *self.dead_code_flag_stack.last().unwrap_or(&false);
         self.dead_code_flag_stack.push(dead_code_flag);
 
+        // nothing to do if inside dead code
         if dead_code_flag {
             return;
         }
         
+        // size of the block's result if existent.
         let blockty_value_size = match blockty {
             BlockType::Empty => None,
             BlockType::Type(ty) => Some(val_type_size(&ty)),
@@ -55,10 +63,13 @@ impl<'a,'b> Translator<'a,'b> {
             }
         };
         
+        //if the block returns a result, all the current VBs need to be resolved to ensure elements resolved to the stack are done so in the right order.
         if blockty_value_size.is_some(){
             self.resolve_all();
         }
 
+        // obtain the offset of the runtime stack top at the start of the block relatively to the base (at the start of the function).
+        // The stack pointer is supposed to be replaced at the same position at the end of the block to unsure stack rewinding (with the possible difference of the result if existing)
         let runtime_stack_offset = {
             let mut stack_offset = 0;
             for vb in self.vb_stack.iter().rev() {
@@ -71,9 +82,12 @@ impl<'a,'b> Translator<'a,'b> {
             stack_offset
         };
 
+        // map block result sizhe to byte number
         let  blockty_value_byte_size = blockty_value_size.map(|size| size.as_bytes()).unwrap_or(0);
     
-
+        // compute stack top offset at both:
+        // - once the end of the block is reached ( block_type)
+        // - once branching targets the block (a br instruction referring to the block)
         let block_types = BlockTypes {
             block_type: (runtime_stack_offset + blockty_value_byte_size as usize , blockty_value_size),
             label_type: match block_style {
@@ -82,22 +96,37 @@ impl<'a,'b> Translator<'a,'b> {
             }
         };
 
+        // keep track of the computed results for each nested block using a stack
         self.cfg_block_type_stack.push(block_types);
 
+        // In order to keep track of the jump positions: We keep track of a label map, which is 
+        // a list of label positions (expressed in instruction number). Therefore label i is at the instruction number cfg_label_map[i].
+        //
+        // Furthermore, a label stack keeps track of the label number for each currently open nested block (during the parsing).
+        //
+        // The process is straightforward for loops which are associated with backward jumps, as the target of the jump i.e. the label position is known at the beginning of the block.
+        // For forward jumps, a placeholder (None) is placed for the label's position that is expected to be replaced with the actual position once known.     
+        
+        //insert a new label
         self.cfg_label_stack.push(BlockLabel::Block(self.cfg_label_map.len()));
 
+        //set label address: None in case of forward jump
         let br_label_target = match block_style {
             BlockStyle::Block => None,
             BlockStyle::Loop => Some(self.wasm_runtime.instructions_count),
         };
         self.cfg_label_map.push(br_label_target);
 
+        // keep track of the VB stack state at the beginning of the block
         self.vb_stack_ptr_stack.push(self.vb_stack.len());
         
     }
 
+    /// helper function that resolves the block's result.
+    /// target contains both the target offset for the SP as well as the size of the result.
     fn resolve_block_result(&mut self, target : (usize, Option<ValueSize>) ) {
         let (offset, size) = target;
+        //initial location of the result, moved to a register (if not in one already).
         let result_register = size.map(|size| {
             let initial_location = self.resolve_with_target(None);
             match size {
@@ -106,7 +135,7 @@ impl<'a,'b> Translator<'a,'b> {
             }
 
         });
-        
+        //current offset of the top of the runtime stack (used to compute realtive displacement of the stack pointer)
         let current_stack_offset = {
             let mut stack_offset = 0;
             for vb in self.vb_stack.iter().rev() {
@@ -120,9 +149,11 @@ impl<'a,'b> Translator<'a,'b> {
         };
 
         match size {
+            //no result, just move the stack pointer
             None  if current_stack_offset != offset => {
                 self.push_instruction(Instr::LEA { base: STACK_BASE, offset: Const16(-(offset as i16) as u16), dest: STACK_POINTER });
             },
+            // move stack pointer and write result 
             Some(_) => match result_register {
                 Some(Register::DataRegister(result_register)) => self.push_instruction(Instr::STWPI{ base: STACK_POINTER, offset: Const10(-(offset as i16)+ (current_stack_offset as i16)), src: result_register }),
                 Some(Register::ExtendedRegister(result_register)) => self.push_instruction(Instr::STDPI{ base: STACK_POINTER, offset: Const10(-(offset as i16) + (current_stack_offset as i16)), src: result_register }),
