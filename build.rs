@@ -70,6 +70,7 @@ fn main() {
         let entry = entry.unwrap();
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            println!("cargo::rerun-if-changed={}", path.display());
             Some(path)
         } else {
             None
