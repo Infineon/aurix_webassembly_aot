@@ -53,7 +53,7 @@ To run the benchmark use the following command:
 cargo make <run-benchmark-tsim|run-benchmark-board>
 ```
 
-> All previous command accept extra cargo arguments that are appended to cargo command
+> All previous command accept extra cargo arguments that are appended to cargo command e.g `cargo make test-tsim --test address_0`
 
 # How to use the AOT AURIX WASM Runtime:
 
