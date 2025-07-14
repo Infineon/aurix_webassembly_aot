@@ -33,7 +33,7 @@ dependencies = ["check-tsim"]
 [tasks.env-linux-tsim]
 workspace = false
 condition = { platforms = ["linux"]}
-env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = "" } # Create file for linux
+env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = "./instruction_simulator_runner.sh" } # Create file for linux
 dependencies = ["check-tsim"]
 
 [tasks.test-tsim]

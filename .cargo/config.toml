@@ -8,7 +8,7 @@ git-fetch-with-cli = true
 rustflags = ["-C", "link-args=-Llinker-scripts -Tdefmt.ld -Ttc37xA_memory.ld -Map memory.map --whole-archive --cref","-Z", "dwarf-version=4"]
 
 # Use real hardware
-runner = "tricore-probe.exe -c 1"
+# runner = "tricore-probe.exe -c 1"
 
 # Use instruction simulator
 # runner = ".\\instruction_simulator_runner.bat"
