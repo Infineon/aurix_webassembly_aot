@@ -1,0 +1,63 @@
+[config]
+default_to_workspace = false
+
+[tasks.check-tricore-probe]
+script_runner = "@duckscript"
+install_script = '''
+if not which tricore-probe
+    trigger_error "Not foundtricore-probe please install following instruction at https://github.com/veecle/tricore-probe"
+end
+'''
+
+[tasks.install-defmt-print]
+install_crate = { crate_name = "defmt-print", binary = "defmt-print", test_arg = ["--help"],min_version = "1.0.0" }
+
+[tasks.install-rustfilt]
+install_crate = { crate_name = "rustfilt", binary = "rustfilt", test_arg = ["--help"] }
+
+
+[tasks.check-tsim]
+script_runner = "@duckscript"
+install_script = '''
+if not which tsim16p_e
+    trigger_error "Not found tsim16p_e please install it or add containing folder to PATH"
+end
+'''
+ 
+[tasks.env-windows-tsim]
+workspace = false
+condition = { platforms = ["windows"]}
+env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = ".\\instruction_simulator_runner.bat" }
+dependencies = ["check-tsim"]
+
+[tasks.env-linux-tsim]
+workspace = false
+condition = { platforms = ["linux"]}
+env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = "" } # Create file for linux
+dependencies = ["check-tsim"]
+
+[tasks.test-tsim]
+workspace = false
+command = "cargo"
+args = ["test","--features=tsim","${@}"]
+dependencies = ["env-linux-tsim","env-windows-tsim","install-defmt-print","install-rustfilt"]
+
+[tasks.run-benchmark-tsim]
+workspace = false
+command = "cargo"
+args = ["run","--example", "benchmark","--features=tsim","${@}"]
+dependencies = ["env-linux-tsim","env-windows-tsim","install-defmt-print","install-rustfilt"]
+
+[tasks.run-benchmark-board]
+workspace = false
+env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = "tricore-probe -c 1" }
+command = "cargo"
+args = ["run","--example", "benchmark","--features=board","${@}"]
+dependencies = ["check-tricore-probe","install-defmt-print"]
+
+[tasks.test-board]
+workspace = false
+env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = "tricore-probe -c 1" }
+command = "cargo"
+args = ["test","--features=board","${@}"]
+dependencies = ["check-tricore-probe","install-defmt-print"]

@@ -3,33 +3,59 @@
 ## Required tools
 
 - [Hightec Compiler for Aurix](https://hightec-rt.com/rust) min version 1.77.2-dev2
+- [cargo-make](https://crates.io/crates/cargo-make)
+
 
 ### Using instruction simulator
 
 - Tricore Instruction simulator version >= 1.18.196
   - TSIM is included in PLS debugger. 
-  - [A standalone free distribution is available from Infineon Developer center](https://softwaretools.infineon.com/tools/com.ifx.tb.tool.tsimtricoreinstructionsetsimulator).
+  - [A standalone free distribution is available from Infineon Developer center](https://softwaretools.infineon.com/tools/com.ifx.tb.tool.tsimtricoreinstructionsetsimulator). This is not automatically installed by `cargo make`
   - folder `<TSIM_path>/bin/<host architecture>` shall be added to the `PATH`
 - [rustfilt](https://crates.io/crates/rustfilt)
+  - This is installed automatically by `cargo-make` when running `cargo make test-board` or `cargo make test-tsim`
 - [defmt-print](https://crates.io/crates/defmt-print) 
   - Install using latest rust stable version (no Hightec 1.0.0 because it is too old)
+  - This is installed automatically by `cargo-make` when running `cargo make test-board` or `cargo make test-tsim`
 
 ### Using Aurix lite kit v2 board
 - [Board Aurix lite kit v2 board](https://www.infineon.com/cms/en/product/promopages/AURIX-microcontroller-boards/low-cost-arduino-kits/aurix-tc375-lite-kit/)
 - [tricore-probe version >= 2.1](https://github.com/veecle/tricore-probe)
+  - This is not automatically installed by `cargo make` but it will check for its availability
 
 ### VSCode `rust-analyzer` extension
 
 1.77.2 Rust compiler and related rust-analyzer is not compatible with latest version of VSCode `rust-analyzer` extension. It is recommended to use version `0.3.2011`
 
-## How to switch from simulator execution to board execution
-
-By default the project is configured to be compiled and executed for TSIM. To switch to board execution follow the following steps:
-
-- Edit file `.cargo/config.toml`, comment out `runner = ".\\instruction_simulator_runner.bat"` and comment in  `runner = "tricore-probe.exe -c 1"`
+## How to run test cases
 
 
-## How to use the AOT AURIX WASM Runtime:
+
+## How to run regression tests
+Given the multitude of existing regression tests, it is recommended to run the tests on the instruction simulator rather than on physical hardware, especially if all or many tests are to be run. The regression tests do not test any performance and are used only to test the soundness of the implementation. Given that each test file/module is in a seperate binary, running all the tests involves flashing thousands of binaries to the memory.
+
+To run all the tests:
+```
+cargo make <test-tsim|test-board>
+```
+
+To run a specific test or a specific subset of the tests:
+
+```
+cargo make <test-tsim|test-board> --test <name of integration test>
+```
+
+## How to run benchmark tests
+The benchmark aims to provide time measures of running different algorithms. Hence, it is recommended to run it on the hardware.
+
+To run the benchmark use the following command:
+```
+cargo make <run-benchmark-tsim|run-benchmark-board>
+```
+
+> All previous command accept extra cargo arguments that are appended to cargo command
+
+# How to use the AOT AURIX WASM Runtime:
 
 The `WasmRuntime` trait provides 3 API functions that should be called in the listed order:
 
@@ -41,27 +67,7 @@ The Runtime uses heap allocation for storing the IR (intermediate representation
 
 The benchmark code provides an example for constructing the Wasm Runtime, instantiating a module and calling an exported function.
 
-## How to run regression tests
-Given the multitude of existing regression tests, it is recommended to run the tests on the instruction simulator rather than on physical hardware, especially if all or many tests are to be run. The regression tests do not test any performance and are used only to test the soundness of the implementation. Given that each test file/module is in a seperate binary, running all the tests involves flashing thousands of binaries to the memory.
 
-To run all the tests:
-```
-cargo test --features tsim 
-```
-
-To run a specific test or a specific subset of the tests:
-
-```
-cargo test --features=<tsim|board> --test <name of integration test>
-```
-
-## How to run benchmark tests
-The benchmark aims to provide time measures of running different algorithms. Hence, it is recommended to run it on the hardware.
-
-To run the benchmark use the following command:
-```
-cargo run --features=<tsim|board> --example benchmark
-```
 # License 
 
 This is software is licensed under MIT(Infineon) and BOOST license (Hightec)

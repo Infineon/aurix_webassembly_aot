@@ -4,11 +4,11 @@
 #![feature(naked_functions)]
 extern crate alloc;
 mod constant_expression_eval;
+mod handle_misaligned_load_store;
 pub mod isa_model;
 pub mod parse_and_translate;
 mod translator;
 mod vb;
-mod handle_misaligned_load_store;
 pub use handle_misaligned_load_store::handle_misaligned_load_store;
 
 #[cfg(test)]
@@ -16,12 +16,16 @@ pub use handle_misaligned_load_store::handle_misaligned_load_store;
 mod tests {
     use defmt as _;
     use embedded_alloc::LlffHeap as Heap;
+    #[cfg(feature = "board")]
+     #[allow(unused_imports)]
+    use probe_semihosting as _;
+    
+    #[cfg(feature = "tsim")]
+    #[allow(unused_imports)]
+    pub use tsim_semihosting as _;
 
     #[allow(unused_imports)]
     pub use tc162_rt as _;
-
-    #[allow(unused_imports)]
-    pub use tsim_semihosting as _;
 
     struct MyState {
         flag: bool,

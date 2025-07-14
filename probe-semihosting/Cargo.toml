@@ -8,6 +8,6 @@ publish = ["artifactory"]
 
 [dependencies]
 defmt = {version="~0.3.9"}
-defmt-rtt = {version="~0.4.0",optional=false}
+defmt-rtt = {version="~0.4.0"}
 tc37x-hal ={path="../tc37x-hal"}
 tc162-rt = {path="../tc162-rt"}
