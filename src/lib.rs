@@ -4,12 +4,10 @@
 #![feature(naked_functions)]
 extern crate alloc;
 mod constant_expression_eval;
-mod handle_misaligned_load_store;
 pub mod isa_model;
 pub mod parse_and_translate;
 mod translator;
 mod vb;
-pub use handle_misaligned_load_store::handle_misaligned_load_store;
 
 #[cfg(test)]
 #[defmt_test::tests]
