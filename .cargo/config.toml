@@ -1,3 +1,6 @@
+[alias]
+xtask = "run --manifest-path ./xtask/Cargo.toml --"
+
 [net]
 git-fetch-with-cli = true
 
@@ -8,7 +11,8 @@ rustflags = ["-C", "link-args=-Llinker-scripts -Tdefmt.ld -Ttc37xA_memory.ld -Ma
 # runner = "tricore-probe.exe -c 1"
 
 # Use instruction simulator
-runner = ".\\instruction_simulator_runner.bat"
+# runner = ".\\instruction_simulator_runner.bat"
 
 [build]
 target = "tc162-htc-none"
+
