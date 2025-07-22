@@ -44,7 +44,7 @@ defmt-test = { path = "defmt-test" }
 tc37x-hal = { path = "tc37x-hal" }
 tsim-semihosting = { path = "tsim-semihosting" }
 probe-semihosting = { path = "probe-semihosting" }
-tc162-rt = { path = "tc162-rt",features = ["support-misaligned-access"] }
+tc162-rt = { path = "tc162-rt", features = ["support-misaligned-access"] }
 
 [profile.release]
 opt-level = "z"
