@@ -36,7 +36,7 @@ serde_json = "1.0.128"
 tsim = []
 board = []
 address-masking = []
-default=["address-masking"]
+default = ["address-masking"]
 
 
 [dev-dependencies]
