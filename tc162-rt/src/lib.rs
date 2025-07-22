@@ -144,8 +144,8 @@ pub extern "C" fn _exit_exception() -> ! {
             out("d14") status
         );
         #[cfg(feature = "support-misaligned-access")]
-        if status == 0x204 {
-            // asm!("mov.u %d13, 0x204",
+        if status == MISALIGNED_ACCESS_EXCEPTION_CODE {
+            // asm!("mov.u %d13, {MISALIGNED_ACCESS_EXCEPTION_CODE}",
             //      "jeq %d14, %d13, handle_misaligned_load_store")
             asm!("RSLCX");
             handle_misaligned_load_store();
