@@ -133,6 +133,7 @@ pub fn swap_target_with_disp_jump(&mut self, index:usize, cfg_label_map: &Vec<Op
         0x1d => {
             let target = instruction >> 8;
             let disp=  ((cfg_label_map[target as usize].unwrap() as i32 - (index as i32))<<1) & 0xffffff;
+            //TODO: handle the case where the displacement is too large
             let disp_upper = disp as u32 >> 16 ;
             let disp_lower = disp as u32 & 0xffff;
             self.instructions[index] = 0x1d | (disp_upper << 8)| (disp_lower << 16);
@@ -140,6 +141,7 @@ pub fn swap_target_with_disp_jump(&mut self, index:usize, cfg_label_map: &Vec<Op
         _ => {
             let target = instruction >> 16 & 0x7fff;
             let disp = ((cfg_label_map[target as usize].unwrap() as i32 - (index as i32))<<1) & 0x7fff;
+            //TODO: handle the case where the displacement is too large
             self.instructions[index] = (instruction & 0x8000ffff) | ((disp as u32) << 16);
         }
     }
@@ -176,7 +178,7 @@ pub fn swap_target_with_disp_call(&mut self, index:usize) {
 pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryReaderError> {
     let parser = Parser::new(0);
 
-    let mut global_translator = GlobalTranslator{
+    let mut global_translator: GlobalTranslator = GlobalTranslator{
         function_type_map: Vec::new(),
         globals_map: Vec::new(),
         memory_size_limit: 0,
@@ -233,6 +235,8 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                 let type_index = global_translator.function_type_map[code_index];
                 let locals_reader = body.get_locals_reader()?;
                 let mut operators_reader = body.get_operators_reader()?;
+
+                // store function start pointers
                 self.function_labels.push(((self.instructions_count as u32) << 2) + (self.instructions.as_ptr() as u32) );
                 
                 let mut translator = Translator::new(type_index, locals_reader, &mut global_translator, self);
@@ -276,9 +280,6 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
 
 
                         memory_size = memory_size_pages << page_size;
-                        if memory_size > self.linear_memory.len() as u32 {
-                            panic!("Memory size too large");
-                        }
 
                     if self.linear_memory.len() < memory_size as usize {
                         panic!("Not enough memory allocated");
