@@ -25,12 +25,14 @@ end
 '''
  
 [tasks.env-windows-tsim]
+private = true
 workspace = false
 condition = { platforms = ["windows"]}
 env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = ".\\instruction_simulator_runner.bat" }
 dependencies = ["check-tsim"]
 
 [tasks.env-linux-tsim]
+private = true
 workspace = false
 condition = { platforms = ["linux"]}
 env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = "./instruction_simulator_runner.sh" } # Create file for linux

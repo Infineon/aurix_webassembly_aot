@@ -98,6 +98,9 @@
 //!
 #![no_std]
 #![feature(stdsimd)]
+#[cfg(feature = "support-misaligned-access")]
+mod handle_misaligned_load_store;
+
 use core::arch::{asm, global_asm};
 
 use critical_section::RawRestoreState;
@@ -126,6 +129,7 @@ pub fn debug() {
 
 extern "C" {
     pub fn _exit(status: u32) -> !;
+    #[cfg(feature = "support-misaligned-access")]
     pub fn handle_misaligned_load_store() -> !;
 }
 
@@ -137,17 +141,17 @@ pub extern "C" fn _exit_exception() -> ! {
     unsafe {
         asm!(
             "SVLCX",
-            "mov {x},%d14",
-            x = out(reg32) status
+            out("d14") status
         );
-        if status == 0x204 {
-            // asm!("mov.u %d13, 0x204",
+        #[cfg(feature = "support-misaligned-access")]
+        if status == MISALIGNED_ACCESS_EXCEPTION_CODE {
+            // asm!("mov.u %d13, {MISALIGNED_ACCESS_EXCEPTION_CODE}",
             //      "jeq %d14, %d13, handle_misaligned_load_store")
             asm!("RSLCX");
             handle_misaligned_load_store();
-        } else {
-            EXCEPTION_PANIC(status)
         }
+        asm!("RSLCX");
+        EXCEPTION_PANIC(status)
     };
 }
 
