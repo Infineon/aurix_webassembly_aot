@@ -95,6 +95,21 @@ impl Immediate {
             Immediate::DoubleWord(imm) => vec![ (*imm >> 32) as u32, *imm as u32],
         }
     }
+
+    /// Check if this immediate fits as a comparison immediate.
+    /// This is used for comparison instructions.
+    /// Returns true if the immediate fits in 9 bits based on signedness.
+    /// - For unsigned: fits in 9 bits unsigned
+    /// - For signed: fits in 9 bits signed (upper bits must be sign extension of bit 8)
+    pub fn fits_as_comparison_immediate(&self, sign: SignValue) -> bool {
+        match sign {
+            SignValue::Unsigned => self.as_u32() >> 9 == 0,
+            SignValue::Signed => {
+                let shifted = self.as_i32() >> 8;
+                shifted == 0 || shifted == -1
+            }
+        }
+    }
 }
 
 
