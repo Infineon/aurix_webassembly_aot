@@ -365,6 +365,10 @@ pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryRea
                 });
             }
 
+            //:TODO: Add signature checking and make generic
+            // Before parsing user shall be able to declare the host functions and their signature
+            // This is used to translate the host functions into the runtime.
+        
             ImportSection(import_section_reader) => {
                 import_section_reader.into_iter().map(Result::unwrap).for_each(|import|{
                         let address = match (import.module,import.name) {
