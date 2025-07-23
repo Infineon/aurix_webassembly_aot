@@ -1,0 +1,6 @@
+[build]
+target = "wasm32v1-none"
+rustflags = ["-C", "link-args=-z stack-size=20000"]
+
+# This to allow to have smaller page size. It will be available with LLVM 21
+# rustflags = ["-C", "link-args=-z stack-size=20000 --page-size=1"]

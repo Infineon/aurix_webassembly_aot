@@ -1,10 +1,8 @@
-[alias]
-xtask = "run --manifest-path ./xtask/Cargo.toml --"
-
 [net]
 git-fetch-with-cli = true
 
 [target.tc162-htc-none]
+# Remove -Z dwarf-version=4 for PLS UDE debugger. dwarf version 4 is required for tricore-probe tool
 rustflags = ["-C", "link-args=-Llinker-scripts -Tdefmt.ld -Ttc37xA_memory.ld -Map memory.map --whole-archive --cref","-Z", "dwarf-version=4"]
 
 # Use real hardware

@@ -10,3 +10,4 @@
 /memory_map.txt
 /memory.map
 *.profraw
+/demo-code/target/

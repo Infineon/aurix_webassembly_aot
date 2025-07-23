@@ -46,7 +46,7 @@ pub fn wrap_env(input: TokenStream) -> TokenStream {
         #[inline(never)]
         #[no_mangle]
         #[allow(non_snake_case)]
-        pub fn #inner_name(#inputs) #output_type {
+        pub extern "C" fn #inner_name(#inputs) #output_type {
             #block
         }
     };
