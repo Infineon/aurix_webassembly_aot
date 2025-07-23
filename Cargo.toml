@@ -17,7 +17,7 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
-wasmparser = { version = "~0.209.0", default-features = false }
+wasmparser = { version = "~0.235.0", default-features = false }
 # libm is used to implement some missing mathematical function
 # Higher than version 0.2.11 makes some test fail because Aurix doesn't support subnormal floating point
 # and libm with higher version assume support as specified by IEEE 754 - 2008

@@ -14,7 +14,7 @@ use crate::isa_model::{Const4, Const16, AddressRegister, TABLE_BASE, machine_ins
 macro_rules! _visit_only_mvp {
      // delegate the macro invocation to sub-invocations of this macro to
     // deal with each instruction on a case-by-case basis.
-    ($( @$proposal:ident $op:ident $({ $($arg:ident: $argty:ty),* })? => $visit:ident)*) => {
+    ($( @$proposal:ident $op:ident $({ $($arg:ident: $argty:ty),* })? => $visit:ident ($($ann:tt)*))*) => {
         $(
             _visit_only_mvp!(visit_one @$proposal $op $({ $($arg: $argty),* })? => $visit);
         )*
@@ -349,7 +349,7 @@ impl<'a,'b> Translator<'a,'b> {
     }
 
 }
-
+use alloc::vec::Vec;
 #[allow(unused_variables)]
 impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
     
@@ -700,7 +700,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
             - parameters are expected to be on the stack thanks to the already performed resolve_all
         5) place result on the stack if exists (similarly to direct calls)
      */
-    fn visit_call_indirect(&mut self,type_index:u32,_table_index:u32, _table_byte: u8) {
+    fn visit_call_indirect(&mut self,type_index:u32,_table_index:u32) {
 
         let dead_code_flag = *self.dead_code_flag_stack.last().unwrap_or(&false);
         if dead_code_flag {
@@ -945,7 +945,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         self.store_value_in_memory(memarg, Memsize::Word, ValueSize::DoubleWord, memarg.align);
     }
 
-    fn visit_memory_size(&mut self,_mem:u32, _mem_byte: u8 ) {
+    fn visit_memory_size(&mut self,_mem:u32 ) {
         let dead_code_flag = *self.dead_code_flag_stack.last().unwrap_or(&false);
         if dead_code_flag {
             return;
@@ -954,7 +954,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         self.add_atomic_vb(AtomicVB::MemorySize);
     }
 
-    fn visit_memory_grow(&mut self,_mem:u32, _mem_byte: u8 ) {
+    fn visit_memory_grow(&mut self,_mem:u32) {
         let dead_code_flag = *self.dead_code_flag_stack.last().unwrap_or(&false);
         if dead_code_flag {
             return;

@@ -2,11 +2,11 @@
 use wasmparser::{ConstExpr, Ieee32, Ieee64};
 
 use crate::{isa_model::Immediate};
-
+use alloc::vec::Vec;
 macro_rules! _visit_only_const {
      // delegate the macro invocation to sub-invocations of this macro to
     // deal with each instruction on a case-by-case basis.
-    ($( @$proposal:ident $op:ident $({ $($arg:ident: $argty:ty),* })? => $visit:ident)*) => {
+    ($( @$proposal:ident $op:ident $({ $($arg:ident: $argty:ty),* })? =>  $visit:ident ($($ann:tt)*))*) => {
         $(
             _visit_only_const!(visit_one @$proposal $op $({ $($arg: $argty),* })? => $visit);
         )*
