@@ -8,7 +8,7 @@ members = [
     "probe-semihosting",
     "tc37x-hal",
 ]
-
+exclude = ["demo-code"]
 
 [package]
 name = "aot_wasm"
@@ -17,12 +17,15 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
-wasmparser = { version = "=0.207.0", default-features = false }
-libm = { version = "*" }
-defmt = { version = "~0.3.9" }
+wasmparser = { version = "~0.209.0", default-features = false }
+# libm is used to implement some missing mathematical function
+# Higher than version 0.2.11 makes some test fail because Aurix doesn't support subnormal floating point
+# and libm with higher version assume support as specified by IEEE 754 - 2008
+libm = { version = "=0.2.11" } 
+defmt = { version = "~0.3.10" }
 embedded-alloc = { version = "*" }
 fnv = { version = "1.0.7", default-features = false }
-indexmap = { version = "2.6.0", default-features = false }
+indexmap = { version = "2.10.0", default-features = false }
 compiler_builtins = { version = "=0.1.120", default-features = false, features = [
     "no-f16-f128",
 ] }
