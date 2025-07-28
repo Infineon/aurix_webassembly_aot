@@ -1,20 +1,22 @@
 use alloc::string::{String, ToString};
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
+use core::arch::asm;
 use defmt::panic;
 use fnv::FnvBuildHasher;
 use indexmap::IndexMap;
-use core::arch::asm;
 
 use wasmparser::{BinaryReaderError, Parser, Payload::*, RecGroup, SubType};
 
-
-use crate::{constant_expression_eval::ConstantExpressionEval, isa_model::{Immediate, ValueSize}, translator::Translator};
 use crate::isa_model::machine_instructions::Instr;
+use crate::{
+    constant_expression_eval::ConstantExpressionEval,
+    isa_model::{Immediate, ValueSize},
+    translator::Translator,
+};
 
 #[cfg(feature = "address-masking")]
 pub const BUFFER_SIZE: usize = 7;
-
 
 /// A wrapper struct representing a linear memory buffer of fixed size.
 ///
@@ -25,25 +27,31 @@ pub const BUFFER_SIZE: usize = 7;
 /// ```
 /// let memory = LinearMemory::<1024>::new();
 /// ```
-#[repr(C,align(4))]
-pub struct LinearMemory<const SIZE: usize>(
-    [u8; SIZE]
-);
+#[repr(C, align(4))]
+pub struct LinearMemory<const SIZE: usize>([u8; SIZE]);
 
 impl<const SIZE: usize> LinearMemory<SIZE> {
     pub const fn new() -> Self {
         #[cfg(not(feature = "address-masking"))]
-        assert!(SIZE > 0, "Linear memory size must be greater than 0 bytes for the buffer");  
+        assert!(
+            SIZE > 0,
+            "Linear memory size must be greater than 0 bytes for the buffer"
+        );
         #[cfg(feature = "address-masking")]
-        assert!(SIZE > BUFFER_SIZE + 1, "Linear memory size must be greater than 7 bytes for the buffer");
+        assert!(
+            SIZE > BUFFER_SIZE + 1,
+            "Linear memory size must be greater than 7 bytes for the buffer"
+        );
         #[cfg(feature = "address-masking")]
-        assert!((SIZE - BUFFER_SIZE).is_power_of_two(), "Linear memory size must be a power of two plus 7 bytes for the buffer");
+        assert!(
+            (SIZE - BUFFER_SIZE).is_power_of_two(),
+            "Linear memory size must be a power of two plus 7 bytes for the buffer"
+        );
         LinearMemory([0u8; SIZE])
     }
 }
 
-
-#[repr(C,align(4))]
+#[repr(C, align(4))]
 /// A fixed-size global memory space represented as an array of bytes.
 ///
 /// # Type Parameters
@@ -53,9 +61,7 @@ impl<const SIZE: usize> LinearMemory<SIZE> {
 /// ```
 /// let globals = GlobalSpace::<1024>::new();
 /// ```
-pub struct GlobalSpace<const SIZE: usize>(
-    [u8; SIZE]
-);
+pub struct GlobalSpace<const SIZE: usize>([u8; SIZE]);
 
 impl<const SIZE: usize> GlobalSpace<SIZE> {
     pub const fn new() -> Self {
@@ -63,23 +69,19 @@ impl<const SIZE: usize> GlobalSpace<SIZE> {
     }
 }
 
-
-
-
-
-pub struct WasmRuntime <'a> {
-    pub instructions: &'a mut[u32],
-    pub linear_memory: &'a mut[u8],
-    pub global_space: &'a mut[u8],
-    pub table: &'a mut[u32],
+pub struct WasmRuntime<'a> {
+    pub instructions: &'a mut [u32],
+    pub linear_memory: &'a mut [u8],
+    pub global_space: &'a mut [u8],
+    pub table: &'a mut [u32],
     pub function_labels: Vec<u32>,
     pub types: Vec<SubType>,
     pub table_type_indices: Vec<u32>,
-    pub export_map: IndexMap<String, u32,FnvBuildHasher>,
+    pub export_map: IndexMap<String, u32, FnvBuildHasher>,
     pub instructions_count: usize,
-} 
+}
 
-pub struct GlobalTranslator{
+pub struct GlobalTranslator {
     pub function_type_map: Vec<u32>,
     pub globals_map: Vec<(u32, ValueSize)>,
     pub memory_size_limit: u32,
@@ -87,11 +89,20 @@ pub struct GlobalTranslator{
     pub table_size: usize,
 }
 
-impl <'a> WasmRuntime <'a> {
-
-pub fn new <const SIZE_LINEAR:usize,const SIZE_GLOBAL:usize>(instructions: &'a mut[u32], linear_memory: &'a mut LinearMemory<SIZE_LINEAR>, global_space: &'a mut GlobalSpace<SIZE_GLOBAL>, table: &'a mut[u32]) -> Self {
-    Self::__new(instructions, &mut linear_memory.0, &mut global_space.0, table)
-}
+impl<'a> WasmRuntime<'a> {
+    pub fn new<const SIZE_LINEAR: usize, const SIZE_GLOBAL: usize>(
+        instructions: &'a mut [u32],
+        linear_memory: &'a mut LinearMemory<SIZE_LINEAR>,
+        global_space: &'a mut GlobalSpace<SIZE_GLOBAL>,
+        table: &'a mut [u32],
+    ) -> Self {
+        Self::__new(
+            instructions,
+            &mut linear_memory.0,
+            &mut global_space.0,
+            table,
+        )
+    }
     /// Creates a new `WasmRuntime` instance.
     ///
     /// # Arguments
@@ -104,19 +115,24 @@ pub fn new <const SIZE_LINEAR:usize,const SIZE_GLOBAL:usize>(instructions: &'a m
     /// # Returns
     ///
     /// A new instance of `WasmRuntime`.    
-fn __new(instructions: &'a mut[u32], linear_memory: &'a mut [u8], global_space: &'a mut[u8], table: &'a mut[u32]) -> Self {
-    WasmRuntime {
-        instructions,
-        instructions_count: 0,
-        linear_memory,
-        global_space,
-        table,
-        function_labels: Vec::new(),
-        types: Vec::new(),
-        table_type_indices: Vec::new(),
-        export_map: IndexMap::with_hasher( fnv::FnvBuildHasher::default()),
+    fn __new(
+        instructions: &'a mut [u32],
+        linear_memory: &'a mut [u8],
+        global_space: &'a mut [u8],
+        table: &'a mut [u32],
+    ) -> Self {
+        WasmRuntime {
+            instructions,
+            instructions_count: 0,
+            linear_memory,
+            global_space,
+            table,
+            function_labels: Vec::new(),
+            types: Vec::new(),
+            table_type_indices: Vec::new(),
+            export_map: IndexMap::with_hasher(fnv::FnvBuildHasher::default()),
+        }
     }
-}
 
     /// Swaps the label index with a displacement jump in the jump instructions. This is used to replace the CFG label, placed as a placeholder, with the actual target
     /// in the instructions after the translation of a WebAssembly function.
@@ -125,307 +141,360 @@ fn __new(instructions: &'a mut[u32], linear_memory: &'a mut [u8], global_space: 
     ///
     /// * `index` - The index of the instruction to modify in the instructions array.
     /// * `cfg_label_map` - The CFG label map that maps each label index to the corresponding instruction index.
-pub fn swap_target_with_disp_jump(&mut self, index:usize, cfg_label_map: &Vec<Option<usize>>) {
-    let instruction = self.instructions[index];
-    let opcode = instruction & 0xff;
-    match opcode{
-        // The J instruction has a different layout for the displacement field
-        0x1d => {
-            let target = instruction >> 8;
-            let disp=  ((cfg_label_map[target as usize].unwrap() as i32 - (index as i32))<<1) & 0xffffff;
-            //TODO: handle the case where the displacement is too large
-            let disp_upper = disp as u32 >> 16 ;
-            let disp_lower = disp as u32 & 0xffff;
-            self.instructions[index] = 0x1d | (disp_upper << 8)| (disp_lower << 16);
-        },
-        _ => {
-            let target = instruction >> 16 & 0x7fff;
-            let disp = ((cfg_label_map[target as usize].unwrap() as i32 - (index as i32))<<1) & 0x7fff;
-            //TODO: handle the case where the displacement is too large
-            self.instructions[index] = (instruction & 0x8000ffff) | ((disp as u32) << 16);
+    pub fn swap_target_with_disp_jump(&mut self, index: usize, cfg_label_map: &Vec<Option<usize>>) {
+        let instruction = self.instructions[index];
+        let opcode = instruction & 0xff;
+        match opcode {
+            // The J instruction has a different layout for the displacement field
+            0x1d => {
+                let target = instruction >> 8;
+                let disp = ((cfg_label_map[target as usize].unwrap() as i32 - (index as i32)) << 1)
+                    & 0xffffff;
+                //TODO: handle the case where the displacement is too large
+                let disp_upper = disp as u32 >> 16;
+                let disp_lower = disp as u32 & 0xffff;
+                self.instructions[index] = 0x1d | (disp_upper << 8) | (disp_lower << 16);
+            }
+            _ => {
+                let target = instruction >> 16 & 0x7fff;
+                let disp = ((cfg_label_map[target as usize].unwrap() as i32 - (index as i32)) << 1)
+                    & 0x7fff;
+                //TODO: handle the case where the displacement is too large
+                self.instructions[index] = (instruction & 0x8000ffff) | ((disp as u32) << 16);
+            }
         }
     }
-}
-    /// Swaps the function index with a displacement in the call instructions. This is used to replace the function index, placed as a placeholder, with the actual target after the end of the translation of all WebAssembly functions. 
+    /// Swaps the function index with a displacement in the call instructions. This is used to replace the function index, placed as a placeholder, with the actual target after the end of the translation of all WebAssembly functions.
     ///
     /// # Arguments
     ///
     /// * `index` - The index of the instruction to modify in the instructions array.
-pub fn swap_target_with_disp_call(&mut self, index:usize) {
-    let instruction = self.instructions[index];
-    let target = instruction >> 8;
-    let disp = (self.function_labels[target as usize] as u32).wrapping_sub(((index<<2) as u32 ) + (self.instructions.as_ptr() as u32));
-    assert_eq!(disp & 1 , 0);
-    let disp = disp >> 1;
-    if (disp + (1<< 23)) & 0xff000000 != 0 {
-        todo!("unimplemented huge displacement, target is at {}, call is at {}", self.function_labels[target as usize] as u32, ((index<<2) as u32 ) + (self.instructions.as_ptr() as u32));
-    } 
-    let disp_upper = disp as u32 >> 16 ;
-    let disp_lower = disp as u32 & 0xffff;
-    self.instructions[index] = 0x6d | (disp_upper << 8)| (disp_lower << 16);
-}
-    
-  pub fn add_instruction(&mut self, instr: Instr) {
+    pub fn swap_target_with_disp_call(&mut self, index: usize) {
+        let instruction = self.instructions[index];
+        let target = instruction >> 8;
+        let disp = (self.function_labels[target as usize] as u32)
+            .wrapping_sub(((index << 2) as u32) + (self.instructions.as_ptr() as u32));
+        assert_eq!(disp & 1, 0);
+        let disp = disp >> 1;
+        if (disp + (1 << 23)) & 0xff000000 != 0 {
+            todo!(
+                "unimplemented huge displacement, target is at {}, call is at {}",
+                self.function_labels[target as usize] as u32,
+                ((index << 2) as u32) + (self.instructions.as_ptr() as u32)
+            );
+        }
+        let disp_upper = disp as u32 >> 16;
+        let disp_lower = disp as u32 & 0xffff;
+        self.instructions[index] = 0x6d | (disp_upper << 8) | (disp_lower << 16);
+    }
+
+    /// Adds a new instruction encoded in binary format to the instructions array.
+    pub fn add_instruction(&mut self, instr: Instr) {
         self.instructions[self.instructions_count] = instr.map_to_binary();
         self.instructions_count += 1;
- }
+    }
 
     /// instantiates a new WebAssembly module into the runtime. This parses a WebAssembly binary and initializes the table, global space and linear memory. It also translates the WebAssembly functions into machine code.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `wasm_code` - A slice of u8 representing the WebAssembly module in binary format.
-pub fn parse_and_translate(&mut self, wasm_code: &[u8] ) -> Result<(), BinaryReaderError> {
-    let parser = Parser::new(0);
+    pub fn parse_and_translate(&mut self, wasm_code: &[u8]) -> Result<(), BinaryReaderError> {
+        let parser = Parser::new(0);
 
-    let mut global_translator: GlobalTranslator = GlobalTranslator{
-        function_type_map: Vec::new(),
-        globals_map: Vec::new(),
-        memory_size_limit: 0,
-        function_call_jobs: Vec::new(),
-        table_size: 0
-    };
-    
-    let mut code_index = 0;
-    
-    let mut start_function: Option<u32> = None;
+        let mut global_translator: GlobalTranslator = GlobalTranslator {
+            function_type_map: Vec::new(),
+            globals_map: Vec::new(),
+            memory_size_limit: 0,
+            function_call_jobs: Vec::new(),
+            table_size: 0,
+        };
 
-    let mut memory_size = 0;
-    
-    self.instructions_count = 0;
-    self.function_labels.clear();
-    
-    
-    
+        let mut code_index = 0;
 
-    for payload in parser.parse_all(wasm_code){
-        match payload? {
-            TypeSection(type_section_reader) => {
-                self.types = type_section_reader.into_iter().map(Result::unwrap).flat_map(RecGroup::into_types).collect();
-            },
+        let mut start_function: Option<u32> = None;
 
-            GlobalSection(global_section_reader) => {
-                let globals_reader = global_section_reader.clone();
-                let mut offset: usize = 4;
+        let mut memory_size = 0;
 
-                for global in globals_reader.into_iter().map(Result::unwrap) {
+        self.instructions_count = 0;
+        self.function_labels.clear();
+
+        for payload in parser.parse_all(wasm_code) {
+            match payload? {
+                TypeSection(type_section_reader) => {
+                    self.types = type_section_reader
+                        .into_iter()
+                        .map(Result::unwrap)
+                        .flat_map(RecGroup::into_types)
+                        .collect();
+                }
+
+                GlobalSection(global_section_reader) => {
+                    let globals_reader = global_section_reader.clone();
+                    let mut offset: usize = 4;
+
+                    for global in globals_reader.into_iter().map(Result::unwrap) {
                         let val_size = ValueSize::from_valtype(&global.ty.content_type);
-                        
+
                         let val = ConstantExpressionEval::eval_const_expr(global.init_expr);
 
                         if self.global_space.len() < offset + val_size.as_bytes() as usize {
                             panic!("Global space overflow");
                         }
-                        let byte_vector  = match val_size {
+                        let byte_vector = match val_size {
                             ValueSize::Word => val.as_u32().to_le_bytes().to_vec(),
                             ValueSize::DoubleWord => val.as_u64().to_le_bytes().to_vec(),
                         };
 
-                        self.global_space[offset..offset + val_size.as_bytes() as usize].copy_from_slice(byte_vector.as_slice());
-                        global_translator.globals_map.push((offset as u32, val_size));
+                        self.global_space[offset..offset + val_size.as_bytes() as usize]
+                            .copy_from_slice(byte_vector.as_slice());
+                        global_translator
+                            .globals_map
+                            .push((offset as u32, val_size));
                         offset += val_size.as_bytes() as usize;
                     }
-            },
-
-            FunctionSection(function_section_reader) => {
-                global_translator.function_type_map.append(&mut function_section_reader.into_iter().map(Result::unwrap).collect());
-            }
-
-            CodeSectionEntry(body) => {
-                let type_index = global_translator.function_type_map[code_index];
-                let locals_reader = body.get_locals_reader()?;
-                let mut operators_reader = body.get_operators_reader()?;
-
-                // store function start pointers
-                self.function_labels.push(((self.instructions_count as u32) << 2) + (self.instructions.as_ptr() as u32) );
-                
-                let mut translator = Translator::new(type_index, locals_reader, &mut global_translator, self);
-                while let Ok( ..) = operators_reader.visit_operator(&mut translator){}
-                
-                let cfg_label_map = &translator.cfg_label_map;
-                for index in translator.cfg_jobs{
-                    self.swap_target_with_disp_jump(index,cfg_label_map);
                 }
-                code_index += 1;
-            }
 
-            TableSection(table_section_reader) => {
-                match  table_section_reader.into_iter().next().map(Result::unwrap) {
-                    Some(table_object) => {
-                        if !table_object.ty.element_type.is_func_ref() {
-                            panic!("Unexpected table element type");
-                        }
-                        global_translator.table_size = table_object.ty.initial as usize;
-                        if self.table.len() < global_translator.table_size as usize {
-                            panic!("Not enough table space allocated");
-                        }
-                        self.table_type_indices = vec![0; global_translator.table_size];
-                        for i in 0..global_translator.table_size {
-                            self.table[i] = -1i32 as u32;
-                        }
-                    },
-                    None => {}
+                FunctionSection(function_section_reader) => {
+                    global_translator.function_type_map.append(
+                        &mut function_section_reader
+                            .into_iter()
+                            .map(Result::unwrap)
+                            .collect(),
+                    );
                 }
-            }
 
-            MemorySection(memory_section_reader) => {
-                
-               memory_section_reader.into_iter().next().map(Result::unwrap).map(
-                    |memory| {
-                        let page_size = memory.page_size_log2.unwrap_or(16);
-                        let available_pages_count: u32 = (self.linear_memory.len() as u32) >> page_size;
-                        let memory_size_pages = memory.initial as u32;
-                        global_translator.memory_size_limit = available_pages_count;
-                        memory.maximum.map(|max|  if max as u32 <= available_pages_count { global_translator.memory_size_limit = max as u32 });
+                CodeSectionEntry(body) => {
+                    let type_index = global_translator.function_type_map[code_index];
+                    let locals_reader = body.get_locals_reader()?;
+                    let mut operators_reader = body.get_operators_reader()?;
 
+                    // store function start pointers
+                    self.function_labels.push(
+                        ((self.instructions_count as u32) << 2)
+                            + (self.instructions.as_ptr() as u32),
+                    );
 
-                        memory_size = memory_size_pages << page_size;
+                    let mut translator =
+                        Translator::new(type_index, locals_reader, &mut global_translator, self);
+                    while let Ok(..) = operators_reader.visit_operator(&mut translator) {}
 
-                    if self.linear_memory.len() < memory_size as usize {
-                        panic!("Not enough memory allocated");
+                    let cfg_label_map = &translator.cfg_label_map;
+                    for index in translator.cfg_jobs {
+                        self.swap_target_with_disp_jump(index, cfg_label_map);
                     }
-
-                     self.global_space[0..4].copy_from_slice(&memory_size_pages.to_le_bytes());
-
-                    self.linear_memory.fill(0);
+                    code_index += 1;
                 }
-            );        
-        }
 
-            DataSection(data_section_reader) => {
-                data_section_reader.into_iter().map(Result::unwrap).for_each(|data_segment| {
-                    let offset = match data_segment.kind {
-                        wasmparser::DataKind::Active { memory_index, offset_expr } => {
-                            if memory_index != 0 {
-                                panic!("Unexpected memory index");
+                TableSection(table_section_reader) => {
+                    match table_section_reader.into_iter().next().map(Result::unwrap) {
+                        Some(table_object) => {
+                            if !table_object.ty.element_type.is_func_ref() {
+                                panic!("Unexpected table element type");
                             }
-                            ConstantExpressionEval::eval_const_expr(offset_expr).as_u32() as usize
-                        }
-                        wasmparser::DataKind::Passive => {
-                            panic!("Unexpected passive data segment");
-                        }
-                    };
-                    let data = data_segment.data;
-
-                    if memory_size < (offset + data.len()) as u32 {
-                        panic!("Data segment exceeded memory size")
-                    }
-
-                    
-
-                    //write data to memory at offset
-                    self.linear_memory[offset..(offset + data.len())].copy_from_slice(data);
-                });
-            }
-
-            ElementSection(element_section_reader) => {
-                element_section_reader.into_iter().map(Result::unwrap).for_each(|element_segment| {
-                    let offset = match element_segment.kind {
-                        wasmparser::ElementKind::Active { table_index, offset_expr } => {
-                            match table_index {
-                                None | Some(0) => {},
-                                _ => panic!("Unexpected table index")
+                            global_translator.table_size = table_object.ty.initial as usize;
+                            if self.table.len() < global_translator.table_size as usize {
+                                panic!("Not enough table space allocated");
                             }
-                            ConstantExpressionEval::eval_const_expr(offset_expr).as_u32() as usize
+                            self.table_type_indices = vec![0; global_translator.table_size];
+                            for i in 0..global_translator.table_size {
+                                self.table[i] = -1i32 as u32;
+                            }
                         }
-                        wasmparser::ElementKind::Passive => {
-                            panic!("Unexpected passive element segment");
-                        },
-                        wasmparser::ElementKind::Declared => {
-                            panic!("Unexpected declared element segment");
-                        }
-                    };
-                    match element_segment.items {
-                        wasmparser::ElementItems::Functions(functions) =>{
-                        for (i, func) in functions.into_iter().map(Result::unwrap).enumerate() {
-                            self.table[offset + i] = func;
-                            self.table_type_indices[offset+i] =global_translator.function_type_map[func as usize];
-                        }
-                    },
-                        wasmparser::ElementItems::Expressions(..) => panic!("Unexpected expressions in element segment"),
-                    };
-                    
-                });
-            }
-
-            StartSection { func, .. } => {
-                start_function = Some(func);
-            }
-
-            ExportSection(export_section_reader) => {
-                self.export_map.clear();
-                export_section_reader.into_iter().map(Result::unwrap).for_each(|export| {
-                    match export.kind {
-                        wasmparser::ExternalKind::Func => {
-                            let func_index: u32 = export.index;
-                            let func_name = export.name;
-                            self.export_map.insert(func_name.to_string(), func_index);
-                        }
-                        _ => {}
+                        None => {}
                     }
-                });
+                }
+
+                MemorySection(memory_section_reader) => {
+                    memory_section_reader
+                        .into_iter()
+                        .next()
+                        .map(Result::unwrap)
+                        .map(|memory| {
+                            let page_size = memory.page_size_log2.unwrap_or(16);
+                            let available_pages_count: u32 =
+                                (self.linear_memory.len() as u32) >> page_size;
+                            let memory_size_pages = memory.initial as u32;
+                            global_translator.memory_size_limit = available_pages_count;
+                            memory.maximum.map(|max| {
+                                if max as u32 <= available_pages_count {
+                                    global_translator.memory_size_limit = max as u32
+                                }
+                            });
+
+                            memory_size = memory_size_pages << page_size;
+
+                            if self.linear_memory.len() < memory_size as usize {
+                                panic!("Not enough memory allocated");
+                            }
+
+                            self.global_space[0..4]
+                                .copy_from_slice(&memory_size_pages.to_le_bytes());
+
+                            self.linear_memory.fill(0);
+                        });
+                }
+
+                DataSection(data_section_reader) => {
+                    data_section_reader
+                        .into_iter()
+                        .map(Result::unwrap)
+                        .for_each(|data_segment| {
+                            let offset = match data_segment.kind {
+                                wasmparser::DataKind::Active {
+                                    memory_index,
+                                    offset_expr,
+                                } => {
+                                    if memory_index != 0 {
+                                        panic!("Unexpected memory index");
+                                    }
+                                    ConstantExpressionEval::eval_const_expr(offset_expr).as_u32()
+                                        as usize
+                                }
+                                wasmparser::DataKind::Passive => {
+                                    panic!("Unexpected passive data segment");
+                                }
+                            };
+                            let data = data_segment.data;
+
+                            if memory_size < (offset + data.len()) as u32 {
+                                panic!("Data segment exceeded memory size")
+                            }
+
+                            //write data to memory at offset
+                            self.linear_memory[offset..(offset + data.len())].copy_from_slice(data);
+                        });
+                }
+
+                ElementSection(element_section_reader) => {
+                    element_section_reader
+                        .into_iter()
+                        .map(Result::unwrap)
+                        .for_each(|element_segment| {
+                            let offset = match element_segment.kind {
+                                wasmparser::ElementKind::Active {
+                                    table_index,
+                                    offset_expr,
+                                } => {
+                                    match table_index {
+                                        None | Some(0) => {}
+                                        _ => panic!("Unexpected table index"),
+                                    }
+                                    ConstantExpressionEval::eval_const_expr(offset_expr).as_u32()
+                                        as usize
+                                }
+                                wasmparser::ElementKind::Passive => {
+                                    panic!("Unexpected passive element segment");
+                                }
+                                wasmparser::ElementKind::Declared => {
+                                    panic!("Unexpected declared element segment");
+                                }
+                            };
+                            match element_segment.items {
+                                wasmparser::ElementItems::Functions(functions) => {
+                                    for (i, func) in
+                                        functions.into_iter().map(Result::unwrap).enumerate()
+                                    {
+                                        self.table[offset + i] = func;
+                                        self.table_type_indices[offset + i] =
+                                            global_translator.function_type_map[func as usize];
+                                    }
+                                }
+                                wasmparser::ElementItems::Expressions(..) => {
+                                    panic!("Unexpected expressions in element segment")
+                                }
+                            };
+                        });
+                }
+
+                StartSection { func, .. } => {
+                    start_function = Some(func);
+                }
+
+                ExportSection(export_section_reader) => {
+                    self.export_map.clear();
+                    export_section_reader
+                        .into_iter()
+                        .map(Result::unwrap)
+                        .for_each(|export| match export.kind {
+                            wasmparser::ExternalKind::Func => {
+                                let func_index: u32 = export.index;
+                                let func_name = export.name;
+                                self.export_map.insert(func_name.to_string(), func_index);
+                            }
+                            _ => {}
+                        });
+                }
+
+                //:TODO: Add signature checking and make generic
+                // Before parsing user shall be able to declare the host functions and their signature
+                // This is used to translate the host functions into the runtime.
+                ImportSection(import_section_reader) => {
+                    import_section_reader
+                        .into_iter()
+                        .map(Result::unwrap)
+                        .for_each(|import| {
+                            let address = match (import.module, import.name) {
+                                ("env", "__write__") => Some(WasmRuntime::__write__ as u32),
+                                ("env", "__read__") => Some(WasmRuntime::__read__ as u32),
+                                _ => None,
+                            };
+
+                            match import.ty {
+                                wasmparser::TypeRef::Func(func_type) => {
+                                    global_translator.function_type_map.push(func_type)
+                                }
+                                _ => panic!("unspported import type"),
+                            };
+
+                            code_index += 1;
+
+                            address.map(|address| self.function_labels.push(address));
+                        });
+                }
+
+                _ => {
+                    //println!("[WasmParser] Unhandled section: {:?}", t);
+                }
             }
-
-            //:TODO: Add signature checking and make generic
-            // Before parsing user shall be able to declare the host functions and their signature
-            // This is used to translate the host functions into the runtime.
-        
-            ImportSection(import_section_reader) => {
-                import_section_reader.into_iter().map(Result::unwrap).for_each(|import|{
-                        let address = match (import.module,import.name) {
-                            ("env","__write__") => Some(WasmRuntime::__write__ as u32),
-                            ("env","__read__") => Some(WasmRuntime::__read__ as u32),
-                            _ => None
-                        };
-
-                        match import.ty {
-                            wasmparser::TypeRef::Func(func_type) => global_translator.function_type_map.push(func_type),
-                            _ => panic!("unspported import type")
-                        };
-
-                        code_index+=1;
-
-                        address.map(|address| self.function_labels.push(address)); 
-                });
-            }
-
-            _ => {
-                //println!("[WasmParser] Unhandled section: {:?}", t);
-            }
-
-        
         }
-    }
 
-
-    for index in global_translator.function_call_jobs.into_iter(){
-        self.swap_target_with_disp_call(index);
-    }
-    
-    for i in 0..global_translator.table_size{
-        if self.table[i] != -1i32 as u32 {
-            self.table[i] = self.function_labels[self.table[i] as usize];
+        for index in global_translator.function_call_jobs.into_iter() {
+            self.swap_target_with_disp_call(index);
         }
+
+        for i in 0..global_translator.table_size {
+            if self.table[i] != -1i32 as u32 {
+                self.table[i] = self.function_labels[self.table[i] as usize];
+            }
+        }
+
+        start_function.map(|func_index| self.call_function(func_index, vec![], None));
+
+        Ok(())
     }
 
-    start_function.map(|func_index| self.call_function(func_index, vec![], None));
-
-    Ok(())
-}
-
-#[cfg(feature="address-masking")]
-#[inline(always)]
-unsafe  fn call_function_asm(function_label:u32,arg_bytes_ptr:*const u32,arg_len:i32,linear_memory_ptr:u32,global_space_ptr:u32,table_ptr:u32,bitmask:u32) ->u64 {
-    let mut result:u64;
-    unsafe{
-        // The following assembly code is used to call a function with the given arguments.
-        // We assume that the called function can modify any registers including the one not restored when returning.
-        // For this reason all register are marked as clobbered.
-        // If this is not done we can potentially have a corrupted state after the function call and therefore undefined behavior.
-        // Actually happened that if we don't declare the registers as clobbered, this function is inlined and optimization level is 3 the heap memory allocator reported a corrupted state.
-        // When not inlined the function works as expected because the compiler assume that all lower context registers are modified.
-        //:TODO: It is possible to optimize the code by saving lower context registers in the stack and restoring them after the function call. (use SVLCX and RSLCX)
-        asm!(
+    #[cfg(feature = "address-masking")]
+    #[inline(always)]
+    unsafe fn call_function_asm(
+        function_label: u32,
+        arg_bytes_ptr: *const u32,
+        arg_len: i32,
+        linear_memory_ptr: u32,
+        global_space_ptr: u32,
+        table_ptr: u32,
+        bitmask: u32,
+    ) -> u64 {
+        let mut result: u64;
+        unsafe {
+            // The following assembly code is used to call a function with the given arguments.
+            // We assume that the called function can modify any registers including the one not restored when returning.
+            // For this reason all register are marked as clobbered.
+            // If this is not done we can potentially have a corrupted state after the function call and therefore undefined behavior.
+            // Actually happened that if we don't declare the registers as clobbered, this function is inlined and optimization level is 3 the heap memory allocator reported a corrupted state.
+            // When not inlined the function works as expected because the compiler assume that all lower context registers are modified.
+            //:TODO: It is possible to optimize the code by saving lower context registers in the stack and restoring them after the function call. (use SVLCX and RSLCX)
+            asm!(
             "MOV.AA %a15 , %a10",
             "ADDSC.A %a10, %a10, {arg_len}, 0",
             "1:",
@@ -447,25 +516,30 @@ unsafe  fn call_function_asm(function_label:u32,arg_bytes_ptr:*const u32,arg_len
             bitmask=inout(reg32) bitmask => _,
             function_label = inout(reg_ptr) function_label => _,
             out("a15") _ ,out("d2") _ , out("d3") _, out("d4") _, out("d5") _, out("d6") _, out("d7") _,out("a2") _,out("a3") _, out("a7") _);
-            
         }
         result
-        
-}
+    }
 
-#[cfg(not(feature="address-masking"))]
-#[inline(always)]
-unsafe  fn call_function_asm(function_label:u32,arg_bytes_ptr:*const u32,arg_len:i32,linear_memory_ptr:u32,global_space_ptr:u32,table_ptr:u32) ->u64 {
-   let mut result: u64;
-    unsafe{
-        // The following assembly code is used to call a function with the given arguments.
-        // We assume that the called function can modify any registers including the one not restored when returning.
-        // For this reason all register are marked as clobbered.
-        // If this is not done we can potentially have a corrupted state after the function call and therefore undefined behavior.
-        // Actually happened that if we don't declare the registers as clobbered, this function is inlined and optimization level is 3 the heap memory allocator reported a corrupted state.
-        // When not inlined the function works as expected because the compiler assume that all lower context registers are modified.
-        //:TODO: It is possible to optimize the code by saving lower context registers in the stack and restoring them after the function call. (use SVLCX and RSLCX)
-        asm!(
+    #[cfg(not(feature = "address-masking"))]
+    #[inline(always)]
+    unsafe fn call_function_asm(
+        function_label: u32,
+        arg_bytes_ptr: *const u32,
+        arg_len: i32,
+        linear_memory_ptr: u32,
+        global_space_ptr: u32,
+        table_ptr: u32,
+    ) -> u64 {
+        let mut result: u64;
+        unsafe {
+            // The following assembly code is used to call a function with the given arguments.
+            // We assume that the called function can modify any registers including the one not restored when returning.
+            // For this reason all register are marked as clobbered.
+            // If this is not done we can potentially have a corrupted state after the function call and therefore undefined behavior.
+            // Actually happened that if we don't declare the registers as clobbered, this function is inlined and optimization level is 3 the heap memory allocator reported a corrupted state.
+            // When not inlined the function works as expected because the compiler assume that all lower context registers are modified.
+            //:TODO: It is possible to optimize the code by saving lower context registers in the stack and restoring them after the function call. (use SVLCX and RSLCX)
+            asm!(
             "MOV.AA %a15 , %a10",
             "ADDSC.A %a10, %a10, {arg_len}, 0",
             "1:",
@@ -487,76 +561,103 @@ unsafe  fn call_function_asm(function_label:u32,arg_bytes_ptr:*const u32,arg_len
             out("a15") _ ,out("d2") _ , out("d3") _, out("d4") _, out("d5") _, out("d6") _, out("d7") _,out("a2") _,out("a3") _, out("a7") _);
         }
         result
-        
-}
+    }
 
     /// Calls a compiled WebAssembly function by its index. This function passes the arguments, initializes the dedicated registers, calls the function and returns the result.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `function_index` - The index of the function to call.
     /// * `args` - A vector of `Immediate` values representing the arguments to pass to the function. `i32` and `f32` values are passed as `Immediate::Word`, while `i64` and `f64` values are passed as `Immediate::DoubleWord`.
     /// * `return_size` - An optional `ValueSize` representing the size of the return value. If the return value is a `f32` or `i32`, the `ValueSize` is `ValueSize::Word`, while if the return value is a `f64` or `i64`, the `ValueSize` is `ValueSize::DoubleWord`.
-    /// 
-fn call_function(&mut self, function_index: u32, args:Vec<Immediate>, return_size: Option<ValueSize>) -> Option<Immediate> {
-    let function_label = self.function_labels[function_index as usize];
-    let mut arg_byte_vec = args.iter().flat_map(|arg| arg.as_word_vector()).collect::<Vec<u32>>();
-    arg_byte_vec.reverse();
-    let arg_bytes = arg_byte_vec.as_slice();
-    let arg_bytes_ptr = arg_bytes.as_ptr();	
-    let arg_len = - ((arg_bytes.len()<<2) as i32);
-    let linear_memory_ptr = self.linear_memory.as_ptr() as u32;
-    let global_space_ptr = self.global_space.as_ptr() as u32;
-    let table_ptr = self.table.as_ptr() as u32;
+    ///
+    fn call_function(
+        &mut self,
+        function_index: u32,
+        args: Vec<Immediate>,
+        return_size: Option<ValueSize>,
+    ) -> Option<Immediate> {
+        let function_label = self.function_labels[function_index as usize];
+        let mut arg_byte_vec = args
+            .iter()
+            .flat_map(|arg| arg.as_word_vector())
+            .collect::<Vec<u32>>();
+        arg_byte_vec.reverse();
+        let arg_bytes = arg_byte_vec.as_slice();
+        let arg_bytes_ptr = arg_bytes.as_ptr();
+        let arg_len = -((arg_bytes.len() << 2) as i32);
+        let linear_memory_ptr = self.linear_memory.as_ptr() as u32;
+        let global_space_ptr = self.global_space.as_ptr() as u32;
+        let table_ptr = self.table.as_ptr() as u32;
 
-    #[cfg(feature="address-masking")]
-    let bitmask = (self.linear_memory.len() - BUFFER_SIZE - 1) as u32;
+        #[cfg(feature = "address-masking")]
+        let bitmask = (self.linear_memory.len() - BUFFER_SIZE - 1) as u32;
 
-      #[cfg(feature="address-masking")]
-      let result = unsafe{Self::call_function_asm(function_label,arg_bytes_ptr,arg_len,linear_memory_ptr,global_space_ptr,table_ptr,bitmask)};
+        #[cfg(feature = "address-masking")]
+        let result = unsafe {
+            Self::call_function_asm(
+                function_label,
+                arg_bytes_ptr,
+                arg_len,
+                linear_memory_ptr,
+                global_space_ptr,
+                table_ptr,
+                bitmask,
+            )
+        };
 
-      #[cfg(not(feature="address-masking"))]
-      let result = unsafe{Self::call_function_asm(function_label,arg_bytes_ptr,arg_len,linear_memory_ptr,global_space_ptr,table_ptr)};
+        #[cfg(not(feature = "address-masking"))]
+        let result = unsafe {
+            Self::call_function_asm(
+                function_label,
+                arg_bytes_ptr,
+                arg_len,
+                linear_memory_ptr,
+                global_space_ptr,
+                table_ptr,
+            )
+        };
         match return_size {
-            Some(ValueSize::Word) => {
-                Some(Immediate::Word(result  as u32))
-            },
-            Some(ValueSize::DoubleWord) => {
-                Some(Immediate::DoubleWord(result as u64))
-            },
-            None =>  None,
+            Some(ValueSize::Word) => Some(Immediate::Word(result as u32)),
+            Some(ValueSize::DoubleWord) => Some(Immediate::DoubleWord(result as u64)),
+            None => None,
         }
-    
-    
-}
+    }
 
     /// Calls an exported WebAssembly function by its name. This function passes the arguments.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `function_name` - The name of the function to call.
     /// * `args` - A vector of `Immediate` values representing the arguments to pass to the function. `i32` and `f32` values are passed as `Immediate::Word`, while `i64` and `f64` values are passed as `Immediate::DoubleWord`.
     /// * `return_size` - An optional `ValueSize` representing the size of the return value. If the return value is a `f32` or `i32`, the `ValueSize` is `ValueSize::Word`, while if the return value is a `f64` or `i64`, the `ValueSize` is `ValueSize::DoubleWord`.
-pub fn call_exported_function(&mut self, function_name: &str, args: Vec<Immediate>, return_size: Option<ValueSize>) -> Option<Immediate> {
-    let function_index = self.export_map.get(function_name).unwrap();
-    self.call_function(*function_index, args, return_size)
-}
-    
-    /// Returns the size of a function in bytes. This is used for benchmarking in order to determine the size of the function in the instructions array.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `function_name` - The name of the function.
-    /// 
-    /// # Returns
-    /// 
-    /// The size of the function in bytes.
-pub fn get_function_size(&self, function_name: &str) -> i32 {
-    let function_index = *self.export_map.get(function_name).unwrap() as usize;
-    if function_index +1 < self.function_labels.len() {
-        self.function_labels[function_index+1] as i32 - self.function_labels[function_index] as i32
-    } else {
-        ((self.instructions_count as i32) << 2) + (self.instructions.as_ptr() as i32) - (self.function_labels[function_index] as i32)
+    pub fn call_exported_function(
+        &mut self,
+        function_name: &str,
+        args: Vec<Immediate>,
+        return_size: Option<ValueSize>,
+    ) -> Option<Immediate> {
+        let function_index = self.export_map.get(function_name).unwrap();
+        self.call_function(*function_index, args, return_size)
     }
-}
+
+    /// Returns the size of a function in bytes. This is used for benchmarking in order to determine the size of the function in the instructions array.
+    ///
+    /// # Arguments
+    ///
+    /// * `function_name` - The name of the function.
+    ///
+    /// # Returns
+    ///
+    /// The size of the function in bytes.
+    pub fn get_function_size(&self, function_name: &str) -> i32 {
+        let function_index = *self.export_map.get(function_name).unwrap() as usize;
+        if function_index + 1 < self.function_labels.len() {
+            self.function_labels[function_index + 1] as i32
+                - self.function_labels[function_index] as i32
+        } else {
+            ((self.instructions_count as i32) << 2) + (self.instructions.as_ptr() as i32)
+                - (self.function_labels[function_index] as i32)
+        }
+    }
 }

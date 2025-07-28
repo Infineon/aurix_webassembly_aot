@@ -589,7 +589,7 @@ impl<'a,'b> Translator<'a,'b> {
                 _ => {
                     // Handle NaN canonicalization for floating-point operations
                     if vb.produces_non_canonical_nan() { 
-                        vb = vb.adjust_for_snan() 
+                        vb = vb.adjust_for_non_canonical_nan() 
                     }
                     
                     let size = vb.val_size(&self.locals_map, &self.global_translator.globals_map);
@@ -631,7 +631,7 @@ impl<'a,'b> Translator<'a,'b> {
     /// 4. Return the final result location
     pub fn resolve_with_target(&mut self, target: Option<&MapperLocation>) -> MapperLocation {
         let mut vb = self.vb_stack.pop().unwrap();
-        if vb.produces_non_canonical_nan() { vb = vb.adjust_for_snan() }
+        if vb.produces_non_canonical_nan() { vb = vb.adjust_for_non_canonical_nan() }
         let mut scratch_variable_map: Vec<MapperLocation> = Vec::new();
         vb.post_order_dfs(|vb, is_top| self.resolve_vb(if is_top { target } else { None }, vb, &mut scratch_variable_map));
         scratch_variable_map.pop().unwrap()

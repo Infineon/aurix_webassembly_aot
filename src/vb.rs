@@ -489,7 +489,7 @@ impl VB{
                 _ => false
             }
             VB::UnaryVB { vb,.. } => match vb {
-                UnaryVB::F32Sqrt => true,
+                UnaryVB::F32Sqrt => true, //TODO: is this correct? Can sqrt produce non-canonical NaNs?
                 _ => false
             }
             _ => false
@@ -497,7 +497,7 @@ impl VB{
     }
 
     /// Adjusts the VB tree to avoid producing non-canonical NaNs by adding an addition of -0.0 to the top operation
-    pub fn adjust_for_snan(self) -> Self {
+    pub fn adjust_for_non_canonical_nan(self) -> Self {
         VB::BinaryVB { vb: BinaryVB::F32Add, lhs: Box::new(self) , rhs: Box::new(VB::AtomicVB(AtomicVB::F32Const { imm: (-0.0_f32).to_bits() })) }
     }
 

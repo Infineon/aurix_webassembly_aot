@@ -1142,7 +1142,9 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
 
     fn visit_i32_ge_u(&mut self) {
         self.add_binary_vb(BinaryVB::I32GeU);
-    }    fn visit_i64_eqz(&mut self) {
+    } 
+    
+    fn visit_i64_eqz(&mut self) {
         self.add_unary_vb(UnaryVB::I64EqZ);
     }
 
@@ -1576,7 +1578,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
 
     fn visit_i32_reinterpret_f32(&mut self) {
        let mut vb = self.vb_stack.pop().unwrap();
-       if vb.produces_non_canonical_nan() {vb = vb.adjust_for_snan();}
+       if vb.produces_non_canonical_nan() {vb = vb.adjust_for_non_canonical_nan();}
        self.vb_stack.push(vb); 
     }
 
