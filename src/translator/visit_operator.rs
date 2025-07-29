@@ -1049,7 +1049,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         self.store_value_in_memory(memarg, Memsize::Word, ValueSize::DoubleWord);
     }
 
-    fn visit_memory_size(&mut self,_mem:u32, _mem_byte: u8 ) {
+    fn visit_memory_size(&mut self,_mem:u32) {
         if self.check_dead_code() {
             return;
         }
@@ -1057,7 +1057,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         self.add_atomic_vb(AtomicVB::MemorySize);
     }
 
-    fn visit_memory_grow(&mut self,_mem:u32, _mem_byte: u8 ) {
+    fn visit_memory_grow(&mut self,_mem:u32) {
         if self.check_dead_code() {
             return;
         }
