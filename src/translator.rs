@@ -33,17 +33,17 @@ pub struct BlockTypes {
 }
 
 pub struct Translator<'a, 'b> {
-    pub vb_stack: Vec<VB>,
-    pub locals_map: Vec<MapperLocation>,
+    pub vb_stack: Vec<VB>, // valent blocks
+    pub locals_map: Vec<MapperLocation>, // location of local variables
     pub locked_register: Option<Register>,
-    pub cfg_label_stack: Vec<BlockLabel>,
+    pub cfg_label_stack: Vec<BlockLabel>, // stack of control flow labels for if, block, loop...
     pub cfg_block_type_stack: Vec<BlockTypes>,
-    pub vb_stack_ptr_stack: Vec<usize>,
-    pub dead_code_flag_stack: Vec<bool>,
+    pub vb_stack_ptr_stack: Vec<usize>, // points to the top of the stack at the beginning of each cfg block to allow reset when seeing br
+    pub dead_code_flag_stack: Vec<bool>, // to keep track of nested blocks and set dead code flag for the current block
     pub function_type_index: u32,
     pub global_translator: &'a mut GlobalTranslator,
     pub wasm_runtime: &'a mut WasmRuntime<'b>,
-    pub cfg_label_map: Vec<Option<usize>>,
+    pub cfg_label_map: Vec<Option<usize>>, // offset of each cfg label in the instruction memory
     pub cfg_jobs: Vec<usize>,
 }
 
@@ -66,14 +66,14 @@ impl<'a, 'b> Translator<'a, 'b> {
         global_translator: &'a mut GlobalTranslator,
         wasm_runtime: &'a mut WasmRuntime<'b>,
     ) -> Self {
-        wasm_runtime.add_instruction(Instr::LEA {
+        wasm_runtime.add_instruction(Instr::LEA { // initialize frame pointer with stack pointer
             base: STACK_POINTER,
             offset: Const16(0),
             dest: FRAME_POINTER,
         });
 
         let function_type = wasm_runtime.types[type_index as usize].unwrap_func();
-        let params_size: Vec<ValueSize> = function_type
+        let params_size: Vec<ValueSize> = function_type // vec of size for every param
             .params()
             .iter()
             .map(ValueSize::from_valtype)
@@ -99,7 +99,7 @@ impl<'a, 'b> Translator<'a, 'b> {
             }
         };
 
-        //exclude D[0] to dedicate it for virtual address bitmasking
+        // if we do bimasking D0 is for the bitmask
         #[cfg(feature = "address-masking")]
         let mut alloc_register_index: u8 = 1;
         #[cfg(not(feature = "address-masking"))]
@@ -108,6 +108,7 @@ impl<'a, 'b> Translator<'a, 'b> {
         let mut locals_map = Vec::new();
 
         // allocate registers for parameters, if there are not enough registers, the parameter is kept where it is on the stack
+        // 2 word params need an extended registers, for 1 word values we put them in a missed spot left by extended registers
         for i in 0..params_offset.len() {
             match params_size[i] {
                 ValueSize::Word => match missed_register {
@@ -266,7 +267,7 @@ impl<'a, 'b> Translator<'a, 'b> {
             cfg_label_map: vec![],
             cfg_block_type_stack: vec![],
             locked_register: None,
-            cfg_label_stack: Vec::new(),
+            cfg_label_stack: vec![],
             dead_code_flag_stack: vec![false],
             function_type_index: type_index,
             vb_stack_ptr_stack: vec![0],
