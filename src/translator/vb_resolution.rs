@@ -17,7 +17,7 @@
 //! - **AtomicVB**: Leaf nodes representing constants, locals, globals, and resolved values
 //! - **UnaryVB**: Single-operand operations (negation, conversion, loads, etc.)
 //! - **BinaryVB**: Two-operand operations (arithmetic, comparison, bitwise, etc.)
-//! - **Select**: Conditional selection between two values
+//! - **Select**: Conditional selection between two values, the only ternary operation
 //!
 //! ## Resolution Process
 //!
@@ -236,7 +236,7 @@ macro_rules! gen_f32_comparison_op {
 }
 
 /// Macro for generating i32 shift operations:
-/// Pattern: handle immediate vs register cases, mask with 0x1F, conditionally negate count
+/// Pattern: handle immediate vs register cases, mask with 0x1F (5 lower bits), conditionally negate count
 macro_rules! gen_i32_shift_op {
     // For left shift (no negation)
     ($name:ident, $instr:ident, shl) => {
@@ -260,8 +260,8 @@ macro_rules! gen_i32_shift_op {
                 },
                 _ => {
                     let count_register = self.next_available_data_register(scratch_variable_map, &vec![]);
-                    rhs.map_to_data_register(Some(count_register), self, scratch_variable_map, &vec![]);
-                    self.push_instruction(Instr::AND { lhs: count_register, rhs: RegisterOrConst::new_const(0x1F), dest: count_register });
+                    rhs.map_to_data_register(Some(count_register), self, scratch_variable_map, &vec![]); // TODO: may be optimized and compact with the line above by using None as target
+                    self.push_instruction(Instr::AND { lhs: count_register, rhs: RegisterOrConst::new_const(0x1F), dest: count_register }); // mask to 5 bits
                     if $negate_count {
                         self.push_instruction(Instr::RSUB0 { src: count_register });
                     }
@@ -276,8 +276,9 @@ macro_rules! gen_i32_shift_op {
     };
 }
 
-/// Macro for generating 64-bit bitwise operations with zero optimization:
+/// Macro for generating 64-bit bitwise operations with zero optimization: you don't need to do the operation if an operand is zero. 
 /// Pattern: handle each half separately with optimization for zero constants
+/// Only used for OR and XOR because the zero optimization is not applicable for AND (it would always return 0)
 macro_rules! gen_i64_bitwise_with_zero_opt {
     ($name:ident, $instr:ident) => {
         fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
@@ -303,9 +304,9 @@ macro_rules! gen_i64_bitwise_with_zero_opt {
     };
 }
 
-/// Macro for generating floating-point sign manipulation operations:
+/// Macro for generating floating-point sign manipulation operations: negation and absolute value.
 /// Pattern: f32 operations use single register, f64 operations use extended registers with upper/lower halves
-macro_rules! gen_f32_sign_op {
+macro_rules! gen_f32_sign_op { //TODO: refactor to a single macro for each operation
     // F32 absolute value: clear sign bit via shift left + shift right
     ($name:ident, abs) => {
         fn $name(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
@@ -438,7 +439,7 @@ macro_rules! gen_i32_rotate_op {
                     let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(width_pos_register)]);
                     let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
                     let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register), MapperLocation::ExtendedRegister(width_pos_register)]);
-                    self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(intermediate) });
+                    self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(intermediate) }); // TODO: Could be removed and extract to width_pos_register.lower_half() directly
                     self.push_instruction(Instr::EXTRU { src: lhs_register, width_pos: width_pos_register, dest: intermediate });
                     self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::DataRegister(width_pos_register.upper_half()), dest: dest_register });
                     self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
@@ -499,6 +500,7 @@ macro_rules! gen_i32_rotate_op {
 /// ## Logic:
 /// For immediate optimization: All operations use `(immediate + 1)` transformation
 /// For register case: Operands are swapped if $reverse_operands is true
+// TODO: What happens when the immediate + 1 overflows
 macro_rules! gen_i32_comparison_with_imm_opt {
     ($name:ident, $reverse_operands:expr, $imm_instr:ident, $reg_instr:ident) => {
         fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
@@ -696,7 +698,7 @@ impl<'a,'b> Translator<'a,'b> {
             },
             AtomicVB::Resolved { size, .. } => MapperLocation::Stack { size: *size },
             AtomicVB::Unreachable => MapperLocation::Unreachable,
-            AtomicVB::MemorySize => MapperLocation::Global { offset: 0, size: ValueSize::Word },
+            AtomicVB::MemorySize => MapperLocation::Global { offset: 0, size: ValueSize::Word }, // Memory size is stored in global space at offset 0
         };
         match potential_target {
             Some(target) => result.map_to_location(target, self, scratch_variable_map, &vec![]),
@@ -938,7 +940,7 @@ impl<'a,'b> Translator<'a,'b> {
                 }
                 dest_register.map_to_location(potential_target, self, scratch_variable_map)
             },
-            ValueSize::DoubleWord => {
+            ValueSize::DoubleWord => { // TODO: refactor to use SELN for 64-bit
                 let dest_register = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
                 let selector_register = selector.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone(), rhs.clone()]);
                 self.push_instruction(Instr::JEQ { target: self.cfg_label_map.len(), lhs: selector_register, rhs: RegisterOrSmallConst::new_const(0) });
@@ -1038,6 +1040,8 @@ impl<'a,'b> Translator<'a,'b> {
         ExtendedRegister(index_dest).map_to_location(potential_target, self, scratch_variable_map)
     }
 
+    //SUBX and ADDX set the carry flag for the lower half, SUBC and ADDC use it for the upper half.
+
     fn gen_i64_sub(&mut self, potential_target: Option<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, rhs: &MapperLocation) -> MapperLocation {
         let (ExtendedRegister(index_lhs), ExtendedRegister(index_rhs)) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
         let ExtendedRegister(index_dest) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
@@ -1115,9 +1119,10 @@ impl<'a,'b> Translator<'a,'b> {
             (MapperLocation::Immediate(imm), operand) => {
                 let operand_register = operand.map_to_data_register(None, self, scratch_variable_map, &vec![]);
                 let immediate = imm.as_i32();
-                if immediate >> 8 == 0 || immediate >> 8 == -1 {
+                if immediate >> 8 == 0 || immediate >> 8 == -1 { // TODO: replace with fits_as_comparison_immediate
                     self.push_instruction(Instr::RSUB { lhs: Const9::new(immediate as u16), rhs: operand_register, dest: dest_register });
                 } else {
+                    // Do -lhs + rhs and then negate the result
                     let immediate = -immediate;
                     let lower_immediate = immediate as u16;
                     let sign_extension = if (immediate as i16) < 0 { 0xffff } else { 0 };
@@ -1249,7 +1254,7 @@ impl<'a,'b> Translator<'a,'b> {
 
     fn gen_i64_popcnt(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let ExtendedRegister(src_index) = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
-        let lower_src_register = DataRegister(src_index);
+        let lower_src_register = DataRegister(src_index); // TODO: could use ExtendedRegister.lower_half() here
         let upper_src_register = DataRegister(src_index + 1);
         let ExtendedRegister(index) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
         let lower_dest_register = DataRegister(index);

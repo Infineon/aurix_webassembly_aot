@@ -259,7 +259,7 @@ impl VBTreeLocation{
 
 impl VB{
     
-    /// Returns the size of thr value represented by the VB
+    /// Returns the size of the value represented by the VB
     ///
     /// # Arguments
     /// * `locals_map` - the local variables map used during translation to represent the physical location of the local variables

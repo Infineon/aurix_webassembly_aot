@@ -166,6 +166,7 @@ impl DataRegister {
 
 fn process_memory_access_offset<'a,'b>(dynamic_offset: &Option<Box<MapperLocation>>, static_offset: &usize, translator: &mut Translator<'a,'b>, scratch_variable_map: &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>) -> (u32, AddressRegister) {
     
+    // if dynamic offset is an immediate, we can compute the offset directly
     let (mut offset, dynamic_offset) = match dynamic_offset {
         None => (*static_offset as u32, None),
         Some(dynamic_offset)  => match **dynamic_offset {
@@ -174,6 +175,7 @@ fn process_memory_access_offset<'a,'b>(dynamic_offset: &Option<Box<MapperLocatio
         }
     };
 
+    // add dynamic offset to the adress base
     let mut base = LINEAR_MEMORY_BASE;
     compute_offset(translator, scratch_variable_map, used_registers, &mut offset, dynamic_offset, &mut base);
     (offset, base)
@@ -188,6 +190,7 @@ fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_m
     }
 }   
 
+/// This function computes the offset for memory access, taking into account dynamic offsets and address masking.
 #[cfg(feature="address-masking")]
 fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_map: &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>, offset: &mut u32, dynamic_offset: Option<&Box<MapperLocation>>, base: &mut AddressRegister) {
     use crate::parse_and_translate::BUFFER_SIZE;
@@ -202,6 +205,7 @@ fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_m
 
             let scratch_register = translator.next_available_data_register(scratch_variable_map, used_registers);
 
+            // need to split immediate in two parts, because the immediate is 32 bits and the instruction only supports 16 bits
             if higher_offset!=0 {
                 translator.push_instruction(Instr::ADDIH { lhs: dynamic_register, rhs: Const16(higher_offset), dest: scratch_register });
                 dynamic_register = scratch_register;
@@ -211,6 +215,7 @@ fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_m
                 translator.push_instruction(Instr::ADDI { lhs: dynamic_register, rhs: Const16(lower_offset), dest: scratch_register });
                 dynamic_register = scratch_register;
             }
+            // register 0 is the bitmask if you do bitmasking, so here you compute the bitmasking
             translator.push_instruction(Instr::AND { lhs: dynamic_register, rhs: RegisterOrConst::new_register(0), dest: scratch_register });
             translator.push_instruction(Instr::ADDSCA { lhs:LINEAR_MEMORY_BASE, rhs: scratch_register, dest: ADDRESS_ACCUMULATOR, shift: Const4(0) });
             *base = ADDRESS_ACCUMULATOR;
@@ -473,7 +478,7 @@ impl MapperLocation {
     pub fn new_extended_register(register:u8) -> Self {
         MapperLocation::ExtendedRegister(ExtendedRegister::new(register))
     }
-
+    // lower 32 bits, not always the half
     pub fn lower_half (&self) -> Self {
         match self {
             MapperLocation::DataRegister(register) => MapperLocation::DataRegister(*register),
@@ -800,6 +805,7 @@ impl LocationCouple for  (&MapperLocation,&MapperLocation) {
     (lhs_register, rhs_register)
    }
 
+   // if the operation is commutative and one is an immediate and the other a register, we can swap them to have the register on the lhs
     fn map_abelian_large_children_to_register_or_const(self, is_signed_immediate:SignValue, translator: &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>) -> (ExtendedRegister, (RegisterOrConst,RegisterOrConst)) {
         match self {
             (MapperLocation::Immediate(imm), rhs) => {

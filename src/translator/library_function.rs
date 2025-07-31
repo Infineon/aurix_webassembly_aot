@@ -78,7 +78,6 @@ impl <'a,'b> Translator<'a,'b>{
     /// ### Return value:
     ///  location of the result value
     pub fn call_library_function(&mut self, target: Option<&MapperLocation>, function:LibraryFunction, ops: Vec<&MapperLocation>, op_size: ValueSize, result_size: ValueSize, scratch_variable_map : &mut Vec<MapperLocation>) -> MapperLocation {
-        self.push_instruction(Instr::SVLCX);
         self.setup_ops(op_size, ops, scratch_variable_map);
         self.perform_external_call(function);
         self.process_external_result(target, result_size, scratch_variable_map)
@@ -188,6 +187,7 @@ impl <'a,'b> Translator<'a,'b>{
     /// Note that we need to account for the scenario where we have multiple arguments and one exists already in the target of the other one.
     /// In this implementation, the arguments are filled backward and the first argument is saved in another register first if it is located at the target of the second one.  
     fn setup_ops(&mut self, op_size: ValueSize, mut ops: Vec<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>) {
+        self.push_instruction(Instr::SVLCX);
         let start_index = 4;
         let increment = match op_size {
             ValueSize::Word => 1,

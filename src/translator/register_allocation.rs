@@ -11,7 +11,7 @@ use crate::translator::{Translator, MAX_ALL_REGISTERS, MAX_LOCAL_REGISTERS};
 /// helper function for spilling scratch values
 /// maps a scratch value location to the register it occupies:
 /// In case the value is already stored in a register, this is straightforward
-/// In case the value is stored in the linear memory, the register corresponds to the one occupied by the value corresponding to its address in the linear memory
+/// In case the value is stored in the linear memory, the register corresponds is where the adress (offset) in the linear memory is stored.
 fn location_to_register(location: &MapperLocation) -> Option<Register> {
     match location {
         MapperLocation::DataRegister(DataRegister(index)) => Some(Register::DataRegister(DataRegister(*index))),
@@ -28,7 +28,7 @@ fn location_to_register(location: &MapperLocation) -> Option<Register> {
 impl <'a,'b> Translator<'a,'b> {
     /// helper function to spill a scratch value to the runtime stack
     /// Only values stored in (data/extended) registers need to be spilled.
-    /// Values stored in the lower context registers are not to be spilled, given that some of which may be allocated to store a local variable (and therefore such register cannot be reused within the wasm function for other purposes)
+    /// Values stored in the lower context registers are not to be spilled, given that some of them may be allocated to store a local variable (and therefore cannot be reused within the wasm function for other purposes)
     /// Values stored in the linear memory are not yet loaderd and do not need to be spilled. However their address in the linear memory to be accessed is a scratch value that may be spilled.
     fn spill_location(&mut self, location: &mut MapperLocation, data_register_allocation_vec: &mut Vec<bool> ) -> bool {
         match location {
@@ -150,6 +150,7 @@ impl <'a,'b> Translator<'a,'b> {
             }
         }
         match target {
+            // we don't need to check the scratch_variable_map here, because if the target is specified we're at the top of the valent block tree and therefore the scratch variable map is empty
             Some(MapperLocation::DataRegister(DataRegister(index)) ) if !occupied_used_registers[*index as usize] => DataRegister(*index),
             _ => self.next_available_data_register(scratch_variable_map, used_registers)
         }
