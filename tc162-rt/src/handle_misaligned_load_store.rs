@@ -15,21 +15,64 @@ struct ExtendedRegister(u8);
 
 struct Offset(u16);
 
-enum Instr{
-    LDHU { dest: DataRegister, base: AddressRegister, offset: Offset },
-    LDW { dest: DataRegister, base: AddressRegister, offset: Offset },
-    LDD { dest: ExtendedRegister, base: AddressRegister, offset: Offset },
-    STB { src: DataRegister, base: AddressRegister, offset: Offset },
-    STH { src: DataRegister, base: AddressRegister, offset: Offset },
+enum Instr {
+    LDHU {
+        dest: DataRegister,
+        base: AddressRegister,
+        offset: Offset,
+    },
+    LDW {
+        dest: DataRegister,
+        base: AddressRegister,
+        offset: Offset,
+    },
+    LDD {
+        dest: ExtendedRegister,
+        base: AddressRegister,
+        offset: Offset,
+    },
+    STB {
+        src: DataRegister,
+        base: AddressRegister,
+        offset: Offset,
+    },
+    STH {
+        src: DataRegister,
+        base: AddressRegister,
+        offset: Offset,
+    },
     SVLCX,
     RSLCX,
-    SH { src: DataRegister, count: i8, dest: DataRegister },
-    SHA { src: DataRegister, count: i8, dest: DataRegister },
-    OR { lhs: DataRegister, rhs: DataRegister, dest: DataRegister },
-    JI {target: AddressRegister},
-    LEA {dest: AddressRegister, base: AddressRegister, offset: Offset},
+    SH {
+        src: DataRegister,
+        count: i8,
+        dest: DataRegister,
+    },
+    SHA {
+        src: DataRegister,
+        count: i8,
+        dest: DataRegister,
+    },
+    OR {
+        lhs: DataRegister,
+        rhs: DataRegister,
+        dest: DataRegister,
+    },
+    JI {
+        target: AddressRegister,
+    },
+    LEA {
+        dest: AddressRegister,
+        base: AddressRegister,
+        offset: Offset,
+    },
     RFE,
-    DEXTR {src_lower: DataRegister, src_higher: DataRegister, dest: DataRegister, pos: u8}
+    DEXTR {
+        src_lower: DataRegister,
+        src_higher: DataRegister,
+        dest: DataRegister,
+        pos: u8,
+    },
 }
 
 impl Instr {
@@ -92,7 +135,7 @@ impl Instr {
                 let high_offset = (offset.0 >> 10) & 0x3f;
                 result |= (lower_offset as u32) << 16;
                 result |= (high_offset as u32) << 22;
-                result |= (mid_offset as u32)<< 28;
+                result |= (mid_offset as u32) << 28;
                 result
             }
             Instr::SVLCX => 0x200000d,
@@ -100,10 +143,10 @@ impl Instr {
             Instr::SH { src, count, dest } => {
                 let mut result = 0x8f;
                 result |= (src.0 as u32) << 8;
-                result |= ((*count as u32) & 0x3f) << 12; 
+                result |= ((*count as u32) & 0x3f) << 12;
                 result |= (dest.0 as u32) << 28;
                 result
-            },
+            }
             Instr::SHA { src, count, dest } => {
                 let mut result = 0x8f;
                 result |= (src.0 as u32) << 8;
@@ -111,7 +154,7 @@ impl Instr {
                 result |= 0x1 << 21;
                 result |= (dest.0 as u32) << 28;
                 result
-            },
+            }
             Instr::OR { lhs, rhs, dest } => {
                 let mut result = 0xf;
                 result |= (lhs.0 as u32) << 8;
@@ -139,7 +182,12 @@ impl Instr {
                 result
             }
             Instr::RFE => 0xd | (0x7 << 22),
-            Instr::DEXTR { src_lower, src_higher, dest, pos } => {
+            Instr::DEXTR {
+                src_lower,
+                src_higher,
+                dest,
+                pos,
+            } => {
                 let mut result = 0x77;
                 result |= (src_higher.0 as u32) << 8;
                 result |= (src_lower.0 as u32) << 12;
@@ -147,15 +195,14 @@ impl Instr {
                 result |= (dest.0 as u32) << 28;
                 result
             }
+        }
     }
-    
-}
 }
 
 #[derive(PartialEq)]
 enum RegisterContext {
     LowerContext,
-    UpperContext
+    UpperContext,
 }
 
 fn _push_instruction(instr: Instr, index: &mut usize) {
@@ -166,15 +213,38 @@ fn _push_instruction(instr: Instr, index: &mut usize) {
     *index += 1;
 }
 
-fn _push_transition(context_to_be_saved: &RegisterContext, index: &mut usize, restore_context: bool) {
+fn _push_transition(
+    context_to_be_saved: &RegisterContext,
+    index: &mut usize,
+    restore_context: bool,
+) {
     if *context_to_be_saved == RegisterContext::LowerContext {
         if restore_context {
             _push_instruction(Instr::RSLCX, index);
         }
-        _push_instruction(Instr::LEA{dest: AddressRegister(3), offset:Offset(4), base:AddressRegister(3)  }, index);
-        _push_instruction(Instr::JI { target: AddressRegister(3) }, index);
+        _push_instruction(
+            Instr::LEA {
+                dest: AddressRegister(3),
+                offset: Offset(4),
+                base: AddressRegister(3),
+            },
+            index,
+        );
+        _push_instruction(
+            Instr::JI {
+                target: AddressRegister(3),
+            },
+            index,
+        );
     } else {
-        _push_instruction(Instr::LEA {base: AddressRegister(11), dest: AddressRegister(11), offset: Offset(4)}, index);
+        _push_instruction(
+            Instr::LEA {
+                base: AddressRegister(11),
+                dest: AddressRegister(11),
+                offset: Offset(4),
+            },
+            index,
+        );
         _push_instruction(Instr::RFE, index);
     }
 }
@@ -182,7 +252,7 @@ fn _push_transition(context_to_be_saved: &RegisterContext, index: &mut usize, re
 /// It shall be called from Data Address Aligment trap
 #[no_mangle]
 pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
-    unsafe{asm!("SVLCX")};
+    unsafe { asm!("SVLCX") };
     let failed_instruction_ptr: *const u32;
     unsafe {
         asm!(
@@ -209,7 +279,7 @@ pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
 
     let mut index = 0;
     let mut push_instruction = |instr: Instr| _push_instruction(instr, &mut index);
-    
+
     match opcode {
         0xc9 => {
             // LD.H
@@ -219,12 +289,19 @@ pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
                 offset: Offset(offset.wrapping_sub(1)),
             });
 
-            push_instruction(Instr::SH { src: DataRegister(data_register), count: 8, dest: DataRegister(data_register) });
-            push_instruction(Instr::SHA { src: DataRegister(data_register), count: -16, dest: DataRegister(data_register) });
+            push_instruction(Instr::SH {
+                src: DataRegister(data_register),
+                count: 8,
+                dest: DataRegister(data_register),
+            });
+            push_instruction(Instr::SHA {
+                src: DataRegister(data_register),
+                count: -16,
+                dest: DataRegister(data_register),
+            });
 
             _push_transition(&context_to_be_saved, &mut index, false);
-
-        },
+        }
         0xb9 => {
             // LD.HU
             push_instruction(Instr::LDW {
@@ -233,11 +310,19 @@ pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
                 offset: Offset(offset.wrapping_sub(1)),
             });
 
-            push_instruction(Instr::SH { src: DataRegister(data_register), count: 8, dest: DataRegister(data_register) });
-            push_instruction(Instr::SH { src: DataRegister(data_register), count: -16, dest: DataRegister(data_register) });
+            push_instruction(Instr::SH {
+                src: DataRegister(data_register),
+                count: 8,
+                dest: DataRegister(data_register),
+            });
+            push_instruction(Instr::SH {
+                src: DataRegister(data_register),
+                count: -16,
+                dest: DataRegister(data_register),
+            });
 
             _push_transition(&context_to_be_saved, &mut index, false);
-        },
+        }
         0x19 => {
             // LD.W
             if context_to_be_saved == RegisterContext::LowerContext {
@@ -248,14 +333,34 @@ pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
                 RegisterContext::UpperContext => DataRegister(8),
             };
 
-            push_instruction(Instr::LDHU { dest:DataRegister(data_register), base: AddressRegister(base_register), offset: Offset(offset.wrapping_sub(1)) });
-            push_instruction(Instr::SH { src: DataRegister(data_register), count: -8, dest: DataRegister(data_register) });
-            push_instruction(Instr::LDW { dest: dest, base: AddressRegister(base_register), offset: Offset(offset + 1) });
-            push_instruction(Instr::SH { src: dest, count: 8, dest });
-            push_instruction(Instr::OR { lhs: dest, rhs: DataRegister(data_register), dest: DataRegister(data_register) });
+            push_instruction(Instr::LDHU {
+                dest: DataRegister(data_register),
+                base: AddressRegister(base_register),
+                offset: Offset(offset.wrapping_sub(1)),
+            });
+            push_instruction(Instr::SH {
+                src: DataRegister(data_register),
+                count: -8,
+                dest: DataRegister(data_register),
+            });
+            push_instruction(Instr::LDW {
+                dest: dest,
+                base: AddressRegister(base_register),
+                offset: Offset(offset + 1),
+            });
+            push_instruction(Instr::SH {
+                src: dest,
+                count: 8,
+                dest,
+            });
+            push_instruction(Instr::OR {
+                lhs: dest,
+                rhs: DataRegister(data_register),
+                dest: DataRegister(data_register),
+            });
 
-            _push_transition(&context_to_be_saved, &mut index,true);
-        },
+            _push_transition(&context_to_be_saved, &mut index, true);
+        }
         0x09 => {
             // LD.D
             offset = offset & 0x3ff;
@@ -269,16 +374,40 @@ pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
                 RegisterContext::UpperContext => DataRegister(8),
             };
 
+            push_instruction(Instr::LDHU {
+                dest,
+                base: AddressRegister(base_register),
+                offset: Offset(offset.wrapping_sub(1)),
+            });
+            push_instruction(Instr::SH {
+                src: dest,
+                count: -8,
+                dest,
+            });
+            push_instruction(Instr::LDD {
+                dest: ExtendedRegister(data_register),
+                base: AddressRegister(base_register),
+                offset: Offset(offset + 1),
+            });
+            push_instruction(Instr::DEXTR {
+                src_lower: DataRegister(data_register),
+                src_higher: DataRegister(data_register + 1),
+                dest: DataRegister(data_register + 1),
+                pos: 8,
+            });
+            push_instruction(Instr::SH {
+                src: DataRegister(data_register),
+                count: 8,
+                dest: DataRegister(data_register),
+            });
+            push_instruction(Instr::OR {
+                lhs: DataRegister(data_register),
+                rhs: dest,
+                dest: DataRegister(data_register),
+            });
 
-            push_instruction(Instr::LDHU { dest, base: AddressRegister(base_register), offset: Offset(offset.wrapping_sub(1)) });
-            push_instruction(Instr::SH { src: dest, count: -8, dest });
-            push_instruction(Instr::LDD { dest: ExtendedRegister(data_register), base: AddressRegister(base_register), offset: Offset(offset + 1) });
-            push_instruction(Instr::DEXTR { src_lower: DataRegister(data_register) , src_higher: DataRegister(data_register + 1), dest: DataRegister(data_register + 1), pos: 8 });
-            push_instruction(Instr::SH { src: DataRegister(data_register), count: 8, dest: DataRegister(data_register) });
-            push_instruction(Instr::OR { lhs: DataRegister(data_register), rhs: dest, dest: DataRegister(data_register) });
-
-            _push_transition(&context_to_be_saved, &mut index,true);
-        },
+            _push_transition(&context_to_be_saved, &mut index, true);
+        }
         0xf9 => {
             //ST.H
             if context_to_be_saved == RegisterContext::LowerContext {
@@ -290,12 +419,24 @@ pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
                 RegisterContext::UpperContext => DataRegister(8),
             };
 
-            push_instruction(Instr::STB{src: DataRegister(data_register), base: AddressRegister(base_register), offset: Offset(offset)});
-            push_instruction(Instr::SH { src: DataRegister(data_register), count: -8, dest: src});
-            push_instruction(Instr::STB{src, base: AddressRegister(base_register), offset: Offset(offset+1)});
+            push_instruction(Instr::STB {
+                src: DataRegister(data_register),
+                base: AddressRegister(base_register),
+                offset: Offset(offset),
+            });
+            push_instruction(Instr::SH {
+                src: DataRegister(data_register),
+                count: -8,
+                dest: src,
+            });
+            push_instruction(Instr::STB {
+                src,
+                base: AddressRegister(base_register),
+                offset: Offset(offset + 1),
+            });
 
-            _push_transition(&context_to_be_saved, &mut index,true);
-        },
+            _push_transition(&context_to_be_saved, &mut index, true);
+        }
         0x59 => {
             // ST.W
             if context_to_be_saved == RegisterContext::LowerContext {
@@ -307,14 +448,34 @@ pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
                 RegisterContext::UpperContext => DataRegister(8),
             };
 
-            push_instruction(Instr::STB{src: DataRegister(data_register), base: AddressRegister(base_register), offset: Offset(offset)});
-            push_instruction(Instr::SH { src: DataRegister(data_register), count: -8, dest: src});
-            push_instruction(Instr::STH{ src, base: AddressRegister(base_register), offset: Offset(offset+1)});
-            push_instruction(Instr::SH { src, count: -16, dest: src});
-            push_instruction(Instr::STB{src, base: AddressRegister(base_register), offset: Offset(offset+3)});
+            push_instruction(Instr::STB {
+                src: DataRegister(data_register),
+                base: AddressRegister(base_register),
+                offset: Offset(offset),
+            });
+            push_instruction(Instr::SH {
+                src: DataRegister(data_register),
+                count: -8,
+                dest: src,
+            });
+            push_instruction(Instr::STH {
+                src,
+                base: AddressRegister(base_register),
+                offset: Offset(offset + 1),
+            });
+            push_instruction(Instr::SH {
+                src,
+                count: -16,
+                dest: src,
+            });
+            push_instruction(Instr::STB {
+                src,
+                base: AddressRegister(base_register),
+                offset: Offset(offset + 3),
+            });
 
             _push_transition(&context_to_be_saved, &mut index, true);
-        },
+        }
         0x89 => {
             // ST.D
             offset = offset & 0x3ff;
@@ -328,49 +489,83 @@ pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
                 RegisterContext::UpperContext => DataRegister(8),
             };
 
-            push_instruction(Instr::STB{src: DataRegister(data_register), base: AddressRegister(base_register), offset: Offset(offset)});
-            push_instruction(Instr::SH { src: DataRegister(data_register), count: -8, dest: src});
-            push_instruction(Instr::STH{ src, base: AddressRegister(base_register), offset: Offset(offset+1)});
-            push_instruction(Instr::SH { src, count: -16, dest: src});
-            push_instruction(Instr::STB{src, base: AddressRegister(base_register), offset: Offset(offset+3)});
-            push_instruction(Instr::STB { src: DataRegister(data_register + 1) , base: AddressRegister(base_register) , offset: Offset(offset + 4) });
-            push_instruction(Instr::SH { src: DataRegister(data_register + 1), count: -8, dest: src});
-            push_instruction(Instr::STH { src: src, base: AddressRegister(base_register), offset: Offset(offset + 5) });
-            push_instruction(Instr::SH { src, count: -16, dest: src});
-            push_instruction(Instr::STB { src, base: AddressRegister(base_register), offset: Offset(offset + 7) });
+            push_instruction(Instr::STB {
+                src: DataRegister(data_register),
+                base: AddressRegister(base_register),
+                offset: Offset(offset),
+            });
+            push_instruction(Instr::SH {
+                src: DataRegister(data_register),
+                count: -8,
+                dest: src,
+            });
+            push_instruction(Instr::STH {
+                src,
+                base: AddressRegister(base_register),
+                offset: Offset(offset + 1),
+            });
+            push_instruction(Instr::SH {
+                src,
+                count: -16,
+                dest: src,
+            });
+            push_instruction(Instr::STB {
+                src,
+                base: AddressRegister(base_register),
+                offset: Offset(offset + 3),
+            });
+            push_instruction(Instr::STB {
+                src: DataRegister(data_register + 1),
+                base: AddressRegister(base_register),
+                offset: Offset(offset + 4),
+            });
+            push_instruction(Instr::SH {
+                src: DataRegister(data_register + 1),
+                count: -8,
+                dest: src,
+            });
+            push_instruction(Instr::STH {
+                src: src,
+                base: AddressRegister(base_register),
+                offset: Offset(offset + 5),
+            });
+            push_instruction(Instr::SH {
+                src,
+                count: -16,
+                dest: src,
+            });
+            push_instruction(Instr::STB {
+                src,
+                base: AddressRegister(base_register),
+                offset: Offset(offset + 7),
+            });
 
             _push_transition(&context_to_be_saved, &mut index, true);
-        },
+        }
         _ => {}
     }
 
     match context_to_be_saved {
-        RegisterContext::LowerContext => {
-            unsafe {
-                asm!(
-                    "RSLCX",
-                    "mov.aa %a3, %a11",
-                    "mov.aa %a11, {code_patch_ptr} ",
-                    "RFE",
-                    code_patch_ptr = in(reg_ptr) HANDLE_MISALIGNED_ACCESS_CODE_PATCH.as_ptr(),
-                    out("a3") _,
-                );
-            }
-        }
-        RegisterContext::UpperContext => {
-            unsafe {
-                asm!(
-                    "RSLCX",
-                    "mov.aa %a3, {code_patch_ptr}",
-                    "ji %a3",
-                    code_patch_ptr = in(reg_ptr) HANDLE_MISALIGNED_ACCESS_CODE_PATCH.as_ptr(),
-                    out("a3") _,
-                );
-            }
-        }
-       
+        RegisterContext::LowerContext => unsafe {
+            asm!(
+                "RSLCX",
+                "mov.aa %a3, %a11",
+                "mov.aa %a11, {code_patch_ptr} ",
+                "RFE",
+                code_patch_ptr = in(reg_ptr) HANDLE_MISALIGNED_ACCESS_CODE_PATCH.as_ptr(),
+                out("a3") _,
+            );
+        },
+        RegisterContext::UpperContext => unsafe {
+            asm!(
+                "RSLCX",
+                "mov.aa %a3, {code_patch_ptr}",
+                "ji %a3",
+                code_patch_ptr = in(reg_ptr) HANDLE_MISALIGNED_ACCESS_CODE_PATCH.as_ptr(),
+                out("a3") _,
+            );
+        },
     }
 
     unreachable_unchecked()
-   
 }

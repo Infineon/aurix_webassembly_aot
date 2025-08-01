@@ -517,6 +517,9 @@ impl<'a,'b> Translator<'a,'b> {
     
     /// Update a label at the given index with the current instruction position
     fn update_label_to_current_position(&mut self, index: usize) {
+        if self.cfg_label_map[index].is_some() {
+            return; // Label already set, no need to update. This is a backward jump.
+        }
         self.cfg_label_map[index] = Some(self.wasm_runtime.instructions_count);
     }
 
@@ -843,11 +846,13 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
 
         let function_index_vb = self.vb_stack.pop().unwrap();
 
-        self.setup_function_call();
+        self.resolve_all();
 
         self.vb_stack.push(function_index_vb);
 
         let table_offset = self.resolve_to_data_register();
+
+        self.push_instruction(Instr::SVLCX);
        
         if table_offset != DataRegister(4) {
             self.push_instruction(Instr::MOV {src: isa_model::RegisterOrLargeConst::DataRegister(table_offset), dest: Register::DataRegister(DataRegister(4))});

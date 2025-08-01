@@ -502,7 +502,7 @@ macro_rules! gen_i32_rotate_op {
 /// For register case: Operands are swapped if $reverse_operands is true
 // TODO: What happens when the immediate + 1 overflows
 macro_rules! gen_i32_comparison_with_imm_opt {
-    ($name:ident, $reverse_operands:expr, $imm_instr:ident, $reg_instr:ident) => {
+    ($name:ident, $reverse_operands:expr, $imm_instr:ident, $reg_instr:ident, $imm_inc:expr) => {
         fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
             // Auto-derive sign handling from instruction type
             let sign = if stringify!($reg_instr).ends_with('U') { 
@@ -513,24 +513,22 @@ macro_rules! gen_i32_comparison_with_imm_opt {
             
             // Try immediate optimization on right side first (lhs OP rhs_imm)
             if let MapperLocation::Immediate(imm) = rhs {
-                let adjusted_imm = Immediate::Word((imm.as_u32() + 1) as u32);
+                let adjusted_imm = Immediate::Word((imm.as_u32() + $imm_inc) as u32);
                 if adjusted_imm.fits_as_comparison_immediate(sign) {
-                    let immediate = imm.as_i32();
                     let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
                     let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    self.push_instruction(Instr::$imm_instr { lhs: lhs_register, rhs: RegisterOrConst::new_const((immediate + 1) as u16), dest: dest_register });
+                    self.push_instruction(Instr::$imm_instr { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register });
                     return dest_register.map_to_location(potential_target, self, scratch_variable_map);
                 }
             }
             
             // Try immediate optimization on left side (lhs_imm OP rhs)
             if let MapperLocation::Immediate(imm) = lhs {
-                let adjusted_imm = Immediate::Word((imm.as_u32() + 1) as u32);
+                let adjusted_imm = Immediate::Word((imm.as_u32() + $imm_inc) as u32);
                 if adjusted_imm.fits_as_comparison_immediate(sign) {
-                    let immediate = imm.as_i32();
                     let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
                     let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    self.push_instruction(Instr::$imm_instr { lhs: rhs_register, rhs: RegisterOrConst::new_const((immediate + 1) as u16), dest: dest_register });
+                    self.push_instruction(Instr::$imm_instr { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register });
                     return dest_register.map_to_location(potential_target, self, scratch_variable_map);
                 }
             }
@@ -1179,14 +1177,14 @@ impl<'a,'b> Translator<'a,'b> {
     gen_i64_eq_style_op!(gen_i64_ne, ne);
 
     // Generate i32 comparison operations using unified macro with boolean reverse flag
-    gen_i32_comparison_with_imm_opt!(gen_i32_gtu, true, GEU, LTU);
-    gen_i32_comparison_with_imm_opt!(gen_i32_gts, true, GE, LT);
-    gen_i32_comparison_with_imm_opt!(gen_i32_leu, true, LTU, GEU);
-    gen_i32_comparison_with_imm_opt!(gen_i32_les, true, LT, GE);
-    gen_i32_comparison_with_imm_opt!(gen_i32_geu, false, LTU, GEU);
-    gen_i32_comparison_with_imm_opt!(gen_i32_ges, false, LT, GE);
-    gen_i32_comparison_with_imm_opt!(gen_i32_ltu, false, GEU, LTU);
-    gen_i32_comparison_with_imm_opt!(gen_i32_lts, false, GE, LT);
+    gen_i32_comparison_with_imm_opt!(gen_i32_gtu, true, GEU, LTU, 1);
+    gen_i32_comparison_with_imm_opt!(gen_i32_gts, true, GE, LT, 1);
+    gen_i32_comparison_with_imm_opt!(gen_i32_leu, true, LTU, GEU, 1);
+    gen_i32_comparison_with_imm_opt!(gen_i32_les, true, LT, GE, 1);
+    gen_i32_comparison_with_imm_opt!(gen_i32_geu, false, GEU, GEU, 0);
+    gen_i32_comparison_with_imm_opt!(gen_i32_ges, false, GE, GE, 0);
+    gen_i32_comparison_with_imm_opt!(gen_i32_ltu, false, LTU, LTU, 0);
+    gen_i32_comparison_with_imm_opt!(gen_i32_lts, false, LT, LT, 0);
 
     // Generate 64-bit comparison operations using specialized macros
     gen_i64_comparison_op!(gen_i64_lts, ANDLTU, false, ORLT, false);
