@@ -1,5 +1,3 @@
-use core::arch::asm;
-
 use env_wrapper::wrap_env;
 
 use alloc::vec;
@@ -419,25 +417,19 @@ impl <'a> WasmRuntime <'a> {
     }
 
     wrap_env!{
-        fn __write__(address: i32, value: i32){
-            let mem_ptr: *mut i32;
-            unsafe{
-                asm!("mov.aa {mem_ptr} , %a6",
-                mem_ptr = out(reg_ptr) mem_ptr);
-            
-            *(mem_ptr.wrapping_add(address as usize))=value;
+        fn __write__(address: u32, value: u32){
+            unsafe {
+                let mem_ptr = address as *mut u32;
+                *mem_ptr = value;
             }
         }
     }
 
     wrap_env!{
-        fn __read__(address:i32) -> i32 {
-            let mem_ptr: *const i32;
-            unsafe{
-                asm!("mov.aa {mem_ptr} , %a6",
-                mem_ptr = out(reg_ptr) mem_ptr);
-            
-            *(mem_ptr.wrapping_add(address as usize))
+        fn __read__(address:u32) -> u32 {
+            unsafe {
+                let mem_ptr = address as *const u32;
+                *mem_ptr
             }
         }
     }

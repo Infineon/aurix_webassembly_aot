@@ -1,0 +1,30 @@
+[env]
+# CARGO_MAKE_RUST_CHANNEL = "stable"
+[tasks.rustc-version-stable]
+toolchain = "stable"
+command = "rustc"
+args = ["--version"]
+
+# [tasks.build]
+# command = "cargo"
+# args = ["build"]
+# dependencies = ["rustc-version-stable"]
+
+[tasks.echo-cargo-stable]
+workspace = false
+script_runner = "@shell"
+toolchain = "stable"
+script = '''
+echo "Hello World From Script"
+echo ${CARGO_MAKE_RUST_CHANNEL}
+'''
+
+
+[tasks.pippo]
+env = { "SOME_ENV_VAR" = "value" }
+run_task = "actual-task"
+
+[tasks.actual-task]
+script_runner = "@shell"
+condition = { env_set = ["SOME_ENV_VAR"] }
+script = "echo %SOME_ENV_VAR%   ${SOME_ENV_VAR}"

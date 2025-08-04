@@ -10,7 +10,7 @@ export DEFMT_LOG=info
 tsim16p_e -tc162p -config_file_path tsim-config-tc162 -s -x 565600000 -H -o "$1" > sim.out 2>error.txt
 
 # TSIM Tracing enabled
-# ./tsim16p_e.exe -tc162p -config_file_path tsim-config-tc162 -s -U -x 565600000 -e -H -o "$1" > sim.out 2>error.txt
+# tsim16p_e -tc162p -config_file_path tsim-config-tc162 -s -U -x 565600000 -e -H -o "$1" > sim.out 2>error.txt
 
 local_error=$?
 
