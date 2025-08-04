@@ -138,7 +138,7 @@ static mut EXCEPTION_PANIC: fn(u32) -> ! = |x| exit(x);
 #[no_mangle]
 pub extern "C" fn _exit_exception() -> ! {
     #[cfg(feature = "support-misaligned-access")]
-    const MISALIGNED_ACCESS_EXCEPTION_CODE:u32 = 0x204;
+    const MISALIGNED_ACCESS_EXCEPTION_CODE: u32 = 0x204;
     let status: u32;
     unsafe {
         asm!(

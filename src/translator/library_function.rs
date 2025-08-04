@@ -419,7 +419,7 @@ impl <'a> WasmRuntime <'a> {
     wrap_env!{
         fn __write__(address: u32, value: u32){
             unsafe {
-                let mem_ptr=address as *mut u32;
+                let mem_ptr = address as *mut u32;
                 *mem_ptr = value;
             }
         }
