@@ -22,11 +22,12 @@ use crate::translator::Translator;
 impl <'a,'b> Translator<'a,'b>{
 
     pub fn load_byte_from_memory(&mut self, dest: Register, base: AddressRegister, offset: u32, sign: SignValue){
+        // loading can only take a 16 bit offset, you add the upper offset to the base (with some minor caveats)
         let (lower_offset, base) = self.split_offset(offset, base);
         let lower_dest = dest.get_lower_register();
         let upper_dest = dest.get_upper_register();
 
-        match sign {
+        match sign { // sign extension or not from 8 to 32 bits
             SignValue::Signed => {
                 self.push_instruction(Instr::LDB {base, offset: Const16::new(lower_offset), dest: lower_dest});
             },
@@ -34,7 +35,7 @@ impl <'a,'b> Translator<'a,'b>{
                 self.push_instruction(Instr::LDBU {base, offset: Const16::new(lower_offset), dest: lower_dest});
             }
         }
-
+        // sign extension for the upper destination
         self.extend_sign_over_dest(upper_dest, sign, lower_dest);
     }
 
@@ -50,10 +51,10 @@ impl <'a,'b> Translator<'a,'b>{
         let upper_dest = dest.get_upper_register();
 
         match align {
-            0 => {
+            0 => { // aurix can't load unaligned half words so each byte needs to be loaded separately
                 let intermediate = self.next_available_data_register(scratch_variable_map, &vec![dest.as_location()]);
-                self.push_instruction(Instr::LDBU {base, offset: Const16::new(lower_offset), dest: intermediate});
-                match sign {
+                self.push_instruction(Instr::LDBU {base, offset: Const16::new(lower_offset), dest: intermediate}); // load first byte
+                match sign { //load second byte with right sign extension
                     SignValue::Signed => self.push_instruction(Instr::LDB {base, offset: Const16::new(lower_offset + 1), dest: lower_dest}),
                     SignValue::Unsigned =>self.push_instruction(Instr::LDBU {base, offset: Const16::new(lower_offset + 1), dest: lower_dest})
                 }
@@ -80,9 +81,9 @@ impl <'a,'b> Translator<'a,'b>{
         match align {
             0 => {
                 let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(src)]);
-                self.push_instruction(Instr::STB {base, offset: Const16::new(lower_offset), src});
-                self.push_instruction(Instr::SH {src, count: RegisterOrConst::Const9(Const9::new(-8i16 as u16)), dest: intermediate});
-                self.push_instruction(Instr::STB {base, offset: Const16::new(lower_offset + 1), src: intermediate});
+                self.push_instruction(Instr::STB {base, offset: Const16::new(lower_offset), src}); // store lower byte of register
+                self.push_instruction(Instr::SH {src, count: RegisterOrConst::Const9(Const9::new(-8i16 as u16)), dest: intermediate}); // shift upper byte into lower byte of register
+                self.push_instruction(Instr::STB {base, offset: Const16::new(lower_offset + 1), src: intermediate}); // store upper byte (that's now in the lower byte)
             },
             _ => {
                 self.push_instruction(Instr::STH {base, offset: Const16::new(lower_offset), src});
@@ -250,7 +251,7 @@ impl <'a,'b> Translator<'a,'b>{
         upper_dest.map(|upper_dest: DataRegister|  match sign {
             SignValue::Signed => {
                 self.push_instruction(Instr::MOV{ src: RegisterOrLargeConst::DataRegister(lower_dest), dest: Register::DataRegister(upper_dest)});
-                self.push_instruction(Instr::SHA { src: upper_dest, count: RegisterOrConst::Const9(Const9::new(32)), dest: upper_dest});
+                self.push_instruction(Instr::SHA { src: upper_dest, count: RegisterOrConst::Const9(Const9::new(32)), dest: upper_dest}); // here the count is a signed 6-bit so 32 will be interpreted as -32
             },
             SignValue::Unsigned => {
                 self.push_instruction(Instr::MOV {src: RegisterOrLargeConst::Const16(Const16::new(0)), dest: Register::DataRegister(upper_dest)});

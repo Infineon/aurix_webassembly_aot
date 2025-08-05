@@ -27,8 +27,8 @@ pub enum BlockLabel {
     If { else_label: usize, end_label: usize },
 }
 
-pub struct BlockTypes {
-    pub block_type: (usize, Option<ValueSize>),
+pub struct BlockTypes { //TODO: Rename this, because BlockType is also something from wasmparser
+    pub block_type: (usize, Option<ValueSize>), //TODO: rename to end_type
     pub label_type: (usize, Option<ValueSize>),
 }
 

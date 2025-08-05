@@ -54,7 +54,7 @@ use crate::isa_model::{Const4, Const16, AddressRegister, TABLE_BASE, machine_ins
 
 /// macro helps implementing the OperatorVisitor trait. The MVP instructions are left to be implemented manually, while the others default to a panic.
 macro_rules! _visit_only_mvp {
-     // delegate the macro invocation to sub-invocations of this macro to
+    // delegate the macro invocation to sub-invocations of this macro to
     // deal with each instruction on a case-by-case basis.
     ($( @$proposal:ident $op:ident $({ $($arg:ident: $argty:ty),* })? => $visit:ident ($($ann:tt)*))*) => {
         $(
@@ -106,6 +106,7 @@ impl<'a,'b> Translator<'a,'b> {
         // Determine the result type and size for this block
         // Empty blocks have no result, Type blocks have a single result,
         // FuncType blocks use the function signature's first result
+        // TODO: We don't check that the functype has 0 parameters and no more than one result, does validation do that for us?
         let blockty_value_size = match blockty {
             BlockType::Empty => None,
             BlockType::Type(ty) => Some(val_type_size(&ty)),
@@ -181,7 +182,7 @@ impl<'a,'b> Translator<'a,'b> {
     /// 
     /// Example: Block with i32 result, original stack offset 16, current offset 24
     /// - Result is in some scratch register
-    /// - Need to write result to stack[16] and set SP to point to stack[20]
+    /// - Need to write result to stack\[16\] and set SP to point to stack\[20\]
     fn resolve_block_result(&mut self, target : (usize, Option<ValueSize>) ) {
         let (offset, size) = target;
         
@@ -196,7 +197,7 @@ impl<'a,'b> Translator<'a,'b> {
             None if current_stack_offset != offset => {
                 self.push_instruction(Instr::LEA { base: STACK_BASE, offset: Const16(-(offset as i16) as u16), dest: STACK_POINTER });
             },
-            // Has result: store result and adjust stack pointer
+            // Has result: store result on the stack and adjust stack pointer
             Some(_) => match result_register {
                 Some(Register::DataRegister(result_register)) => self.push_instruction(Instr::STWPI{ base: STACK_POINTER, offset: Const10(-(offset as i16)+ (current_stack_offset as i16)), src: result_register }),
                 Some(Register::ExtendedRegister(result_register)) => self.push_instruction(Instr::STDPI{ base: STACK_POINTER, offset: Const10(-(offset as i16) + (current_stack_offset as i16)), src: result_register }),
@@ -207,12 +208,13 @@ impl<'a,'b> Translator<'a,'b> {
     }
 
     /// resolve the return VB value (if existent) for the wasm function at the end or at a return instruction
+    /// result is stored in D[0]/E[0] and then used after function call, then we restore lower context and bitmask goes back to D[0]
     fn resolve_return_value(&mut self) {
         let result_type = self.get_current_function_result_type();
         match result_type {
             Some(ty) => {
                 let location  = match ValueSize::from_valtype(ty) {
-                    ValueSize::Word =>  MapperLocation::new_data_register(0),
+                    ValueSize::Word =>  MapperLocation::new_data_register(0), 
                     ValueSize::DoubleWord =>  MapperLocation::new_extended_register(0),
                 };
                 self.resolve_with_target(Some (&location));
@@ -327,11 +329,11 @@ impl<'a,'b> Translator<'a,'b> {
     fn generate_jump_instruction(&mut self, target: usize) {
         match self.cfg_label_map[target] {
             None => self.push_instruction(Instr::J { target }),
-            Some(..) => self.push_instruction(Instr::LOOPU { target }),
+            Some(..) => self.push_instruction(Instr::LOOPU { target }), //TODO: is LOOPU really useful?
         }
     }
 
-    /// Helper to handle function call parameters cleanup
+    /// Remove parameters from the VB stack as well as the memory stack after a function call
     fn cleanup_function_call_parameters(&mut self, function_type: &wasmparser::FuncType) {
         let params_count = function_type.params().len();
         self.vb_stack.truncate(self.vb_stack.len() - params_count);
@@ -343,7 +345,7 @@ impl<'a,'b> Translator<'a,'b> {
         }
     }
 
-    /// Helper to handle function call result placement
+    /// Push function result onto the stack and add it to the VB stack
     fn handle_function_call_result(&mut self, function_type: &wasmparser::FuncType) {
         function_type.results().get(0).map(|ty|{
             let runtime_stack_offset = self.get_runtime_stack_offset_from_last_vb();
@@ -372,6 +374,7 @@ impl<'a,'b> Translator<'a,'b> {
     /// Helper to update label addresses for forward jumps
     fn update_label_addresses(&mut self, block_label: BlockLabel) {
         let label_indices = match block_label {
+            // index is the index of the label in cfg_label_map
             BlockLabel::Block(index) => vec![index],
             //encountered in case of an if construct without an else
             BlockLabel::If { else_label, end_label } => vec![else_label, end_label],
@@ -523,16 +526,19 @@ impl<'a,'b> Translator<'a,'b> {
         self.cfg_label_map[index] = Some(self.wasm_runtime.instructions_count);
     }
 
-    /// Helper to generate appropriate call instruction based on function index
+    /// Helper to generate appropriate call instruction based on function index:
+    /// CALL if the displacement is small enough, otherwise CALLI with the function pointer loaded into an address register.
     fn generate_call_instruction(&mut self, function_index: u32) {
         let function_label = self.wasm_runtime.function_labels.get(function_index as usize).copied();
         match function_label {
             Some(function_label) => {
-                let current_ptr = (self.wasm_runtime.instructions.as_ptr() as u32) + ((self.wasm_runtime.instructions_count as u32) << 2);
+                let current_ptr = (self.wasm_runtime.instructions.as_ptr() as u32) + ((self.wasm_runtime.instructions_count as u32) << 2); // base of instructions + offset
                 let disp = function_label.wrapping_sub(current_ptr);
                 assert_eq!(disp & 1, 0);
-                let disp = disp >> 1;
+                let disp = disp >> 1; // Call actually goes to PC + 2*disp
                 
+                // Call uses a 24-bit displacement that is sign-extended to 32 bits, we need to check that this doesn't change the value
+                // If the displacement is too large, or if the sign extension is wrong, we need to load the function pointer into an address register
                 if disp.wrapping_add(1 << 23) & 0xff000000 != 0 {
                     self.load_function_pointer(function_label);
                 } else {
@@ -599,7 +605,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         // note that a label for the end of the if block (after the else part) has been already created within enter_block
         let else_label = self.get_current_label_index();
 
-        //generate jump instruction to the beginning of else block
+        //generate jump instruction to the beginning of else block if condition is equal to 0 (i.e it is false)
         self.push_instruction(Instr::JEQ {target: else_label, lhs: condition_register, rhs: RegisterOrSmallConst::new_const(0)});
 
         // replace the label stack last item (inserted within enter_block) to include both the else label (the newly created one) and the end label
@@ -649,15 +655,15 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
             self.push_instruction(Instr::J {target: end_label});
         }
 
-        // else label address is the current position in the instructions.
+        // else label address is the current position in the instructions, directly after the jump
         self.update_label_to_current_position(else_label);
 
-        // start of the else branch: insert a new item in the label stack with the end label index
+        // start of the else branch: replace the if label (that was already popped) with a block label
         // else label is irrelevant at this point and the rest can be treated like a block instruction.
         self.cfg_label_stack.push(BlockLabel::Block(end_label));
     }
 
-    // end instruction matches the end of if/else, block, loop constructs as well as the end of a function
+    // end instruction matches the end of if/else, block, and loop constructs as well as the end of a function
     // the behavior is generalized to cover all of the possibilities based on the information collected
     // while passing through the wasm instructions
     fn visit_end(&mut self){
@@ -677,12 +683,12 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
 
         if !inside_dead_code_flag {
             // return block result or function return value.
-            // end of a function is distinguished through an empty block type stack.
+            // end of a function is distinguished through an empty block type stack -> block_type is None
             match block_type{
                 Some(block_type) => self.resolve_block_result(block_type),
                 None => {
                     self.resolve_return_value();
-                self.push_instruction(Instr::RET);
+                    self.push_instruction(Instr::RET);
                 }
             }
         }
@@ -714,7 +720,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         if index < 0 {
             self.resolve_return_value();
             self.push_instruction(Instr::RET);
-        } else {
+        } else { 
             let block_type = self.cfg_block_type_stack.get(index as usize).map(|block_types| block_types.label_type).unwrap();
             self.resolve_block_result(block_type);
 
@@ -755,11 +761,11 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         self.add_current_position_label();
     }
 
-    fn visit_br_table(&mut self,targets:BrTable<'a>) {
+    fn visit_br_table(&mut self, targets:BrTable<'a>) {
         if self.check_dead_code() {
             return;
         }
-
+        // TODO: replace name offset by index (it's for the BrTable)
         // resolving all VBs prior to the last one (dynamic index) and pushing them to the stack
         let offset_vb = self.vb_stack.pop().unwrap();
         self.resolve_all();
@@ -768,6 +774,11 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         // resolving the dynamic offset to a register 
         let offset_register = self.resolve_to_data_register();
 
+        // for every index of the BrTable, emit a JNE instruction that will compare your target index
+        // TODO: this is not very efficient, but simpler. Could be improved by directly fetching the relative break index in a table in memory
+        // But you would need to allocate memory for that.
+        // TODO: given that each block that would could break from has the same type, (same as the default target), we know what needs to be resolved
+        // this would allow us to not do the resolving inside the loop, but before. It would also reduce code size.
         targets.targets().enumerate().map(|(offset,target)| (Some(offset), target.unwrap()) ).chain(vec![(None,targets.default())].into_iter()).for_each(|(offset,target)| { 
             offset.map(|offset| self.push_instruction(Instr::JNE { target: self.get_current_label_index(), lhs: offset_register, rhs: Const4(offset as u8) }));
             let relative_index = target;
@@ -863,12 +874,15 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         let table_type_indices_ptr = self.wasm_runtime.table_type_indices.as_ptr() as u32;
         self.load_pointer_to_address_register(table_type_indices_ptr, AddressRegister(5));
 
+        // Call the subroutine that checks the dynamic index and compares the types
         let call_ptr = WasmRuntime::compare_subtypes as u32;
         self.load_pointer_to_address_register(call_ptr, AddressRegister(2));
-        self.push_instruction(Instr::CALLI{target: AddressRegister(2)});
+        self.push_instruction(Instr::CALLI{target: AddressRegister(2)}); // TODO: could use something similar to generate_call_instruction here
         self.push_instruction(Instr::RSLCX);
-
+        
+        // Put table element address into AddressRegister(2)
         self.push_instruction(Instr::ADDSCA { lhs: TABLE_BASE, rhs: table_offset, dest: AddressRegister(2), shift: Const4::new(2) });
+        // Load the function pointer from the table into AddressRegister(2)
         self.push_instruction(Instr::LDA { base: AddressRegister(2), offset: Const16::new(0), dest: AddressRegister(2) });
 
         let function_type = self.get_function_type_by_type_index(type_index); 

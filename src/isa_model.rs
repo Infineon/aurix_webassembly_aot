@@ -19,7 +19,7 @@ const LINEAR_MEMORY_BASE : AddressRegister = AddressRegister(6);
 pub const GLOBAL_BASE : AddressRegister = AddressRegister(5);
 pub const STACK_POINTER : AddressRegister = AddressRegister(10);
 pub const FRAME_POINTER : AddressRegister = AddressRegister(12);
-pub const STACK_BASE : AddressRegister = AddressRegister(13);
+pub const STACK_BASE : AddressRegister = AddressRegister(13); // stack pointer at the beginning of the function
 pub const TABLE_BASE : AddressRegister = AddressRegister(4);
 
 pub const ADDRESS_ACCUMULATOR: AddressRegister = AddressRegister(2);
@@ -536,7 +536,7 @@ impl MapperLocation {
             },
             MapperLocation::Stack { size } => {
                 let register = target.unwrap_or_else(|| translator.next_available_data_register(scratch_variable_map, used_registers));
-                match size {
+                match size { //TODO: replace by size.as_bytes
                     ValueSize::Word => translator.push_instruction(Instr::LDWPI { base: STACK_POINTER, offset: Const10(4), dest: register }),
                     ValueSize::DoubleWord => translator.push_instruction(Instr::LDWPI { base: STACK_POINTER, offset: Const10(8), dest: register })
                 }

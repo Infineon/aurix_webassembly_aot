@@ -21,18 +21,18 @@ pub enum Instr{
     LDHU {base: AddressRegister, offset: Const16, dest: DataRegister},
     LDW {base: AddressRegister, offset: Const16, dest: DataRegister},
     LDWABS {address: Const18, dest: DataRegister},
-    LDWPI {base: AddressRegister, offset: Const10, dest: DataRegister},
+    LDWPI {base: AddressRegister, offset: Const10, dest: DataRegister}, // PI is post increment here
     LDD {base: AddressRegister, offset: Const10, dest: ExtendedRegister},
     LDDABS {address: Const18, dest: ExtendedRegister},
-    LDDPI {base: AddressRegister, offset: Const10, dest: ExtendedRegister},
+    LDDPI {base: AddressRegister, offset: Const10, dest: ExtendedRegister}, // same as above
     STB {src: DataRegister, base: AddressRegister, offset: Const16},
     STH {src: DataRegister, base: AddressRegister, offset: Const16},
     STW {src: DataRegister, base: AddressRegister, offset: Const16},
     STWABS {src: DataRegister, address: Const18},
     STD {src: ExtendedRegister, base: AddressRegister, offset: Const10},
     STDABS {src: ExtendedRegister, address: Const18},
-    STDPI {src: ExtendedRegister, base: AddressRegister, offset: Const10},
-    STWPI {src: DataRegister, base: AddressRegister, offset: Const10},
+    STDPI {src: ExtendedRegister, base: AddressRegister, offset: Const10}, // same as below but for double word
+    STWPI {src: DataRegister, base: AddressRegister, offset: Const10}, // PI is pre increment here, same instruction as STW but different adressing mode
     MOVH {src: Const16, dest: DataRegister},
     CLZ {src:DataRegister, dest:DataRegister},
     SHUFFLE {src:DataRegister, dest:DataRegister, mask:Const9 },
