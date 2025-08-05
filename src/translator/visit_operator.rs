@@ -636,20 +636,16 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
             return;
         }
 
-        // if part (true branch) is done
-        // resolve result if inside is not dead code.
-        if !inside_dead_code_flag {
-        self.resolve_block_result(self.cfg_block_type_stack.last().unwrap().block_type);
-        }
-
         // pop labels from the label stack pushed at the beginning of the if block
         let (else_label, end_label) = match self.cfg_label_stack.pop().unwrap() {
             BlockLabel::If { else_label, end_label } => (else_label, end_label),
             _ => panic!("Expected if label")
         };
 
-        // end the if part (true branch) with a unconditionnal jump to the end.
+        // resolve the if block unless it was dead code (if it was dead code, you met a br and it was already resolved)
+        // then add the jump instruction to the end of the if block (same thing, if it was dead code you already did the jump)
         if !inside_dead_code_flag {
+            self.resolve_block_result(self.cfg_block_type_stack.last().unwrap().block_type);
             self.push_instruction(Instr::J {target: end_label});
         }
 
@@ -684,11 +680,10 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
             // end of a function is distinguished through an empty block type stack.
             match block_type{
                 Some(block_type) => self.resolve_block_result(block_type),
-                None => self.resolve_return_value(),
-            }
-
-            if let None = block_type{
+                None => {
+                    self.resolve_return_value();
                 self.push_instruction(Instr::RET);
+                }
             }
         }
 

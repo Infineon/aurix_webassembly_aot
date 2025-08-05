@@ -335,10 +335,6 @@ impl Const18 {
     pub fn new(constant:u32) -> Self {
         Const18(constant & 0x3FFFF)
     }
-    
-    pub fn from_address (address:u32) -> Self {
-        Const18(address & 0x3FFF | ((address & 0xF000000) >> 14))
-    }
 }
 
 #[derive(Clone, PartialEq, Debug, Format)]
@@ -542,10 +538,7 @@ impl MapperLocation {
                 let register = target.unwrap_or_else(|| translator.next_available_data_register(scratch_variable_map, used_registers));
                 match size {
                     ValueSize::Word => translator.push_instruction(Instr::LDWPI { base: STACK_POINTER, offset: Const10(4), dest: register }),
-                    ValueSize::DoubleWord => {
-                        translator.push_instruction(Instr::LDW { base: STACK_POINTER, offset: Const16(0), dest: register});
-                        translator.push_instruction(Instr::LEA { base: STACK_POINTER, offset: Const16(8), dest: STACK_POINTER});
-                    },
+                    ValueSize::DoubleWord => translator.push_instruction(Instr::LDWPI { base: STACK_POINTER, offset: Const10(8), dest: register })
                 }
                 register
             },
