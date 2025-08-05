@@ -126,7 +126,7 @@ impl <'a,'b> Translator<'a,'b>{
             LibraryFunction::F32Sqrt => libm::sqrtf as u32,
             LibraryFunction::F64Eq => WasmRuntime::f64_eq as u32,
             LibraryFunction::F64Sub => WasmRuntime::f64_sub as u32,
-            LibraryFunction::F64Mul => compiler_builtins::float::mul::__muldf3 as u32,
+            LibraryFunction::F64Mul => compiler_builtins::float::mul::__muldf3 as u32, // The compiler builtin f64 mul is bugged so we use another implementation
             LibraryFunction::F64Le => WasmRuntime::f64_le as u32,
             LibraryFunction::F64Add => WasmRuntime::f64_add as u32,
             LibraryFunction::F64Div => WasmRuntime::f64_div as u32,
@@ -181,39 +181,43 @@ impl <'a,'b> Translator<'a,'b>{
     }
 
     /// helper function to load the operands in the respective registers according to the TriCore C ABI calling convention:
-    /// If the operands are 32-bit wide. The first operand is placed in D[4], while the second if existent will be in D[5].
-    /// Otherwise if the operands are 64-bit wide. The first is placed in E[4], while the second if existent will be in E[6].
+    /// If the arguments are 32-bit wide. The first argument is placed in D[4], while the second if existent will be in D[5].
+    /// Otherwise if the arguments are 64-bit wide. The first is placed in E[4], while the second if existent will be in E[6].
     /// 
     /// Note that we need to account for the scenario where we have multiple arguments and one exists already in the target of the other one.
-    /// In this implementation, the arguments are filled backward and the first argument is saved in another register first if it is located at the target of the second one.  
-    fn setup_ops(&mut self, op_size: ValueSize, mut ops: Vec<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>) {
+    /// In this implementation, the arguments are filled backward and the first argument is saved in another register first if it is located at the target of the second one.
+    // TODO: this might need to be rewritten, this function is only called for library functions that take at most 2 arguments, 
+    // so it might be better to just use a match statement.
+    // Also using D[0] as a temporary register for swapping the arguments is not a good idea as it is used for the bitmask
+    fn setup_ops(&mut self, arg_size: ValueSize, mut args: Vec<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>) {
         self.push_instruction(Instr::SVLCX);
         let start_index = 4;
-        let increment = match op_size {
+        let increment = match arg_size {
             ValueSize::Word => 1,
             ValueSize::DoubleWord => 2
         };
-        //start register index for filling the arguments backwards
-        let mut index = start_index + increment * ops.len() as u8;
+        //start register index for filling the arguments backwards 
+        // TODO: you don't need to fill backwards
+        let mut index = start_index + increment * args.len() as u8;
         //checks if first argument is located in the target of the second one
-        if ops.len() == 2 {
-            match ops[0]{
+        if args.len() == 2 {
+            match args[0]{
                 MapperLocation::DataRegister(DataRegister(i)) if *i == index-increment => {
                     self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::DataRegister(DataRegister(*i)), dest: Register::DataRegister(DataRegister(0)) });
-                    ops[0] = &MapperLocation::DataRegister(DataRegister(0));
+                    args[0] = &MapperLocation::DataRegister(DataRegister(0));
                 },
                 MapperLocation::ExtendedRegister(ExtendedRegister(i)) if *i == index-increment => {
                     self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::RegisterCouple {lower: DataRegister(*i), upper: DataRegister(*i+1)}, dest: Register::ExtendedRegister(ExtendedRegister(0)) });
-                    ops[0] = &MapperLocation::ExtendedRegister(ExtendedRegister(0));
+                    args[0] = &MapperLocation::ExtendedRegister(ExtendedRegister(0));
                 },
                 _ => ()
             }
             //swap arguments to iterate over them in reverse order.
-            ops.swap(0, 1);
+            args.swap(0, 1);
         }
-        for op in ops {
+        for op in args {
             index -= increment;
-            match op_size {
+            match arg_size {
                 ValueSize::Word => {
                     op.map_to_data_register(Some(DataRegister::new(index)), self, scratch_variable_map, &vec![]);
                 },

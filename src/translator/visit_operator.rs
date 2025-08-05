@@ -902,6 +902,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
     // STACK MANIPULATION INSTRUCTIONS
     // ================================================================================
 
+    /// Pop the VB stack and if the value is on the runtime stack, remove it from there as well
     fn visit_drop(&mut self) {
         if self.check_dead_code() {
             return;
@@ -958,7 +959,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         self.add_atomic_vb(AtomicVB::Global {index: global_index})
     }
 
-    fn visit_global_set(&mut self,global_index:u32) {
+    fn visit_global_set(&mut self,global_index:u32) { // TODO: there should be a handle global dependency here
         if self.check_dead_code() {
             return;
         }
@@ -1070,6 +1071,9 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         self.add_atomic_vb(AtomicVB::MemorySize);
     }
 
+    /// This uses an external call to grow the memory.
+    /// The function simply prepares the registers for the external call using the C ABI.
+    /// Then the old size of the memory is pushed on the stack.
     fn visit_memory_grow(&mut self,_mem:u32) {
         if self.check_dead_code() {
             return;
@@ -1084,13 +1088,16 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         MapperLocation::Immediate(isa_model::Immediate::Word(self.global_translator.memory_size_limit as u32))
            .map_to_data_register(Some(DataRegister::new(5)), self, &mut vec![], &vec![]);
         
+        // Memory size is the first global variable
         self.push_instruction(Instr::MOVAA { src: GLOBAL_BASE , dest: AddressRegister::new(4) });
 
+        // Load the pointer to the grow memory function into AddressRegister(2)
         let call_ptr = WasmRuntime::grow_memory as u32;
         self.load_pointer_to_address_register(call_ptr, AddressRegister(2));
         self.push_instruction(Instr::CALLI{target: AddressRegister(2)});
-        self.push_instruction(Instr::STWPI { src: DataRegister::new(2), base: STACK_POINTER , offset: Const10(-4) });
 
+        // The result (the old size of the memory) will be returned in DataRegister(2), we push it on the stack
+        self.push_instruction(Instr::STWPI { src: DataRegister::new(2), base: STACK_POINTER , offset: Const10(-4) });
         let offset = self.get_runtime_stack_offset_from_last_vb() + 4;
         self.add_atomic_vb(AtomicVB::Resolved{size: ValueSize::Word, offset});
 
