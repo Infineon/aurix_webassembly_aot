@@ -490,8 +490,9 @@ impl<'a,'b> Translator<'a,'b> {
     }
 
     /// Helper to handle local variable dependency resolution
-    fn handle_local_dependency(&mut self, local_index: u32, vb: VB) {
+    fn handle_local_dependency(&mut self, local_index: u32) {
         // Check if any existing VB expressions depend on this local variable
+        let vb: VB = self.vb_stack.pop().unwrap();
         if self.vb_stack.iter().any(|vb| vb.depends_on_local(local_index)) {
             self.resolve_all();
         }
@@ -940,8 +941,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         if self.check_dead_code() {
             return;
         }
-        let vb: VB = self.vb_stack.pop().unwrap();
-        self.handle_local_dependency(local_index, vb);
+        self.handle_local_dependency(local_index);
         self.resolve_with_target(Some(&self.locals_map[local_index as usize].clone()));
     }
 
@@ -949,8 +949,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         if self.check_dead_code() {
             return;
         }
-        let vb = self.vb_stack.pop().unwrap();
-        self.handle_local_dependency(local_index, vb);
+        self.handle_local_dependency(local_index);
         self.resolve_with_target(Some(&self.locals_map[local_index as usize].clone()));
         self.add_atomic_vb(AtomicVB::Local {index: local_index});
     }
