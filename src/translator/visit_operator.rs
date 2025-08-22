@@ -48,7 +48,7 @@ use wasmparser::{BlockType, BrTable, Ieee32, Ieee64, MemArg, ValType, VisitOpera
 use crate::isa_model::{self, Const10, DataRegister, ExtendedRegister, RegisterOrSmallConst, ADDRESS_ACCUMULATOR, GLOBAL_BASE, STACK_BASE, STACK_POINTER};
 use crate::parse_and_translate::WasmRuntime;
 use crate::vb::{Address, AtomicVB, BinaryVB, UnaryVB, VB};
-use crate::translator::{BlockLabel, BlockTypes, Translator};
+use crate::translator::{BlockLabel, BlockResult, Translator};
 
 use crate::isa_model::{Const4, Const16, AddressRegister, TABLE_BASE, machine_instructions::Instr, Register, ValueSize, Memsize, SignValue, MapperLocation};
 
@@ -106,7 +106,8 @@ impl<'a,'b> Translator<'a,'b> {
         // Determine the result type and size for this block
         // Empty blocks have no result, Type blocks have a single result,
         // FuncType blocks use the function signature's first result
-        // TODO: We don't check that the functype has 0 parameters and no more than one result, does validation do that for us?
+        // TODO: We always assume the block takes no arguments and only consider the first output type
+        // but that's not always true with function types
         let blockty_value_size = match blockty {
             BlockType::Empty => None,
             BlockType::Type(ty) => Some(val_type_size(&ty)),
@@ -130,15 +131,15 @@ impl<'a,'b> Translator<'a,'b> {
         let blockty_value_byte_size = blockty_value_size.map(|size| size.as_bytes()).unwrap_or(0);
     
         // Calculate stack offsets for two scenarios:
-        // 1. block_type: Stack state when reaching the end of the block naturally
-        // 2. label_type: Stack state when branching to this block's label position
+        // 1. end_state: Stack state when reaching the end of the block naturally
+        // 2. label_state: Stack state when branching to this block's label position
         //
         // For regular blocks: both scenarios have the same stack state (original + result)
-        // For loops: label_type points to loop start (no result), block_type to loop end (with result)
-        let block_types = BlockTypes {
+        // For loops: label_state points to loop start (no result), end_state to loop end (with result)
+        let block_result = BlockResult {
             // When block ends naturally: stack = original position + result size
-            block_type: (runtime_stack_offset + blockty_value_byte_size as usize, blockty_value_size),
-            label_type: match block_style {
+            end_state: (runtime_stack_offset + blockty_value_byte_size as usize, blockty_value_size),
+            label_state: match block_style {
                 // Regular block: branch target same as block end
                 BlockStyle::Block => (runtime_stack_offset + blockty_value_byte_size as usize, blockty_value_size),
                 // Loop: branch target is loop start (no accumulated result)
@@ -146,8 +147,8 @@ impl<'a,'b> Translator<'a,'b> {
             }
         };
 
-        // Track block types for nested blocks using a stack
-        self.cfg_block_type_stack.push(block_types);
+        // Track block results for nested blocks using a stack
+        self.cfg_block_result_stack.push(block_result);
 
         // LABEL MANAGEMENT:
         // We maintain a label map (cfg_label_map) that maps label indices to instruction positions.
@@ -241,7 +242,7 @@ impl<'a,'b> Translator<'a,'b> {
 
         let value_register = self.resolve_to_register(Some(val_size)).unwrap();
 
-        //TODO: eliminate the use of the locked register
+        //TODO: can the locked register be eliminated?
         self.locked_register = Some(value_register.clone());
         let dynamic_offset = self.resolve_with_target(None);
         self.locked_register = None;
@@ -292,9 +293,9 @@ impl<'a,'b> Translator<'a,'b> {
     /// - 1 = parent block
     /// - etc.
     /// 
-    /// This converts to absolute index in our block type stack.
+    /// This converts to absolute index in our block result stack.
     fn calculate_branch_target_index(&self, relative_depth: u32) -> i32 {
-        self.cfg_block_type_stack.len() as i32 - (1 + relative_depth as i32)
+        self.cfg_block_result_stack.len() as i32 - (1 + relative_depth as i32)
     }
 
     /// Helper to handle function return case in branches
@@ -311,10 +312,10 @@ impl<'a,'b> Translator<'a,'b> {
 
     /// Helper to handle block branch case
     fn handle_block_branch(&mut self, index: usize) {
-        let block_type = self.cfg_block_type_stack.get(index).map(|block_types| block_types.label_type).unwrap();
-        let last_vb = self.save_vb_for_branch(block_type.1.is_some());
+        let label_state = self.cfg_block_result_stack.get(index).map(|block_result| block_result.label_state).unwrap();
+        let last_vb = self.save_vb_for_branch(label_state.1.is_some());
         
-        self.resolve_block_result(block_type);
+        self.resolve_block_result(label_state);
         self.restore_vb_after_branch(last_vb);
 
         let target = match self.cfg_label_stack[index] {
@@ -652,7 +653,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         // resolve the if block unless it was dead code (if it was dead code, you met a br and it was already resolved)
         // then add the jump instruction to the end of the if block (same thing, if it was dead code you already did the jump)
         if !inside_dead_code_flag {
-            self.resolve_block_result(self.cfg_block_type_stack.last().unwrap().block_type);
+            self.resolve_block_result(self.cfg_block_result_stack.last().unwrap().end_state);
             self.push_instruction(Instr::J {target: end_label});
         }
 
@@ -679,14 +680,14 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
             return;
         }
 
-        // pop the block type from the stack
-        let block_type = self.cfg_block_type_stack.pop().map(|block_types| block_types.block_type);
+        // pop the block result from the stack
+        let end_state = self.cfg_block_result_stack.pop().map(|block_result| block_result.end_state);
 
         if !inside_dead_code_flag {
             // return block result or function return value.
-            // end of a function is distinguished through an empty block type stack -> block_type is None
-            match block_type{
-                Some(block_type) => self.resolve_block_result(block_type),
+            // end of a function is distinguished through an empty block state stack -> end_state is None
+            match end_state{
+                Some(end_state) => self.resolve_block_result(end_state),
                 None => {
                     self.resolve_return_value();
                     self.push_instruction(Instr::RET);
@@ -704,7 +705,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         // result of a block is returned on the runtime stack
         // and on a virtual level is on top of the operand stack now
         // a VB is pushed on top of the VB stack to update it with the location of new value.
-        block_type.map(|(offset,size)| {
+        end_state.map(|(offset,size)| {
             size.map(|size| {
                 self.add_atomic_vb(AtomicVB::Resolved{size, offset});
             });
@@ -722,8 +723,8 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
             self.resolve_return_value();
             self.push_instruction(Instr::RET);
         } else { 
-            let block_type = self.cfg_block_type_stack.get(index as usize).map(|block_types| block_types.label_type).unwrap();
-            self.resolve_block_result(block_type);
+            let label_state = self.cfg_block_result_stack.get(index as usize).map(|block_result| block_result.label_state).unwrap();
+            self.resolve_block_result(label_state);
 
             let target = match self.cfg_label_stack[index as usize] {
                 BlockLabel::Block(index) => index,

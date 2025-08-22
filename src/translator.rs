@@ -27,9 +27,9 @@ pub enum BlockLabel {
     If { else_label: usize, end_label: usize },
 }
 
-pub struct BlockTypes { //TODO: Rename this, because BlockType is also something from wasmparser
-    pub block_type: (usize, Option<ValueSize>), //TODO: rename to end_type
-    pub label_type: (usize, Option<ValueSize>),
+pub struct BlockResult {
+    pub end_state: (usize, Option<ValueSize>), // Stack state when reaching the end of the block naturally
+    pub label_state: (usize, Option<ValueSize>), // Stack state when branching to this block's label position, only different for loops
 }
 
 pub struct Translator<'a, 'b> {
@@ -37,7 +37,7 @@ pub struct Translator<'a, 'b> {
     pub locals_map: Vec<MapperLocation>, // location of local variables
     pub locked_register: Option<Register>,
     pub cfg_label_stack: Vec<BlockLabel>, // stack of control flow labels for if, block, loop...
-    pub cfg_block_type_stack: Vec<BlockTypes>,
+    pub cfg_block_result_stack: Vec<BlockResult>,
     pub vb_stack_ptr_stack: Vec<usize>, // points to the top of the stack at the beginning of each cfg block to allow reset when seeing br
     pub dead_code_flag_stack: Vec<bool>, // to keep track of nested blocks and set dead code flag for the current block
     pub function_type_index: u32,
@@ -265,7 +265,7 @@ impl<'a, 'b> Translator<'a, 'b> {
             vb_stack: vec![],
             locals_map,
             cfg_label_map: vec![],
-            cfg_block_type_stack: vec![],
+            cfg_block_result_stack: vec![],
             locked_register: None,
             cfg_label_stack: vec![],
             dead_code_flag_stack: vec![false],
