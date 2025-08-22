@@ -536,10 +536,8 @@ impl MapperLocation {
             },
             MapperLocation::Stack { size } => {
                 let register = target.unwrap_or_else(|| translator.next_available_data_register(scratch_variable_map, used_registers));
-                match size { //TODO: replace by size.as_bytes
-                    ValueSize::Word => translator.push_instruction(Instr::LDWPI { base: STACK_POINTER, offset: Const10(4), dest: register }),
-                    ValueSize::DoubleWord => translator.push_instruction(Instr::LDWPI { base: STACK_POINTER, offset: Const10(8), dest: register })
-                }
+                let size = size.as_bytes() as i16;
+                translator.push_instruction(Instr::LDWPI { base: STACK_POINTER, offset: Const10(size), dest: register });
                 register
             },
             MapperLocation::Global { offset, .. } => {
