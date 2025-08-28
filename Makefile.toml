@@ -6,11 +6,11 @@ if not which tricore-probe
 end
 '''
 
-[tasks.check-wabt]
+[tasks.check-wast2json]
 script_runner = "@duckscript"
 install_script = '''
-if not which wasm2wat
-    trigger_error "Not found wasm2wat please install version 3.36 https://github.com/WebAssembly/wabt/releases/tag/1.0.36"
+if not which wast2json
+    trigger_error "Not found wast2json please install version 3.36 https://github.com/WebAssembly/wabt/releases/tag/1.0.36"
 end
 
 '''
@@ -34,7 +34,7 @@ if not is_path_exists ./target
 end
 rm  -r ./target/test_wasm
 mkdir ./target/test_wasm
-handle = glob_array ./w3c_spec/test/core/*.wast
+handle = glob_array ./wast_tests/*.wast
 for path in ${handle}
     echo ${path}
     wast_file_name = basename ${path}

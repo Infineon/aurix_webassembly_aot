@@ -1,4 +1,0 @@
-[submodule "w3c_spec"]
-	path = w3c_spec
-	url = https://github.com/WebAssembly/spec.git
-	branch = w3c-1.0
