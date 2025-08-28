@@ -1,4 +1,3 @@
-
 [tasks.check-tricore-probe]
 script_runner = "@duckscript"
 install_script = '''
@@ -7,12 +6,46 @@ if not which tricore-probe
 end
 '''
 
+[tasks.check-wabt]
+script_runner = "@duckscript"
+install_script = '''
+if not which wasm2wat
+    trigger_error "Not found wasm2wat please install version 3.36 https://github.com/WebAssembly/wabt/releases/tag/1.0.36"
+end
+
+'''
+
 [tasks.install-defmt-print]
 install_crate = { crate_name = "defmt-print", binary = "defmt-print", test_arg = ["--help"],min_version = "1.0.0" }
 
 [tasks.install-rustfilt]
 install_crate = { crate_name = "rustfilt", binary = "rustfilt", test_arg = ["--help"] }
 
+[tasks.install-wasm-tools]
+install_crate = { crate_name = "wasm-tools", binary = " wasm-tools", test_arg = ["--version"] }
+
+[tasks.generate-tests]
+workspace = false
+env = { "WAST2JSON_PATH" = "./wabt-1.0.36/bin/wast2json.exe" }
+script_runner='@duckscript'
+script='''
+if not is_path_exists ./target
+    mkdir ./target
+end
+rm  -r ./target/test_wasm
+mkdir ./target/test_wasm
+handle = glob_array ./w3c_spec/test/core/*.wast
+for path in ${handle}
+    echo ${path}
+    wast_file_name = basename ${path}
+    split_array = split ${wast_file_name} .
+    file_name = array_get ${split_array} 0
+    target_path = join_path . target test_wasm ${file_name}.json
+    echo ${target_path}
+    exec  ${WAST2JSON_PATH} --disable-simd --disable-multi-value --disable-bulk-memory --disable-bulk-memory --disable-saturating-float-to-int --disable-sign-extension ${path} -o ${target_path}
+end
+'''
+dependencies = ["check-wast2json"]
 
 [tasks.check-tsim]
 script_runner = "@duckscript"
@@ -67,7 +100,7 @@ workspace = false
 env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = "tricore-probe -c 1" }
 command="cargo"
 args=["run","--example","demo","--features=board"]
-dependencies = ["build-demo-code-wasm","check-tricore-probe","install-defmt-print"]
+dependencies = ["check-tricore-probe","install-defmt-print"]
 
 [tasks.run-demo-tsim]
 workspace = false
