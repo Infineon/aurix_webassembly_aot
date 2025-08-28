@@ -26,23 +26,23 @@ install_crate = { crate_name = "wasm-tools", binary = " wasm-tools", test_arg = 
 
 [tasks.generate-tests]
 workspace = false
-env = { "WAST2JSON_PATH" = "./wabt-1.0.36/bin/wast2json.exe" }
 script_runner='@duckscript'
+cwd='wast_tests'
 script='''
-if not is_path_exists ./target
+if not is_path_exists ../target
     mkdir ./target
 end
-rm  -r ./target/test_wasm
-mkdir ./target/test_wasm
-handle = glob_array ./wast_tests/*.wast
+rm  -r ../target/test_wasm
+mkdir ../target/test_wasm
+handle = glob_array *.wast
 for path in ${handle}
     echo ${path}
     wast_file_name = basename ${path}
     split_array = split ${wast_file_name} .
     file_name = array_get ${split_array} 0
-    target_path = join_path . target test_wasm ${file_name}.json
+    target_path = join_path .. target test_wasm ${file_name}.json
     echo ${target_path}
-    exec  ${WAST2JSON_PATH} --disable-simd --disable-multi-value --disable-bulk-memory --disable-bulk-memory --disable-saturating-float-to-int --disable-sign-extension ${path} -o ${target_path}
+    exec  wast2json --disable-simd --disable-multi-value --disable-bulk-memory --disable-bulk-memory --disable-saturating-float-to-int --disable-sign-extension ${path} -o ${target_path}
 end
 '''
 dependencies = ["check-wast2json"]
