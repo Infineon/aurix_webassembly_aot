@@ -6,9 +6,9 @@ members = [
     "defmt-test",
     "tsim-semihosting",
     "probe-semihosting",
-    "tc37x-hal",
+    "tc37x-hal", 
 ]
-exclude = ["demo-code"]
+exclude = ["demo-code","tests_generator"]
 
 [package]
 name = "aot_wasm"
@@ -69,2818 +69,3519 @@ harness = false
 
 [[test]]
 name = "address_0"
+path = "generated_tests/address_0.rs"
 harness = false
 
 [[test]]
 name = "address_2"
+path = "generated_tests/address_2.rs"
 harness = false
 
 [[test]]
 name = "address_3"
+path = "generated_tests/address_3.rs"
 harness = false
 
 [[test]]
 name = "address_4"
+path = "generated_tests/address_4.rs"
 harness = false
 
 [[test]]
 name = "align_0"
+path = "generated_tests/align_0.rs"
 harness = false
 
 [[test]]
 name = "align_1"
+path = "generated_tests/align_1.rs"
 harness = false
 
 [[test]]
 name = "align_10"
+path = "generated_tests/align_10.rs"
 harness = false
 
 [[test]]
 name = "align_106"
+path = "generated_tests/align_106.rs"
 harness = false
 
 [[test]]
 name = "align_107"
+path = "generated_tests/align_107.rs"
 harness = false
 
 [[test]]
 name = "align_11"
+path = "generated_tests/align_11.rs"
 harness = false
 
 [[test]]
 name = "align_12"
+path = "generated_tests/align_12.rs"
 harness = false
 
 [[test]]
 name = "align_13"
+path = "generated_tests/align_13.rs"
 harness = false
 
 [[test]]
 name = "align_14"
+path = "generated_tests/align_14.rs"
 harness = false
 
 [[test]]
 name = "align_15"
+path = "generated_tests/align_15.rs"
 harness = false
 
 [[test]]
 name = "align_16"
+path = "generated_tests/align_16.rs"
 harness = false
 
 [[test]]
 name = "align_17"
+path = "generated_tests/align_17.rs"
 harness = false
 
 [[test]]
 name = "align_18"
+path = "generated_tests/align_18.rs"
 harness = false
 
 [[test]]
 name = "align_19"
+path = "generated_tests/align_19.rs"
 harness = false
 
 [[test]]
 name = "align_2"
+path = "generated_tests/align_2.rs"
 harness = false
 
 [[test]]
 name = "align_20"
+path = "generated_tests/align_20.rs"
 harness = false
 
 [[test]]
 name = "align_21"
+path = "generated_tests/align_21.rs"
 harness = false
 
 [[test]]
 name = "align_22"
+path = "generated_tests/align_22.rs"
 harness = false
 
 [[test]]
 name = "align_3"
+path = "generated_tests/align_3.rs"
 harness = false
 
 [[test]]
 name = "align_4"
+path = "generated_tests/align_4.rs"
 harness = false
 
 [[test]]
 name = "align_5"
+path = "generated_tests/align_5.rs"
 harness = false
 
 [[test]]
 name = "align_6"
+path = "generated_tests/align_6.rs"
 harness = false
 
 [[test]]
 name = "align_7"
+path = "generated_tests/align_7.rs"
 harness = false
 
 [[test]]
 name = "align_8"
+path = "generated_tests/align_8.rs"
 harness = false
 
 [[test]]
 name = "align_9"
+path = "generated_tests/align_9.rs"
 harness = false
 
 [[test]]
 name = "binary_0"
+path = "generated_tests/binary_0.rs"
 harness = false
 
 [[test]]
 name = "binary_1"
+path = "generated_tests/binary_1.rs"
 harness = false
 
 [[test]]
 name = "binary_2"
+path = "generated_tests/binary_2.rs"
 harness = false
 
 [[test]]
 name = "binary_3"
+path = "generated_tests/binary_3.rs"
 harness = false
 
 [[test]]
 name = "binary_48"
+path = "generated_tests/binary_48.rs"
 harness = false
 
 [[test]]
 name = "binary_53"
+path = "generated_tests/binary_53.rs"
 harness = false
 
 [[test]]
 name = "binary_54"
+path = "generated_tests/binary_54.rs"
 harness = false
 
 [[test]]
 name = "binary_55"
+path = "generated_tests/binary_55.rs"
 harness = false
 
 [[test]]
 name = "binary_58"
+path = "generated_tests/binary_58.rs"
 harness = false
 
 [[test]]
 name = "binary_61"
+path = "generated_tests/binary_61.rs"
 harness = false
 
 [[test]]
 name = "binary_63"
+path = "generated_tests/binary_63.rs"
 harness = false
 
 [[test]]
 name = "binary_65"
+path = "generated_tests/binary_65.rs"
 harness = false
 
 [[test]]
 name = "binary_68"
+path = "generated_tests/binary_68.rs"
 harness = false
 
 [[test]]
 name = "binary_71"
+path = "generated_tests/binary_71.rs"
 harness = false
 
 [[test]]
 name = "binary_74"
+path = "generated_tests/binary_74.rs"
 harness = false
 
 [[test]]
 name = "binary_79"
+path = "generated_tests/binary_79.rs"
 harness = false
 
 [[test]]
 name = "binary_82"
+path = "generated_tests/binary_82.rs"
 harness = false
 
 [[test]]
 name = "block_0"
-harness = false
-
-[[test]]
-name = "break-drop_0"
+path = "generated_tests/block_0.rs"
 harness = false
 
 [[test]]
 name = "br_0"
+path = "generated_tests/br_0.rs"
 harness = false
 
 [[test]]
 name = "br_if_0"
+path = "generated_tests/br_if_0.rs"
 harness = false
 
 [[test]]
 name = "br_table_0"
+path = "generated_tests/br_table_0.rs"
+harness = false
+
+[[test]]
+name = "break-drop_0"
+path = "generated_tests/break-drop_0.rs"
 harness = false
 
 [[test]]
 name = "call_0"
+path = "generated_tests/call_0.rs"
 harness = false
 
 [[test]]
 name = "call_indirect_0"
+path = "generated_tests/call_indirect_0.rs"
 harness = false
 
 [[test]]
 name = "comments_0"
+path = "generated_tests/comments_0.rs"
 harness = false
 
 [[test]]
 name = "comments_1"
+path = "generated_tests/comments_1.rs"
 harness = false
 
 [[test]]
 name = "comments_2"
+path = "generated_tests/comments_2.rs"
 harness = false
 
 [[test]]
 name = "comments_3"
+path = "generated_tests/comments_3.rs"
 harness = false
 
 [[test]]
 name = "const_0"
+path = "generated_tests/const_0.rs"
 harness = false
 
 [[test]]
 name = "const_1"
+path = "generated_tests/const_1.rs"
 harness = false
 
 [[test]]
 name = "const_102"
+path = "generated_tests/const_102.rs"
 harness = false
 
 [[test]]
 name = "const_103"
+path = "generated_tests/const_103.rs"
 harness = false
 
 [[test]]
 name = "const_106"
+path = "generated_tests/const_106.rs"
 harness = false
 
 [[test]]
 name = "const_107"
+path = "generated_tests/const_107.rs"
 harness = false
 
 [[test]]
 name = "const_110"
+path = "generated_tests/const_110.rs"
 harness = false
 
 [[test]]
 name = "const_111"
+path = "generated_tests/const_111.rs"
 harness = false
 
 [[test]]
 name = "const_114"
+path = "generated_tests/const_114.rs"
 harness = false
 
 [[test]]
 name = "const_115"
+path = "generated_tests/const_115.rs"
 harness = false
 
 [[test]]
 name = "const_116"
+path = "generated_tests/const_116.rs"
 harness = false
 
 [[test]]
 name = "const_117"
+path = "generated_tests/const_117.rs"
 harness = false
 
 [[test]]
 name = "const_118"
+path = "generated_tests/const_118.rs"
 harness = false
 
 [[test]]
 name = "const_119"
+path = "generated_tests/const_119.rs"
 harness = false
 
 [[test]]
 name = "const_12"
+path = "generated_tests/const_12.rs"
 harness = false
 
 [[test]]
 name = "const_120"
+path = "generated_tests/const_120.rs"
 harness = false
 
 [[test]]
 name = "const_121"
+path = "generated_tests/const_121.rs"
 harness = false
 
 [[test]]
 name = "const_122"
+path = "generated_tests/const_122.rs"
 harness = false
 
 [[test]]
 name = "const_123"
+path = "generated_tests/const_123.rs"
 harness = false
 
 [[test]]
 name = "const_128"
+path = "generated_tests/const_128.rs"
 harness = false
 
 [[test]]
 name = "const_129"
+path = "generated_tests/const_129.rs"
 harness = false
 
 [[test]]
 name = "const_13"
+path = "generated_tests/const_13.rs"
 harness = false
 
 [[test]]
 name = "const_132"
+path = "generated_tests/const_132.rs"
 harness = false
 
 [[test]]
 name = "const_133"
+path = "generated_tests/const_133.rs"
 harness = false
 
 [[test]]
 name = "const_136"
+path = "generated_tests/const_136.rs"
 harness = false
 
 [[test]]
 name = "const_137"
+path = "generated_tests/const_137.rs"
 harness = false
 
 [[test]]
 name = "const_138"
+path = "generated_tests/const_138.rs"
 harness = false
 
 [[test]]
 name = "const_139"
+path = "generated_tests/const_139.rs"
 harness = false
 
 [[test]]
 name = "const_14"
+path = "generated_tests/const_14.rs"
 harness = false
 
 [[test]]
 name = "const_140"
+path = "generated_tests/const_140.rs"
 harness = false
 
 [[test]]
 name = "const_141"
+path = "generated_tests/const_141.rs"
 harness = false
 
 [[test]]
 name = "const_142"
+path = "generated_tests/const_142.rs"
 harness = false
 
 [[test]]
 name = "const_143"
+path = "generated_tests/const_143.rs"
 harness = false
 
 [[test]]
 name = "const_148"
+path = "generated_tests/const_148.rs"
 harness = false
 
 [[test]]
 name = "const_149"
+path = "generated_tests/const_149.rs"
 harness = false
 
 [[test]]
 name = "const_15"
+path = "generated_tests/const_15.rs"
 harness = false
 
 [[test]]
 name = "const_152"
+path = "generated_tests/const_152.rs"
 harness = false
 
 [[test]]
 name = "const_153"
+path = "generated_tests/const_153.rs"
 harness = false
 
 [[test]]
 name = "const_156"
+path = "generated_tests/const_156.rs"
 harness = false
 
 [[test]]
 name = "const_157"
+path = "generated_tests/const_157.rs"
 harness = false
 
 [[test]]
 name = "const_158"
+path = "generated_tests/const_158.rs"
 harness = false
 
 [[test]]
 name = "const_159"
+path = "generated_tests/const_159.rs"
 harness = false
 
 [[test]]
 name = "const_16"
+path = "generated_tests/const_16.rs"
 harness = false
 
 [[test]]
 name = "const_166"
+path = "generated_tests/const_166.rs"
 harness = false
 
 [[test]]
 name = "const_167"
+path = "generated_tests/const_167.rs"
 harness = false
 
 [[test]]
 name = "const_168"
+path = "generated_tests/const_168.rs"
 harness = false
 
 [[test]]
 name = "const_169"
+path = "generated_tests/const_169.rs"
 harness = false
 
 [[test]]
 name = "const_17"
+path = "generated_tests/const_17.rs"
 harness = false
 
 [[test]]
 name = "const_170"
+path = "generated_tests/const_170.rs"
 harness = false
 
 [[test]]
 name = "const_171"
+path = "generated_tests/const_171.rs"
 harness = false
 
 [[test]]
 name = "const_172"
+path = "generated_tests/const_172.rs"
 harness = false
 
 [[test]]
 name = "const_173"
+path = "generated_tests/const_173.rs"
 harness = false
 
 [[test]]
 name = "const_174"
+path = "generated_tests/const_174.rs"
 harness = false
 
 [[test]]
 name = "const_175"
+path = "generated_tests/const_175.rs"
 harness = false
 
 [[test]]
 name = "const_176"
+path = "generated_tests/const_176.rs"
 harness = false
 
 [[test]]
 name = "const_177"
+path = "generated_tests/const_177.rs"
 harness = false
 
 [[test]]
 name = "const_178"
+path = "generated_tests/const_178.rs"
 harness = false
 
 [[test]]
 name = "const_179"
+path = "generated_tests/const_179.rs"
 harness = false
 
 [[test]]
 name = "const_18"
+path = "generated_tests/const_18.rs"
 harness = false
 
 [[test]]
 name = "const_180"
+path = "generated_tests/const_180.rs"
 harness = false
 
 [[test]]
 name = "const_181"
+path = "generated_tests/const_181.rs"
 harness = false
 
 [[test]]
 name = "const_182"
+path = "generated_tests/const_182.rs"
 harness = false
 
 [[test]]
 name = "const_183"
+path = "generated_tests/const_183.rs"
 harness = false
 
 [[test]]
 name = "const_184"
+path = "generated_tests/const_184.rs"
 harness = false
 
 [[test]]
 name = "const_185"
+path = "generated_tests/const_185.rs"
 harness = false
 
 [[test]]
 name = "const_186"
+path = "generated_tests/const_186.rs"
 harness = false
 
 [[test]]
 name = "const_187"
+path = "generated_tests/const_187.rs"
 harness = false
 
 [[test]]
 name = "const_188"
+path = "generated_tests/const_188.rs"
 harness = false
 
 [[test]]
 name = "const_189"
+path = "generated_tests/const_189.rs"
 harness = false
 
 [[test]]
 name = "const_19"
+path = "generated_tests/const_19.rs"
 harness = false
 
 [[test]]
 name = "const_190"
+path = "generated_tests/const_190.rs"
 harness = false
 
 [[test]]
 name = "const_191"
+path = "generated_tests/const_191.rs"
 harness = false
 
 [[test]]
 name = "const_192"
+path = "generated_tests/const_192.rs"
 harness = false
 
 [[test]]
 name = "const_193"
+path = "generated_tests/const_193.rs"
 harness = false
 
 [[test]]
 name = "const_194"
+path = "generated_tests/const_194.rs"
 harness = false
 
 [[test]]
 name = "const_195"
+path = "generated_tests/const_195.rs"
 harness = false
 
 [[test]]
 name = "const_196"
+path = "generated_tests/const_196.rs"
 harness = false
 
 [[test]]
 name = "const_197"
+path = "generated_tests/const_197.rs"
 harness = false
 
 [[test]]
 name = "const_198"
+path = "generated_tests/const_198.rs"
 harness = false
 
 [[test]]
 name = "const_199"
+path = "generated_tests/const_199.rs"
 harness = false
 
 [[test]]
 name = "const_20"
+path = "generated_tests/const_20.rs"
 harness = false
 
 [[test]]
 name = "const_200"
+path = "generated_tests/const_200.rs"
 harness = false
 
 [[test]]
 name = "const_201"
+path = "generated_tests/const_201.rs"
 harness = false
 
 [[test]]
 name = "const_202"
+path = "generated_tests/const_202.rs"
 harness = false
 
 [[test]]
 name = "const_203"
+path = "generated_tests/const_203.rs"
 harness = false
 
 [[test]]
 name = "const_204"
+path = "generated_tests/const_204.rs"
 harness = false
 
 [[test]]
 name = "const_205"
+path = "generated_tests/const_205.rs"
 harness = false
 
 [[test]]
 name = "const_206"
+path = "generated_tests/const_206.rs"
 harness = false
 
 [[test]]
 name = "const_207"
+path = "generated_tests/const_207.rs"
 harness = false
 
 [[test]]
 name = "const_208"
+path = "generated_tests/const_208.rs"
 harness = false
 
 [[test]]
 name = "const_209"
+path = "generated_tests/const_209.rs"
 harness = false
 
 [[test]]
 name = "const_21"
+path = "generated_tests/const_21.rs"
 harness = false
 
 [[test]]
 name = "const_210"
+path = "generated_tests/const_210.rs"
 harness = false
 
 [[test]]
 name = "const_211"
+path = "generated_tests/const_211.rs"
 harness = false
 
 [[test]]
 name = "const_212"
+path = "generated_tests/const_212.rs"
 harness = false
 
 [[test]]
 name = "const_213"
+path = "generated_tests/const_213.rs"
 harness = false
 
 [[test]]
 name = "const_214"
+path = "generated_tests/const_214.rs"
 harness = false
 
 [[test]]
 name = "const_215"
+path = "generated_tests/const_215.rs"
 harness = false
 
 [[test]]
 name = "const_216"
+path = "generated_tests/const_216.rs"
 harness = false
 
 [[test]]
 name = "const_217"
+path = "generated_tests/const_217.rs"
 harness = false
 
 [[test]]
 name = "const_218"
+path = "generated_tests/const_218.rs"
 harness = false
 
 [[test]]
 name = "const_219"
+path = "generated_tests/const_219.rs"
 harness = false
 
 [[test]]
 name = "const_22"
+path = "generated_tests/const_22.rs"
 harness = false
 
 [[test]]
 name = "const_220"
+path = "generated_tests/const_220.rs"
 harness = false
 
 [[test]]
 name = "const_221"
+path = "generated_tests/const_221.rs"
 harness = false
 
 [[test]]
 name = "const_222"
+path = "generated_tests/const_222.rs"
 harness = false
 
 [[test]]
 name = "const_223"
+path = "generated_tests/const_223.rs"
 harness = false
 
 [[test]]
 name = "const_224"
+path = "generated_tests/const_224.rs"
 harness = false
 
 [[test]]
 name = "const_225"
+path = "generated_tests/const_225.rs"
 harness = false
 
 [[test]]
 name = "const_226"
+path = "generated_tests/const_226.rs"
 harness = false
 
 [[test]]
 name = "const_227"
+path = "generated_tests/const_227.rs"
 harness = false
 
 [[test]]
 name = "const_228"
+path = "generated_tests/const_228.rs"
 harness = false
 
 [[test]]
 name = "const_229"
+path = "generated_tests/const_229.rs"
 harness = false
 
 [[test]]
 name = "const_23"
+path = "generated_tests/const_23.rs"
 harness = false
 
 [[test]]
 name = "const_230"
+path = "generated_tests/const_230.rs"
 harness = false
 
 [[test]]
 name = "const_231"
+path = "generated_tests/const_231.rs"
 harness = false
 
 [[test]]
 name = "const_232"
+path = "generated_tests/const_232.rs"
 harness = false
 
 [[test]]
 name = "const_233"
+path = "generated_tests/const_233.rs"
 harness = false
 
 [[test]]
 name = "const_234"
+path = "generated_tests/const_234.rs"
 harness = false
 
 [[test]]
 name = "const_235"
+path = "generated_tests/const_235.rs"
 harness = false
 
 [[test]]
 name = "const_236"
+path = "generated_tests/const_236.rs"
 harness = false
 
 [[test]]
 name = "const_237"
+path = "generated_tests/const_237.rs"
 harness = false
 
 [[test]]
 name = "const_238"
+path = "generated_tests/const_238.rs"
 harness = false
 
 [[test]]
 name = "const_239"
+path = "generated_tests/const_239.rs"
 harness = false
 
 [[test]]
 name = "const_24"
+path = "generated_tests/const_24.rs"
 harness = false
 
 [[test]]
 name = "const_240"
+path = "generated_tests/const_240.rs"
 harness = false
 
 [[test]]
 name = "const_241"
+path = "generated_tests/const_241.rs"
 harness = false
 
 [[test]]
 name = "const_242"
+path = "generated_tests/const_242.rs"
 harness = false
 
 [[test]]
 name = "const_243"
+path = "generated_tests/const_243.rs"
 harness = false
 
 [[test]]
 name = "const_244"
+path = "generated_tests/const_244.rs"
 harness = false
 
 [[test]]
 name = "const_245"
+path = "generated_tests/const_245.rs"
 harness = false
 
 [[test]]
 name = "const_246"
+path = "generated_tests/const_246.rs"
 harness = false
 
 [[test]]
 name = "const_247"
+path = "generated_tests/const_247.rs"
 harness = false
 
 [[test]]
 name = "const_248"
+path = "generated_tests/const_248.rs"
 harness = false
 
 [[test]]
 name = "const_249"
+path = "generated_tests/const_249.rs"
 harness = false
 
 [[test]]
 name = "const_25"
+path = "generated_tests/const_25.rs"
 harness = false
 
 [[test]]
 name = "const_250"
+path = "generated_tests/const_250.rs"
 harness = false
 
 [[test]]
 name = "const_251"
+path = "generated_tests/const_251.rs"
 harness = false
 
 [[test]]
 name = "const_252"
+path = "generated_tests/const_252.rs"
 harness = false
 
 [[test]]
 name = "const_253"
+path = "generated_tests/const_253.rs"
 harness = false
 
 [[test]]
 name = "const_254"
+path = "generated_tests/const_254.rs"
 harness = false
 
 [[test]]
 name = "const_255"
+path = "generated_tests/const_255.rs"
 harness = false
 
 [[test]]
 name = "const_256"
+path = "generated_tests/const_256.rs"
 harness = false
 
 [[test]]
 name = "const_257"
+path = "generated_tests/const_257.rs"
 harness = false
 
 [[test]]
 name = "const_258"
+path = "generated_tests/const_258.rs"
 harness = false
 
 [[test]]
 name = "const_259"
+path = "generated_tests/const_259.rs"
 harness = false
 
 [[test]]
 name = "const_26"
+path = "generated_tests/const_26.rs"
 harness = false
 
 [[test]]
 name = "const_260"
+path = "generated_tests/const_260.rs"
 harness = false
 
 [[test]]
 name = "const_261"
+path = "generated_tests/const_261.rs"
 harness = false
 
 [[test]]
 name = "const_262"
+path = "generated_tests/const_262.rs"
 harness = false
 
 [[test]]
 name = "const_263"
+path = "generated_tests/const_263.rs"
 harness = false
 
 [[test]]
 name = "const_264"
+path = "generated_tests/const_264.rs"
 harness = false
 
 [[test]]
 name = "const_265"
+path = "generated_tests/const_265.rs"
 harness = false
 
 [[test]]
 name = "const_266"
+path = "generated_tests/const_266.rs"
 harness = false
 
 [[test]]
 name = "const_267"
+path = "generated_tests/const_267.rs"
 harness = false
 
 [[test]]
 name = "const_268"
+path = "generated_tests/const_268.rs"
 harness = false
 
 [[test]]
 name = "const_269"
+path = "generated_tests/const_269.rs"
 harness = false
 
 [[test]]
 name = "const_27"
+path = "generated_tests/const_27.rs"
 harness = false
 
 [[test]]
 name = "const_270"
+path = "generated_tests/const_270.rs"
 harness = false
 
 [[test]]
 name = "const_271"
+path = "generated_tests/const_271.rs"
 harness = false
 
 [[test]]
 name = "const_272"
+path = "generated_tests/const_272.rs"
 harness = false
 
 [[test]]
 name = "const_273"
+path = "generated_tests/const_273.rs"
 harness = false
 
 [[test]]
 name = "const_274"
+path = "generated_tests/const_274.rs"
 harness = false
 
 [[test]]
 name = "const_275"
+path = "generated_tests/const_275.rs"
 harness = false
 
 [[test]]
 name = "const_276"
+path = "generated_tests/const_276.rs"
 harness = false
 
 [[test]]
 name = "const_277"
+path = "generated_tests/const_277.rs"
 harness = false
 
 [[test]]
 name = "const_278"
+path = "generated_tests/const_278.rs"
 harness = false
 
 [[test]]
 name = "const_279"
+path = "generated_tests/const_279.rs"
 harness = false
 
 [[test]]
 name = "const_28"
+path = "generated_tests/const_28.rs"
 harness = false
 
 [[test]]
 name = "const_280"
+path = "generated_tests/const_280.rs"
 harness = false
 
 [[test]]
 name = "const_281"
+path = "generated_tests/const_281.rs"
 harness = false
 
 [[test]]
 name = "const_282"
+path = "generated_tests/const_282.rs"
 harness = false
 
 [[test]]
 name = "const_283"
+path = "generated_tests/const_283.rs"
 harness = false
 
 [[test]]
 name = "const_284"
+path = "generated_tests/const_284.rs"
 harness = false
 
 [[test]]
 name = "const_285"
+path = "generated_tests/const_285.rs"
 harness = false
 
 [[test]]
 name = "const_286"
+path = "generated_tests/const_286.rs"
 harness = false
 
 [[test]]
 name = "const_287"
+path = "generated_tests/const_287.rs"
 harness = false
 
 [[test]]
 name = "const_288"
+path = "generated_tests/const_288.rs"
 harness = false
 
 [[test]]
 name = "const_289"
+path = "generated_tests/const_289.rs"
 harness = false
 
 [[test]]
 name = "const_29"
+path = "generated_tests/const_29.rs"
 harness = false
 
 [[test]]
 name = "const_290"
+path = "generated_tests/const_290.rs"
 harness = false
 
 [[test]]
 name = "const_291"
+path = "generated_tests/const_291.rs"
 harness = false
 
 [[test]]
 name = "const_292"
+path = "generated_tests/const_292.rs"
 harness = false
 
 [[test]]
 name = "const_293"
+path = "generated_tests/const_293.rs"
 harness = false
 
 [[test]]
 name = "const_294"
+path = "generated_tests/const_294.rs"
 harness = false
 
 [[test]]
 name = "const_295"
+path = "generated_tests/const_295.rs"
 harness = false
 
 [[test]]
 name = "const_296"
+path = "generated_tests/const_296.rs"
 harness = false
 
 [[test]]
 name = "const_297"
+path = "generated_tests/const_297.rs"
 harness = false
 
 [[test]]
 name = "const_298"
+path = "generated_tests/const_298.rs"
 harness = false
 
 [[test]]
 name = "const_299"
+path = "generated_tests/const_299.rs"
 harness = false
 
 [[test]]
 name = "const_30"
+path = "generated_tests/const_30.rs"
 harness = false
 
 [[test]]
 name = "const_300"
+path = "generated_tests/const_300.rs"
 harness = false
 
 [[test]]
 name = "const_301"
+path = "generated_tests/const_301.rs"
 harness = false
 
 [[test]]
 name = "const_302"
+path = "generated_tests/const_302.rs"
 harness = false
 
 [[test]]
 name = "const_303"
+path = "generated_tests/const_303.rs"
 harness = false
 
 [[test]]
 name = "const_304"
+path = "generated_tests/const_304.rs"
 harness = false
 
 [[test]]
 name = "const_305"
+path = "generated_tests/const_305.rs"
 harness = false
 
 [[test]]
 name = "const_306"
+path = "generated_tests/const_306.rs"
 harness = false
 
 [[test]]
 name = "const_307"
+path = "generated_tests/const_307.rs"
 harness = false
 
 [[test]]
 name = "const_308"
+path = "generated_tests/const_308.rs"
 harness = false
 
 [[test]]
 name = "const_309"
+path = "generated_tests/const_309.rs"
 harness = false
 
 [[test]]
 name = "const_31"
+path = "generated_tests/const_31.rs"
 harness = false
 
 [[test]]
 name = "const_310"
+path = "generated_tests/const_310.rs"
 harness = false
 
 [[test]]
 name = "const_311"
+path = "generated_tests/const_311.rs"
 harness = false
 
 [[test]]
 name = "const_312"
+path = "generated_tests/const_312.rs"
 harness = false
 
 [[test]]
 name = "const_313"
+path = "generated_tests/const_313.rs"
 harness = false
 
 [[test]]
 name = "const_314"
+path = "generated_tests/const_314.rs"
 harness = false
 
 [[test]]
 name = "const_315"
+path = "generated_tests/const_315.rs"
 harness = false
 
 [[test]]
 name = "const_316"
+path = "generated_tests/const_316.rs"
 harness = false
 
 [[test]]
 name = "const_317"
+path = "generated_tests/const_317.rs"
 harness = false
 
 [[test]]
 name = "const_318"
+path = "generated_tests/const_318.rs"
 harness = false
 
 [[test]]
 name = "const_319"
+path = "generated_tests/const_319.rs"
 harness = false
 
 [[test]]
 name = "const_32"
+path = "generated_tests/const_32.rs"
 harness = false
 
 [[test]]
 name = "const_320"
+path = "generated_tests/const_320.rs"
 harness = false
 
 [[test]]
 name = "const_321"
+path = "generated_tests/const_321.rs"
 harness = false
 
 [[test]]
 name = "const_322"
+path = "generated_tests/const_322.rs"
 harness = false
 
 [[test]]
 name = "const_323"
+path = "generated_tests/const_323.rs"
 harness = false
 
 [[test]]
 name = "const_324"
+path = "generated_tests/const_324.rs"
 harness = false
 
 [[test]]
 name = "const_325"
+path = "generated_tests/const_325.rs"
 harness = false
 
 [[test]]
 name = "const_326"
+path = "generated_tests/const_326.rs"
 harness = false
 
 [[test]]
 name = "const_327"
+path = "generated_tests/const_327.rs"
 harness = false
 
 [[test]]
 name = "const_328"
+path = "generated_tests/const_328.rs"
 harness = false
 
 [[test]]
 name = "const_329"
+path = "generated_tests/const_329.rs"
 harness = false
 
 [[test]]
 name = "const_33"
+path = "generated_tests/const_33.rs"
 harness = false
 
 [[test]]
 name = "const_330"
+path = "generated_tests/const_330.rs"
 harness = false
 
 [[test]]
 name = "const_331"
+path = "generated_tests/const_331.rs"
 harness = false
 
 [[test]]
 name = "const_332"
+path = "generated_tests/const_332.rs"
 harness = false
 
 [[test]]
 name = "const_333"
+path = "generated_tests/const_333.rs"
 harness = false
 
 [[test]]
 name = "const_334"
+path = "generated_tests/const_334.rs"
 harness = false
 
 [[test]]
 name = "const_335"
+path = "generated_tests/const_335.rs"
 harness = false
 
 [[test]]
 name = "const_336"
+path = "generated_tests/const_336.rs"
 harness = false
 
 [[test]]
 name = "const_337"
+path = "generated_tests/const_337.rs"
 harness = false
 
 [[test]]
 name = "const_338"
+path = "generated_tests/const_338.rs"
 harness = false
 
 [[test]]
 name = "const_339"
+path = "generated_tests/const_339.rs"
 harness = false
 
 [[test]]
 name = "const_34"
+path = "generated_tests/const_34.rs"
 harness = false
 
 [[test]]
 name = "const_340"
+path = "generated_tests/const_340.rs"
 harness = false
 
 [[test]]
 name = "const_341"
+path = "generated_tests/const_341.rs"
 harness = false
 
 [[test]]
 name = "const_342"
+path = "generated_tests/const_342.rs"
 harness = false
 
 [[test]]
 name = "const_343"
+path = "generated_tests/const_343.rs"
 harness = false
 
 [[test]]
 name = "const_344"
+path = "generated_tests/const_344.rs"
 harness = false
 
 [[test]]
 name = "const_345"
+path = "generated_tests/const_345.rs"
 harness = false
 
 [[test]]
 name = "const_346"
+path = "generated_tests/const_346.rs"
 harness = false
 
 [[test]]
 name = "const_347"
+path = "generated_tests/const_347.rs"
 harness = false
 
 [[test]]
 name = "const_348"
+path = "generated_tests/const_348.rs"
 harness = false
 
 [[test]]
 name = "const_349"
+path = "generated_tests/const_349.rs"
 harness = false
 
 [[test]]
 name = "const_35"
+path = "generated_tests/const_35.rs"
 harness = false
 
 [[test]]
 name = "const_350"
+path = "generated_tests/const_350.rs"
 harness = false
 
 [[test]]
 name = "const_351"
+path = "generated_tests/const_351.rs"
 harness = false
 
 [[test]]
 name = "const_352"
+path = "generated_tests/const_352.rs"
 harness = false
 
 [[test]]
 name = "const_353"
+path = "generated_tests/const_353.rs"
 harness = false
 
 [[test]]
 name = "const_354"
+path = "generated_tests/const_354.rs"
 harness = false
 
 [[test]]
 name = "const_355"
+path = "generated_tests/const_355.rs"
 harness = false
 
 [[test]]
 name = "const_356"
+path = "generated_tests/const_356.rs"
 harness = false
 
 [[test]]
 name = "const_357"
+path = "generated_tests/const_357.rs"
 harness = false
 
 [[test]]
 name = "const_358"
+path = "generated_tests/const_358.rs"
 harness = false
 
 [[test]]
 name = "const_359"
+path = "generated_tests/const_359.rs"
 harness = false
 
 [[test]]
 name = "const_360"
+path = "generated_tests/const_360.rs"
 harness = false
 
 [[test]]
 name = "const_361"
+path = "generated_tests/const_361.rs"
 harness = false
 
 [[test]]
 name = "const_362"
+path = "generated_tests/const_362.rs"
 harness = false
 
 [[test]]
 name = "const_363"
+path = "generated_tests/const_363.rs"
 harness = false
 
 [[test]]
 name = "const_364"
+path = "generated_tests/const_364.rs"
 harness = false
 
 [[test]]
 name = "const_365"
+path = "generated_tests/const_365.rs"
 harness = false
 
 [[test]]
 name = "const_366"
+path = "generated_tests/const_366.rs"
 harness = false
 
 [[test]]
 name = "const_367"
+path = "generated_tests/const_367.rs"
 harness = false
 
 [[test]]
 name = "const_368"
+path = "generated_tests/const_368.rs"
 harness = false
 
 [[test]]
 name = "const_369"
+path = "generated_tests/const_369.rs"
 harness = false
 
 [[test]]
 name = "const_370"
+path = "generated_tests/const_370.rs"
 harness = false
 
 [[test]]
 name = "const_371"
+path = "generated_tests/const_371.rs"
 harness = false
 
 [[test]]
 name = "const_372"
+path = "generated_tests/const_372.rs"
 harness = false
 
 [[test]]
 name = "const_373"
+path = "generated_tests/const_373.rs"
 harness = false
 
 [[test]]
 name = "const_374"
+path = "generated_tests/const_374.rs"
 harness = false
 
 [[test]]
 name = "const_375"
+path = "generated_tests/const_375.rs"
 harness = false
 
 [[test]]
 name = "const_376"
+path = "generated_tests/const_376.rs"
 harness = false
 
 [[test]]
 name = "const_377"
+path = "generated_tests/const_377.rs"
 harness = false
 
 [[test]]
 name = "const_378"
+path = "generated_tests/const_378.rs"
 harness = false
 
 [[test]]
 name = "const_379"
+path = "generated_tests/const_379.rs"
 harness = false
 
 [[test]]
 name = "const_380"
+path = "generated_tests/const_380.rs"
 harness = false
 
 [[test]]
 name = "const_381"
+path = "generated_tests/const_381.rs"
 harness = false
 
 [[test]]
 name = "const_382"
+path = "generated_tests/const_382.rs"
 harness = false
 
 [[test]]
 name = "const_383"
+path = "generated_tests/const_383.rs"
 harness = false
 
 [[test]]
 name = "const_384"
+path = "generated_tests/const_384.rs"
 harness = false
 
 [[test]]
 name = "const_385"
+path = "generated_tests/const_385.rs"
 harness = false
 
 [[test]]
 name = "const_386"
+path = "generated_tests/const_386.rs"
 harness = false
 
 [[test]]
 name = "const_387"
+path = "generated_tests/const_387.rs"
 harness = false
 
 [[test]]
 name = "const_388"
+path = "generated_tests/const_388.rs"
 harness = false
 
 [[test]]
 name = "const_389"
+path = "generated_tests/const_389.rs"
 harness = false
 
 [[test]]
 name = "const_390"
+path = "generated_tests/const_390.rs"
 harness = false
 
 [[test]]
 name = "const_391"
+path = "generated_tests/const_391.rs"
 harness = false
 
 [[test]]
 name = "const_392"
+path = "generated_tests/const_392.rs"
 harness = false
 
 [[test]]
 name = "const_393"
+path = "generated_tests/const_393.rs"
 harness = false
 
 [[test]]
 name = "const_394"
+path = "generated_tests/const_394.rs"
 harness = false
 
 [[test]]
 name = "const_395"
+path = "generated_tests/const_395.rs"
 harness = false
 
 [[test]]
 name = "const_396"
+path = "generated_tests/const_396.rs"
 harness = false
 
 [[test]]
 name = "const_397"
+path = "generated_tests/const_397.rs"
 harness = false
 
 [[test]]
 name = "const_398"
+path = "generated_tests/const_398.rs"
 harness = false
 
 [[test]]
 name = "const_399"
+path = "generated_tests/const_399.rs"
 harness = false
 
 [[test]]
 name = "const_400"
+path = "generated_tests/const_400.rs"
 harness = false
 
 [[test]]
 name = "const_401"
+path = "generated_tests/const_401.rs"
 harness = false
 
 [[test]]
 name = "const_402"
+path = "generated_tests/const_402.rs"
 harness = false
 
 [[test]]
 name = "const_403"
+path = "generated_tests/const_403.rs"
 harness = false
 
 [[test]]
 name = "const_404"
+path = "generated_tests/const_404.rs"
 harness = false
 
 [[test]]
 name = "const_405"
+path = "generated_tests/const_405.rs"
 harness = false
 
 [[test]]
 name = "const_406"
+path = "generated_tests/const_406.rs"
 harness = false
 
 [[test]]
 name = "const_407"
+path = "generated_tests/const_407.rs"
 harness = false
 
 [[test]]
 name = "const_408"
+path = "generated_tests/const_408.rs"
 harness = false
 
 [[test]]
 name = "const_409"
+path = "generated_tests/const_409.rs"
 harness = false
 
 [[test]]
 name = "const_410"
+path = "generated_tests/const_410.rs"
 harness = false
 
 [[test]]
 name = "const_411"
+path = "generated_tests/const_411.rs"
 harness = false
 
 [[test]]
 name = "const_412"
+path = "generated_tests/const_412.rs"
 harness = false
 
 [[test]]
 name = "const_413"
+path = "generated_tests/const_413.rs"
 harness = false
 
 [[test]]
 name = "const_414"
+path = "generated_tests/const_414.rs"
 harness = false
 
 [[test]]
 name = "const_415"
+path = "generated_tests/const_415.rs"
 harness = false
 
 [[test]]
 name = "const_416"
+path = "generated_tests/const_416.rs"
 harness = false
 
 [[test]]
 name = "const_417"
+path = "generated_tests/const_417.rs"
 harness = false
 
 [[test]]
 name = "const_418"
+path = "generated_tests/const_418.rs"
 harness = false
 
 [[test]]
 name = "const_419"
+path = "generated_tests/const_419.rs"
 harness = false
 
 [[test]]
 name = "const_420"
+path = "generated_tests/const_420.rs"
 harness = false
 
 [[test]]
 name = "const_421"
+path = "generated_tests/const_421.rs"
 harness = false
 
 [[test]]
 name = "const_422"
+path = "generated_tests/const_422.rs"
 harness = false
 
 [[test]]
 name = "const_423"
+path = "generated_tests/const_423.rs"
 harness = false
 
 [[test]]
 name = "const_424"
+path = "generated_tests/const_424.rs"
 harness = false
 
 [[test]]
 name = "const_425"
+path = "generated_tests/const_425.rs"
 harness = false
 
 [[test]]
 name = "const_426"
+path = "generated_tests/const_426.rs"
 harness = false
 
 [[test]]
 name = "const_427"
+path = "generated_tests/const_427.rs"
 harness = false
 
 [[test]]
 name = "const_428"
+path = "generated_tests/const_428.rs"
 harness = false
 
 [[test]]
 name = "const_429"
+path = "generated_tests/const_429.rs"
 harness = false
 
 [[test]]
 name = "const_430"
+path = "generated_tests/const_430.rs"
 harness = false
 
 [[test]]
 name = "const_431"
+path = "generated_tests/const_431.rs"
 harness = false
 
 [[test]]
 name = "const_432"
+path = "generated_tests/const_432.rs"
 harness = false
 
 [[test]]
 name = "const_433"
+path = "generated_tests/const_433.rs"
 harness = false
 
 [[test]]
 name = "const_434"
+path = "generated_tests/const_434.rs"
 harness = false
 
 [[test]]
 name = "const_435"
+path = "generated_tests/const_435.rs"
 harness = false
 
 [[test]]
 name = "const_436"
+path = "generated_tests/const_436.rs"
 harness = false
 
 [[test]]
 name = "const_437"
+path = "generated_tests/const_437.rs"
 harness = false
 
 [[test]]
 name = "const_438"
+path = "generated_tests/const_438.rs"
 harness = false
 
 [[test]]
 name = "const_439"
+path = "generated_tests/const_439.rs"
 harness = false
 
 [[test]]
 name = "const_440"
+path = "generated_tests/const_440.rs"
 harness = false
 
 [[test]]
 name = "const_441"
+path = "generated_tests/const_441.rs"
 harness = false
 
 [[test]]
 name = "const_442"
+path = "generated_tests/const_442.rs"
 harness = false
 
 [[test]]
 name = "const_443"
+path = "generated_tests/const_443.rs"
 harness = false
 
 [[test]]
 name = "const_444"
+path = "generated_tests/const_444.rs"
 harness = false
 
 [[test]]
 name = "const_445"
+path = "generated_tests/const_445.rs"
 harness = false
 
 [[test]]
 name = "const_446"
+path = "generated_tests/const_446.rs"
 harness = false
 
 [[test]]
 name = "const_447"
+path = "generated_tests/const_447.rs"
 harness = false
 
 [[test]]
 name = "const_448"
+path = "generated_tests/const_448.rs"
 harness = false
 
 [[test]]
 name = "const_449"
+path = "generated_tests/const_449.rs"
 harness = false
 
 [[test]]
 name = "const_450"
+path = "generated_tests/const_450.rs"
 harness = false
 
 [[test]]
 name = "const_451"
+path = "generated_tests/const_451.rs"
 harness = false
 
 [[test]]
 name = "const_452"
+path = "generated_tests/const_452.rs"
 harness = false
 
 [[test]]
 name = "const_453"
+path = "generated_tests/const_453.rs"
 harness = false
 
 [[test]]
 name = "const_454"
+path = "generated_tests/const_454.rs"
 harness = false
 
 [[test]]
 name = "const_455"
+path = "generated_tests/const_455.rs"
 harness = false
 
 [[test]]
 name = "const_456"
+path = "generated_tests/const_456.rs"
 harness = false
 
 [[test]]
 name = "const_457"
+path = "generated_tests/const_457.rs"
 harness = false
 
 [[test]]
 name = "const_458"
+path = "generated_tests/const_458.rs"
 harness = false
 
 [[test]]
 name = "const_459"
+path = "generated_tests/const_459.rs"
 harness = false
 
 [[test]]
 name = "const_460"
+path = "generated_tests/const_460.rs"
 harness = false
 
 [[test]]
 name = "const_461"
+path = "generated_tests/const_461.rs"
 harness = false
 
 [[test]]
 name = "const_462"
+path = "generated_tests/const_462.rs"
 harness = false
 
 [[test]]
 name = "const_463"
+path = "generated_tests/const_463.rs"
 harness = false
 
 [[test]]
 name = "const_464"
+path = "generated_tests/const_464.rs"
 harness = false
 
 [[test]]
 name = "const_465"
+path = "generated_tests/const_465.rs"
 harness = false
 
 [[test]]
 name = "const_55"
+path = "generated_tests/const_55.rs"
 harness = false
 
 [[test]]
 name = "const_56"
+path = "generated_tests/const_56.rs"
 harness = false
 
 [[test]]
 name = "const_57"
+path = "generated_tests/const_57.rs"
 harness = false
 
 [[test]]
 name = "const_58"
+path = "generated_tests/const_58.rs"
 harness = false
 
 [[test]]
 name = "const_59"
+path = "generated_tests/const_59.rs"
 harness = false
 
 [[test]]
 name = "const_6"
+path = "generated_tests/const_6.rs"
 harness = false
 
 [[test]]
 name = "const_60"
+path = "generated_tests/const_60.rs"
 harness = false
 
 [[test]]
 name = "const_61"
+path = "generated_tests/const_61.rs"
 harness = false
 
 [[test]]
 name = "const_62"
+path = "generated_tests/const_62.rs"
 harness = false
 
 [[test]]
 name = "const_63"
+path = "generated_tests/const_63.rs"
 harness = false
 
 [[test]]
 name = "const_64"
+path = "generated_tests/const_64.rs"
 harness = false
 
 [[test]]
 name = "const_65"
+path = "generated_tests/const_65.rs"
 harness = false
 
 [[test]]
 name = "const_66"
+path = "generated_tests/const_66.rs"
 harness = false
 
 [[test]]
 name = "const_67"
+path = "generated_tests/const_67.rs"
 harness = false
 
 [[test]]
 name = "const_68"
+path = "generated_tests/const_68.rs"
 harness = false
 
 [[test]]
 name = "const_69"
+path = "generated_tests/const_69.rs"
 harness = false
 
 [[test]]
 name = "const_7"
+path = "generated_tests/const_7.rs"
 harness = false
 
 [[test]]
 name = "const_70"
+path = "generated_tests/const_70.rs"
 harness = false
 
 [[test]]
 name = "const_71"
+path = "generated_tests/const_71.rs"
 harness = false
 
 [[test]]
 name = "const_72"
+path = "generated_tests/const_72.rs"
 harness = false
 
 [[test]]
 name = "const_73"
+path = "generated_tests/const_73.rs"
 harness = false
 
 [[test]]
 name = "const_74"
+path = "generated_tests/const_74.rs"
 harness = false
 
 [[test]]
 name = "const_75"
+path = "generated_tests/const_75.rs"
 harness = false
 
 [[test]]
 name = "const_76"
+path = "generated_tests/const_76.rs"
 harness = false
 
 [[test]]
 name = "const_77"
+path = "generated_tests/const_77.rs"
 harness = false
 
 [[test]]
 name = "const_78"
+path = "generated_tests/const_78.rs"
 harness = false
 
 [[test]]
 name = "const_98"
+path = "generated_tests/const_98.rs"
 harness = false
 
 [[test]]
 name = "const_99"
+path = "generated_tests/const_99.rs"
 harness = false
 
 [[test]]
 name = "conversions_0"
+path = "generated_tests/conversions_0.rs"
 harness = false
 
 [[test]]
 name = "conversions_0_1"
+path = "generated_tests/conversions_0_1.rs"
 harness = false
 
 [[test]]
 name = "custom_0"
+path = "generated_tests/custom_0.rs"
 harness = false
 
 [[test]]
 name = "custom_1"
+path = "generated_tests/custom_1.rs"
 harness = false
 
 [[test]]
 name = "custom_2"
+path = "generated_tests/custom_2.rs"
 harness = false
 
 [[test]]
 name = "data_0"
+path = "generated_tests/data_0.rs"
 harness = false
 
 [[test]]
 name = "data_1"
+path = "generated_tests/data_1.rs"
 harness = false
 
 [[test]]
 name = "data_12"
+path = "generated_tests/data_12.rs"
 harness = false
 
 [[test]]
 name = "data_14"
+path = "generated_tests/data_14.rs"
 harness = false
 
 [[test]]
 name = "data_15"
+path = "generated_tests/data_15.rs"
 harness = false
 
 [[test]]
 name = "data_16"
+path = "generated_tests/data_16.rs"
 harness = false
 
 [[test]]
 name = "data_18"
+path = "generated_tests/data_18.rs"
 harness = false
 
 [[test]]
 name = "data_3"
+path = "generated_tests/data_3.rs"
 harness = false
-
 
 [[test]]
 name = "data_9"
+path = "generated_tests/data_9.rs"
 harness = false
 
 [[test]]
 name = "endianness_0"
+path = "generated_tests/endianness_0.rs"
 harness = false
 
 [[test]]
 name = "f32_0"
+path = "generated_tests/f32_0.rs"
 harness = false
 
 [[test]]
 name = "f32_0_1"
+path = "generated_tests/f32_0_1.rs"
 harness = false
 
 [[test]]
 name = "f32_0_10"
+path = "generated_tests/f32_0_10.rs"
 harness = false
 
 [[test]]
 name = "f32_0_11"
+path = "generated_tests/f32_0_11.rs"
 harness = false
 
 [[test]]
 name = "f32_0_2"
+path = "generated_tests/f32_0_2.rs"
 harness = false
 
 [[test]]
 name = "f32_0_3"
+path = "generated_tests/f32_0_3.rs"
 harness = false
 
 [[test]]
 name = "f32_0_4"
+path = "generated_tests/f32_0_4.rs"
 harness = false
 
 [[test]]
 name = "f32_0_5"
+path = "generated_tests/f32_0_5.rs"
 harness = false
 
 [[test]]
 name = "f32_0_6"
+path = "generated_tests/f32_0_6.rs"
 harness = false
 
 [[test]]
 name = "f32_0_7"
+path = "generated_tests/f32_0_7.rs"
 harness = false
 
 [[test]]
 name = "f32_0_8"
+path = "generated_tests/f32_0_8.rs"
 harness = false
 
 [[test]]
 name = "f32_0_9"
+path = "generated_tests/f32_0_9.rs"
 harness = false
 
 [[test]]
 name = "f32_bitwise_0"
+path = "generated_tests/f32_bitwise_0.rs"
 harness = false
 
 [[test]]
 name = "f32_bitwise_0_1"
+path = "generated_tests/f32_bitwise_0_1.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0"
+path = "generated_tests/f32_cmp_0.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0_1"
+path = "generated_tests/f32_cmp_0_1.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0_10"
+path = "generated_tests/f32_cmp_0_10.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0_11"
+path = "generated_tests/f32_cmp_0_11.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0_2"
+path = "generated_tests/f32_cmp_0_2.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0_3"
+path = "generated_tests/f32_cmp_0_3.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0_4"
+path = "generated_tests/f32_cmp_0_4.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0_5"
+path = "generated_tests/f32_cmp_0_5.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0_6"
+path = "generated_tests/f32_cmp_0_6.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0_7"
+path = "generated_tests/f32_cmp_0_7.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0_8"
+path = "generated_tests/f32_cmp_0_8.rs"
 harness = false
 
 [[test]]
 name = "f32_cmp_0_9"
+path = "generated_tests/f32_cmp_0_9.rs"
 harness = false
 
 [[test]]
 name = "f64_0"
+path = "generated_tests/f64_0.rs"
 harness = false
 
 [[test]]
 name = "f64_0_1"
+path = "generated_tests/f64_0_1.rs"
 harness = false
 
 [[test]]
 name = "f64_0_10"
+path = "generated_tests/f64_0_10.rs"
 harness = false
 
 [[test]]
 name = "f64_0_11"
+path = "generated_tests/f64_0_11.rs"
 harness = false
 
 [[test]]
 name = "f64_0_12"
+path = "generated_tests/f64_0_12.rs"
 harness = false
 
 [[test]]
 name = "f64_0_2"
+path = "generated_tests/f64_0_2.rs"
 harness = false
 
 [[test]]
 name = "f64_0_3"
+path = "generated_tests/f64_0_3.rs"
 harness = false
 
 [[test]]
 name = "f64_0_4"
+path = "generated_tests/f64_0_4.rs"
 harness = false
 
 [[test]]
 name = "f64_0_5"
+path = "generated_tests/f64_0_5.rs"
 harness = false
 
 [[test]]
 name = "f64_0_6"
+path = "generated_tests/f64_0_6.rs"
 harness = false
 
 [[test]]
 name = "f64_0_7"
+path = "generated_tests/f64_0_7.rs"
 harness = false
 
 [[test]]
 name = "f64_0_8"
+path = "generated_tests/f64_0_8.rs"
 harness = false
 
 [[test]]
 name = "f64_0_9"
+path = "generated_tests/f64_0_9.rs"
 harness = false
 
 [[test]]
 name = "f64_bitwise_0"
+path = "generated_tests/f64_bitwise_0.rs"
 harness = false
 
 [[test]]
 name = "f64_bitwise_0_1"
+path = "generated_tests/f64_bitwise_0_1.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0"
+path = "generated_tests/f64_cmp_0.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0_1"
+path = "generated_tests/f64_cmp_0_1.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0_10"
+path = "generated_tests/f64_cmp_0_10.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0_11"
+path = "generated_tests/f64_cmp_0_11.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0_2"
+path = "generated_tests/f64_cmp_0_2.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0_3"
+path = "generated_tests/f64_cmp_0_3.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0_4"
+path = "generated_tests/f64_cmp_0_4.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0_5"
+path = "generated_tests/f64_cmp_0_5.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0_6"
+path = "generated_tests/f64_cmp_0_6.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0_7"
+path = "generated_tests/f64_cmp_0_7.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0_8"
+path = "generated_tests/f64_cmp_0_8.rs"
 harness = false
 
 [[test]]
 name = "f64_cmp_0_9"
+path = "generated_tests/f64_cmp_0_9.rs"
 harness = false
 
 [[test]]
 name = "fac_0"
+path = "generated_tests/fac_0.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_0"
+path = "generated_tests/float_exprs_0.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_1"
+path = "generated_tests/float_exprs_1.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_10"
+path = "generated_tests/float_exprs_10.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_11"
+path = "generated_tests/float_exprs_11.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_12"
+path = "generated_tests/float_exprs_12.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_13"
+path = "generated_tests/float_exprs_13.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_14"
+path = "generated_tests/float_exprs_14.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_15"
+path = "generated_tests/float_exprs_15.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_16"
+path = "generated_tests/float_exprs_16.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_17"
+path = "generated_tests/float_exprs_17.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_18"
+path = "generated_tests/float_exprs_18.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_19"
+path = "generated_tests/float_exprs_19.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_2"
+path = "generated_tests/float_exprs_2.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_20"
+path = "generated_tests/float_exprs_20.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_21"
+path = "generated_tests/float_exprs_21.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_22"
+path = "generated_tests/float_exprs_22.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_23"
+path = "generated_tests/float_exprs_23.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_24"
+path = "generated_tests/float_exprs_24.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_25"
+path = "generated_tests/float_exprs_25.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_26"
+path = "generated_tests/float_exprs_26.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_27"
+path = "generated_tests/float_exprs_27.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_28"
+path = "generated_tests/float_exprs_28.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_29"
+path = "generated_tests/float_exprs_29.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_3"
+path = "generated_tests/float_exprs_3.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_30"
+path = "generated_tests/float_exprs_30.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_31"
+path = "generated_tests/float_exprs_31.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_32"
+path = "generated_tests/float_exprs_32.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_33"
+path = "generated_tests/float_exprs_33.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_34"
+path = "generated_tests/float_exprs_34.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_35"
+path = "generated_tests/float_exprs_35.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_36"
+path = "generated_tests/float_exprs_36.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_37"
+path = "generated_tests/float_exprs_37.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_38"
+path = "generated_tests/float_exprs_38.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_39"
+path = "generated_tests/float_exprs_39.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_4"
+path = "generated_tests/float_exprs_4.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_40"
+path = "generated_tests/float_exprs_40.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_41"
+path = "generated_tests/float_exprs_41.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_42"
+path = "generated_tests/float_exprs_42.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_43"
+path = "generated_tests/float_exprs_43.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_44"
+path = "generated_tests/float_exprs_44.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_45"
+path = "generated_tests/float_exprs_45.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_46"
+path = "generated_tests/float_exprs_46.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_47"
+path = "generated_tests/float_exprs_47.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_48"
+path = "generated_tests/float_exprs_48.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_49"
+path = "generated_tests/float_exprs_49.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_5"
+path = "generated_tests/float_exprs_5.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_50"
+path = "generated_tests/float_exprs_50.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_51"
+path = "generated_tests/float_exprs_51.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_52"
+path = "generated_tests/float_exprs_52.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_53"
+path = "generated_tests/float_exprs_53.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_54"
+path = "generated_tests/float_exprs_54.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_55"
+path = "generated_tests/float_exprs_55.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_56"
+path = "generated_tests/float_exprs_56.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_57"
+path = "generated_tests/float_exprs_57.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_58"
+path = "generated_tests/float_exprs_58.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_59"
+path = "generated_tests/float_exprs_59.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_6"
+path = "generated_tests/float_exprs_6.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_60"
+path = "generated_tests/float_exprs_60.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_61"
+path = "generated_tests/float_exprs_61.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_62"
+path = "generated_tests/float_exprs_62.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_63"
+path = "generated_tests/float_exprs_63.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_64"
+path = "generated_tests/float_exprs_64.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_65"
+path = "generated_tests/float_exprs_65.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_66"
+path = "generated_tests/float_exprs_66.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_67"
+path = "generated_tests/float_exprs_67.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_68"
+path = "generated_tests/float_exprs_68.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_69"
+path = "generated_tests/float_exprs_69.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_7"
+path = "generated_tests/float_exprs_7.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_70"
+path = "generated_tests/float_exprs_70.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_71"
+path = "generated_tests/float_exprs_71.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_72"
+path = "generated_tests/float_exprs_72.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_73"
+path = "generated_tests/float_exprs_73.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_74"
+path = "generated_tests/float_exprs_74.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_75"
+path = "generated_tests/float_exprs_75.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_76"
+path = "generated_tests/float_exprs_76.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_77"
+path = "generated_tests/float_exprs_77.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_78"
+path = "generated_tests/float_exprs_78.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_79"
+path = "generated_tests/float_exprs_79.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_8"
+path = "generated_tests/float_exprs_8.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_80"
+path = "generated_tests/float_exprs_80.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_81"
+path = "generated_tests/float_exprs_81.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_82"
+path = "generated_tests/float_exprs_82.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_83"
+path = "generated_tests/float_exprs_83.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_84"
+path = "generated_tests/float_exprs_84.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_85"
+path = "generated_tests/float_exprs_85.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_86"
+path = "generated_tests/float_exprs_86.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_87"
+path = "generated_tests/float_exprs_87.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_88"
+path = "generated_tests/float_exprs_88.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_89"
+path = "generated_tests/float_exprs_89.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_9"
+path = "generated_tests/float_exprs_9.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_90"
+path = "generated_tests/float_exprs_90.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_91"
+path = "generated_tests/float_exprs_91.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_92"
+path = "generated_tests/float_exprs_92.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_93"
+path = "generated_tests/float_exprs_93.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_94"
+path = "generated_tests/float_exprs_94.rs"
 harness = false
 
 [[test]]
 name = "float_exprs_95"
+path = "generated_tests/float_exprs_95.rs"
 harness = false
 
 [[test]]
 name = "float_literals_0"
+path = "generated_tests/float_literals_0.rs"
 harness = false
 
 [[test]]
 name = "float_literals_1"
+path = "generated_tests/float_literals_1.rs"
 harness = false
 
 [[test]]
 name = "float_memory_0"
+path = "generated_tests/float_memory_0.rs"
 harness = false
 
 [[test]]
 name = "float_memory_1"
+path = "generated_tests/float_memory_1.rs"
 harness = false
 
 [[test]]
 name = "float_memory_2"
+path = "generated_tests/float_memory_2.rs"
 harness = false
 
 [[test]]
 name = "float_memory_3"
+path = "generated_tests/float_memory_3.rs"
 harness = false
 
 [[test]]
 name = "float_memory_4"
+path = "generated_tests/float_memory_4.rs"
 harness = false
 
 [[test]]
 name = "float_memory_5"
+path = "generated_tests/float_memory_5.rs"
 harness = false
 
 [[test]]
 name = "float_misc_0"
+path = "generated_tests/float_misc_0.rs"
 harness = false
 
 [[test]]
 name = "float_misc_0_1"
+path = "generated_tests/float_misc_0_1.rs"
 harness = false
 
 [[test]]
 name = "float_misc_0_2"
+path = "generated_tests/float_misc_0_2.rs"
 harness = false
 
 [[test]]
 name = "forward_0"
+path = "generated_tests/forward_0.rs"
 harness = false
 
 [[test]]
 name = "func_0"
+path = "generated_tests/func_0.rs"
 harness = false
 
 [[test]]
 name = "func_1"
+path = "generated_tests/func_1.rs"
 harness = false
 
 [[test]]
 name = "func_3"
+path = "generated_tests/func_3.rs"
 harness = false
 
 [[test]]
 name = "func_ptrs_0"
+path = "generated_tests/func_ptrs_0.rs"
 harness = false
 
 [[test]]
 name = "func_ptrs_8"
+path = "generated_tests/func_ptrs_8.rs"
 harness = false
 
 [[test]]
 name = "func_ptrs_9"
+path = "generated_tests/func_ptrs_9.rs"
 harness = false
 
 [[test]]
 name = "global_0"
+path = "generated_tests/global_0.rs"
 harness = false
-
 
 [[test]]
 name = "global_17"
+path = "generated_tests/global_17.rs"
 harness = false
 
 [[test]]
 name = "global_2"
+path = "generated_tests/global_2.rs"
 harness = false
 
 [[test]]
 name = "global_3"
+path = "generated_tests/global_3.rs"
 harness = false
 
 [[test]]
 name = "i32_0"
+path = "generated_tests/i32_0.rs"
 harness = false
 
 [[test]]
 name = "i32_0_1"
+path = "generated_tests/i32_0_1.rs"
 harness = false
 
 [[test]]
 name = "i64_0"
+path = "generated_tests/i64_0.rs"
 harness = false
 
 [[test]]
 name = "i64_0_1"
+path = "generated_tests/i64_0_1.rs"
 harness = false
 
 [[test]]
 name = "if_0"
+path = "generated_tests/if_0.rs"
 harness = false
 
 [[test]]
 name = "inline-module_0"
+path = "generated_tests/inline-module_0.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_0"
+path = "generated_tests/int_exprs_0.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_1"
+path = "generated_tests/int_exprs_1.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_10"
+path = "generated_tests/int_exprs_10.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_11"
+path = "generated_tests/int_exprs_11.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_12"
+path = "generated_tests/int_exprs_12.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_13"
+path = "generated_tests/int_exprs_13.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_14"
+path = "generated_tests/int_exprs_14.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_15"
+path = "generated_tests/int_exprs_15.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_16"
+path = "generated_tests/int_exprs_16.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_17"
+path = "generated_tests/int_exprs_17.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_18"
+path = "generated_tests/int_exprs_18.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_2"
+path = "generated_tests/int_exprs_2.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_3"
+path = "generated_tests/int_exprs_3.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_4"
+path = "generated_tests/int_exprs_4.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_5"
+path = "generated_tests/int_exprs_5.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_6"
+path = "generated_tests/int_exprs_6.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_7"
+path = "generated_tests/int_exprs_7.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_8"
+path = "generated_tests/int_exprs_8.rs"
 harness = false
 
 [[test]]
 name = "int_exprs_9"
+path = "generated_tests/int_exprs_9.rs"
 harness = false
 
 [[test]]
 name = "int_literals_0"
+path = "generated_tests/int_literals_0.rs"
 harness = false
 
 [[test]]
 name = "labels_0"
+path = "generated_tests/labels_0.rs"
 harness = false
 
 [[test]]
 name = "left-to-right_0"
+path = "generated_tests/left-to-right_0.rs"
 harness = false
 
 [[test]]
 name = "load_0"
+path = "generated_tests/load_0.rs"
 harness = false
 
 [[test]]
 name = "local_get_0"
+path = "generated_tests/local_get_0.rs"
 harness = false
 
 [[test]]
 name = "local_set_0"
+path = "generated_tests/local_set_0.rs"
 harness = false
 
 [[test]]
 name = "local_tee_0"
+path = "generated_tests/local_tee_0.rs"
 harness = false
 
 [[test]]
 name = "loop_0"
+path = "generated_tests/loop_0.rs"
 harness = false
 
 [[test]]
 name = "memory_0"
+path = "generated_tests/memory_0.rs"
 harness = false
 
 [[test]]
 name = "memory_1"
+path = "generated_tests/memory_1.rs"
 harness = false
 
 [[test]]
 name = "memory_2"
+path = "generated_tests/memory_2.rs"
 harness = false
 
 [[test]]
 name = "memory_25"
+path = "generated_tests/memory_25.rs"
 harness = false
 
 [[test]]
 name = "memory_3"
+path = "generated_tests/memory_3.rs"
 harness = false
 
 [[test]]
 name = "memory_6"
+path = "generated_tests/memory_6.rs"
 harness = false
 
 [[test]]
 name = "memory_7"
+path = "generated_tests/memory_7.rs"
 harness = false
 
 [[test]]
 name = "memory_8"
+path = "generated_tests/memory_8.rs"
 harness = false
 
 [[test]]
 name = "memory_grow_0"
+path = "generated_tests/memory_grow_0.rs"
 harness = false
 
 [[test]]
 name = "memory_grow_1"
+path = "generated_tests/memory_grow_1.rs"
 harness = false
 
 [[test]]
 name = "memory_grow_2"
+path = "generated_tests/memory_grow_2.rs"
 harness = false
 
 [[test]]
 name = "memory_grow_3"
+path = "generated_tests/memory_grow_3.rs"
 harness = false
 
 [[test]]
 name = "memory_grow_4"
+path = "generated_tests/memory_grow_4.rs"
 harness = false
 
 [[test]]
 name = "memory_redundancy_0"
+path = "generated_tests/memory_redundancy_0.rs"
 harness = false
 
 [[test]]
 name = "memory_size_0"
+path = "generated_tests/memory_size_0.rs"
 harness = false
 
 [[test]]
 name = "memory_size_1"
+path = "generated_tests/memory_size_1.rs"
 harness = false
 
 [[test]]
 name = "memory_size_2"
+path = "generated_tests/memory_size_2.rs"
 harness = false
-
 
 [[test]]
 name = "memory_trap_0"
+path = "generated_tests/memory_trap_0.rs"
 harness = false
 
 [[test]]
 name = "memory_trap_1"
+path = "generated_tests/memory_trap_1.rs"
 harness = false
 
 [[test]]
 name = "nop_0"
+path = "generated_tests/nop_0.rs"
 harness = false
 
 [[test]]
 name = "return_0"
+path = "generated_tests/return_0.rs"
 harness = false
 
 [[test]]
 name = "select_0"
+path = "generated_tests/select_0.rs"
 harness = false
 
 [[test]]
 name = "stack_0"
+path = "generated_tests/stack_0.rs"
 harness = false
 
 [[test]]
 name = "stack_1"
+path = "generated_tests/stack_1.rs"
 harness = false
 
 [[test]]
 name = "start_3"
+path = "generated_tests/start_3.rs"
 harness = false
 
 [[test]]
 name = "start_4"
+path = "generated_tests/start_4.rs"
 harness = false
 
 [[test]]
 name = "store_0"
+path = "generated_tests/store_0.rs"
 harness = false
 
 [[test]]
 name = "switch_0"
+path = "generated_tests/switch_0.rs"
 harness = false
 
 [[test]]
 name = "traps_0"
+path = "generated_tests/traps_0.rs"
 harness = false
 
 [[test]]
 name = "traps_1"
+path = "generated_tests/traps_1.rs"
 harness = false
 
 [[test]]
 name = "traps_2"
+path = "generated_tests/traps_2.rs"
 harness = false
 
 [[test]]
 name = "traps_3"
+path = "generated_tests/traps_3.rs"
 harness = false
 
 [[test]]
 name = "type_0"
+path = "generated_tests/type_0.rs"
 harness = false
 
 [[test]]
 name = "unreachable_0"
+path = "generated_tests/unreachable_0.rs"
 harness = false
 
 [[test]]
 name = "unwind_0"
+path = "generated_tests/unwind_0.rs"
 harness = false
 
 [[test]]
 name = "wrap-around-memory_0"
+path = "generated_tests/wrap-around-memory_0.rs"
 harness = false
+
 
 
 

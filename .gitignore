@@ -11,3 +11,5 @@
 /memory.map
 *.profraw
 /demo-code/target/
+/generated_tests/*.rs
+/tests_generator/target/

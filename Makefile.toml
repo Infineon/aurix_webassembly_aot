@@ -1,3 +1,11 @@
+env_scripts = [ '''
+#!@duckscript
+
+output = exec rustc --print target-spec-json -Zunstable-options
+root = json_parse ${output.stdout}
+set_env CARGO_MAKE_HOST_TRIPLE ${root.llvm-target}
+''']     
+
 [tasks.check-tricore-probe]
 script_runner = "@duckscript"
 install_script = '''
@@ -25,6 +33,7 @@ install_crate = { crate_name = "rustfilt", binary = "rustfilt", test_arg = ["--h
 install_crate = { crate_name = "wasm-tools", binary = " wasm-tools", test_arg = ["--version"] }
 
 [tasks.generate-tests]
+description = "Generate .json tests from .wast files"
 workspace = false
 script_runner='@duckscript'
 cwd='wast_tests'
@@ -47,7 +56,35 @@ end
 '''
 dependencies = ["check-wast2json"]
 
+
+[tasks.clean-generated-wasm-tests]
+description = "Clean generated wasm tests"
+workspace = false
+script_runner='@duckscript'
+script='''
+handle = glob_array ./generated_tests/*.rs
+for path in ${handle}
+    rm -r ${path}
+end
+'''
+
+
+
+[tasks.generate-wasm-tests]
+description = "Gneerated wasm tests from mvp-tests and update Cargo.toml if needed"
+condition = { files_modified = { input = ["${CARGO_MAKE_WORKING_DIRECTORY}/mvp-tests/*.json", 
+"${CARGO_MAKE_WORKING_DIRECTORY}/mvp-tests/*.wasm",
+"${CARGO_MAKE_WORKING_DIRECTORY}/mvp-tests/*.wat"], output = ["${CARGO_MAKE_WORKING_DIRECTORY}/generated_tests/*.rs"] } }
+workspace = false
+cwd ="tests_generator"
+command="cargo"
+args=["run","--release","--target","${CARGO_MAKE_HOST_TRIPLE}","--","../mvp-tests","../generated_tests","../Cargo.toml"]
+dependencies = ["clean-generated-wasm-tests"]
+
+
+
 [tasks.check-tsim]
+description = "Check if tsim16p_e is installed"
 script_runner = "@duckscript"
 install_script = '''
 if not which tsim16p_e
@@ -73,7 +110,7 @@ dependencies = ["check-tsim"]
 workspace = false
 command = "cargo"
 args = ["test","--features=tsim","${@}"]
-dependencies = ["env-linux-tsim","env-windows-tsim","install-defmt-print","install-rustfilt"]
+dependencies = ["env-linux-tsim","env-windows-tsim","install-defmt-print","install-rustfilt","generate-wasm-tests"]
 
 [tasks.run-benchmark-tsim]
 workspace = false
@@ -93,7 +130,7 @@ workspace = false
 env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = "tricore-probe -c 1" }
 command = "cargo"
 args = ["test","--features=board","${@}"]
-dependencies = ["check-tricore-probe","install-defmt-print"]
+dependencies = ["check-tricore-probe","install-defmt-print","generate-wasm-tests"]
 
 [tasks.run-demo-board]
 workspace = false
@@ -107,3 +144,5 @@ workspace = false
 command="cargo"
 args=["run","--example","demo","--features=tsim"]
 dependencies = ["build-demo-code-wasm","env-linux-tsim","env-windows-tsim","install-defmt-print","install-rustfilt"]
+
+
