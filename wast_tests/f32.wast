@@ -20,10 +20,10 @@
 (assert_return (invoke "add" (f32.const -0x0p+0) (f32.const 0x0p+0)) (f32.const 0x0p+0))
 (assert_return (invoke "add" (f32.const 0x0p+0) (f32.const -0x0p+0)) (f32.const 0x0p+0))
 (assert_return (invoke "add" (f32.const 0x0p+0) (f32.const 0x0p+0)) (f32.const 0x0p+0))
-(assert_return (invoke "add" (f32.const -0x0p+0) (f32.const -0x1p-149)) (f32.const -0x1p-149))
-(assert_return (invoke "add" (f32.const -0x0p+0) (f32.const 0x1p-149)) (f32.const 0x1p-149))
-(assert_return (invoke "add" (f32.const 0x0p+0) (f32.const -0x1p-149)) (f32.const -0x1p-149))
-(assert_return (invoke "add" (f32.const 0x0p+0) (f32.const 0x1p-149)) (f32.const 0x1p-149))
+;;(assert_return (invoke "add" (f32.const -0x0p+0) (f32.const -0x1p-149)) (f32.const -0x1p-149)) ::DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;;(assert_return (invoke "add" (f32.const -0x0p+0) (f32.const 0x1p-149)) (f32.const 0x1p-149)) ::DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;;(assert_return (invoke "add" (f32.const 0x0p+0) (f32.const -0x1p-149)) (f32.const -0x1p-149)) ::DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;;(assert_return (invoke "add" (f32.const 0x0p+0) (f32.const 0x1p-149)) (f32.const 0x1p-149)) ::DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "add" (f32.const -0x0p+0) (f32.const -0x1p-126)) (f32.const -0x1p-126))
 (assert_return (invoke "add" (f32.const -0x0p+0) (f32.const 0x1p-126)) (f32.const 0x1p-126))
 (assert_return (invoke "add" (f32.const 0x0p+0) (f32.const -0x1p-126)) (f32.const -0x1p-126))
@@ -56,18 +56,18 @@
 (assert_return (invoke "add" (f32.const 0x0p+0) (f32.const -nan:0x200000)) (f32.const nan:arithmetic))
 (assert_return (invoke "add" (f32.const 0x0p+0) (f32.const nan)) (f32.const nan:canonical))
 (assert_return (invoke "add" (f32.const 0x0p+0) (f32.const nan:0x200000)) (f32.const nan:arithmetic))
-(assert_return (invoke "add" (f32.const -0x1p-149) (f32.const -0x0p+0)) (f32.const -0x1p-149))
-(assert_return (invoke "add" (f32.const -0x1p-149) (f32.const 0x0p+0)) (f32.const -0x1p-149))
-(assert_return (invoke "add" (f32.const 0x1p-149) (f32.const -0x0p+0)) (f32.const 0x1p-149))
-(assert_return (invoke "add" (f32.const 0x1p-149) (f32.const 0x0p+0)) (f32.const 0x1p-149))
-(assert_return (invoke "add" (f32.const -0x1p-149) (f32.const -0x1p-149)) (f32.const -0x1p-148))
-(assert_return (invoke "add" (f32.const -0x1p-149) (f32.const 0x1p-149)) (f32.const 0x0p+0))
-(assert_return (invoke "add" (f32.const 0x1p-149) (f32.const -0x1p-149)) (f32.const 0x0p+0))
-(assert_return (invoke "add" (f32.const 0x1p-149) (f32.const 0x1p-149)) (f32.const 0x1p-148))
-(assert_return (invoke "add" (f32.const -0x1p-149) (f32.const -0x1p-126)) (f32.const -0x1.000002p-126))
-(assert_return (invoke "add" (f32.const -0x1p-149) (f32.const 0x1p-126)) (f32.const 0x1.fffffcp-127))
-(assert_return (invoke "add" (f32.const 0x1p-149) (f32.const -0x1p-126)) (f32.const -0x1.fffffcp-127))
-(assert_return (invoke "add" (f32.const 0x1p-149) (f32.const 0x1p-126)) (f32.const 0x1.000002p-126))
+;; (assert_return (invoke "add" (f32.const -0x1p-149) (f32.const -0x0p+0)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const -0x1p-149) (f32.const 0x0p+0)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const 0x1p-149) (f32.const -0x0p+0)) (f32.const 0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const 0x1p-149) (f32.const 0x0p+0)) (f32.const 0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const -0x1p-149) (f32.const -0x1p-149)) (f32.const -0x1p-148)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const -0x1p-149) (f32.const 0x1p-149)) (f32.const 0x0p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const 0x1p-149) (f32.const -0x1p-149)) (f32.const 0x0p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const 0x1p-149) (f32.const 0x1p-149)) (f32.const 0x1p-148)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const -0x1p-149) (f32.const -0x1p-126)) (f32.const -0x1.000002p-126)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const -0x1p-149) (f32.const 0x1p-126)) (f32.const 0x1.fffffcp-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const 0x1p-149) (f32.const -0x1p-126)) (f32.const -0x1.fffffcp-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const 0x1p-149) (f32.const 0x1p-126)) (f32.const 0x1.000002p-126)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "add" (f32.const -0x1p-149) (f32.const -0x1p-1)) (f32.const -0x1p-1))
 (assert_return (invoke "add" (f32.const -0x1p-149) (f32.const 0x1p-1)) (f32.const 0x1p-1))
 (assert_return (invoke "add" (f32.const 0x1p-149) (f32.const -0x1p-1)) (f32.const -0x1p-1))
@@ -100,10 +100,10 @@
 (assert_return (invoke "add" (f32.const -0x1p-126) (f32.const 0x0p+0)) (f32.const -0x1p-126))
 (assert_return (invoke "add" (f32.const 0x1p-126) (f32.const -0x0p+0)) (f32.const 0x1p-126))
 (assert_return (invoke "add" (f32.const 0x1p-126) (f32.const 0x0p+0)) (f32.const 0x1p-126))
-(assert_return (invoke "add" (f32.const -0x1p-126) (f32.const -0x1p-149)) (f32.const -0x1.000002p-126))
-(assert_return (invoke "add" (f32.const -0x1p-126) (f32.const 0x1p-149)) (f32.const -0x1.fffffcp-127))
-(assert_return (invoke "add" (f32.const 0x1p-126) (f32.const -0x1p-149)) (f32.const 0x1.fffffcp-127))
-(assert_return (invoke "add" (f32.const 0x1p-126) (f32.const 0x1p-149)) (f32.const 0x1.000002p-126))
+;; (assert_return (invoke "add" (f32.const -0x1p-126) (f32.const -0x1p-149)) (f32.const -0x1.000002p-126)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const -0x1p-126) (f32.const 0x1p-149)) (f32.const -0x1.fffffcp-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const 0x1p-126) (f32.const -0x1p-149)) (f32.const 0x1.fffffcp-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "add" (f32.const 0x1p-126) (f32.const 0x1p-149)) (f32.const 0x1.000002p-126)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "add" (f32.const -0x1p-126) (f32.const -0x1p-126)) (f32.const -0x1p-125))
 (assert_return (invoke "add" (f32.const -0x1p-126) (f32.const 0x1p-126)) (f32.const 0x0p+0))
 (assert_return (invoke "add" (f32.const 0x1p-126) (f32.const -0x1p-126)) (f32.const 0x0p+0))
@@ -420,10 +420,10 @@
 (assert_return (invoke "sub" (f32.const -0x0p+0) (f32.const 0x0p+0)) (f32.const -0x0p+0))
 (assert_return (invoke "sub" (f32.const 0x0p+0) (f32.const -0x0p+0)) (f32.const 0x0p+0))
 (assert_return (invoke "sub" (f32.const 0x0p+0) (f32.const 0x0p+0)) (f32.const 0x0p+0))
-(assert_return (invoke "sub" (f32.const -0x0p+0) (f32.const -0x1p-149)) (f32.const 0x1p-149))
-(assert_return (invoke "sub" (f32.const -0x0p+0) (f32.const 0x1p-149)) (f32.const -0x1p-149))
-(assert_return (invoke "sub" (f32.const 0x0p+0) (f32.const -0x1p-149)) (f32.const 0x1p-149))
-(assert_return (invoke "sub" (f32.const 0x0p+0) (f32.const 0x1p-149)) (f32.const -0x1p-149))
+;; (assert_return (invoke "sub" (f32.const -0x0p+0) (f32.const -0x1p-149)) (f32.const 0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x0p+0) (f32.const 0x1p-149)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x0p+0) (f32.const -0x1p-149)) (f32.const 0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x0p+0) (f32.const 0x1p-149)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "sub" (f32.const -0x0p+0) (f32.const -0x1p-126)) (f32.const 0x1p-126))
 (assert_return (invoke "sub" (f32.const -0x0p+0) (f32.const 0x1p-126)) (f32.const -0x1p-126))
 (assert_return (invoke "sub" (f32.const 0x0p+0) (f32.const -0x1p-126)) (f32.const 0x1p-126))
@@ -456,42 +456,42 @@
 (assert_return (invoke "sub" (f32.const 0x0p+0) (f32.const -nan:0x200000)) (f32.const nan:arithmetic))
 (assert_return (invoke "sub" (f32.const 0x0p+0) (f32.const nan)) (f32.const nan:canonical))
 (assert_return (invoke "sub" (f32.const 0x0p+0) (f32.const nan:0x200000)) (f32.const nan:arithmetic))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x0p+0)) (f32.const -0x1p-149))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x0p+0)) (f32.const -0x1p-149))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x0p+0)) (f32.const 0x1p-149))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x0p+0)) (f32.const 0x1p-149))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1p-149)) (f32.const 0x0p+0))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1p-149)) (f32.const -0x1p-148))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1p-149)) (f32.const 0x1p-148))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1p-149)) (f32.const 0x0p+0))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1p-126)) (f32.const 0x1.fffffcp-127))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1p-126)) (f32.const -0x1.000002p-126))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1p-126)) (f32.const 0x1.000002p-126))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1p-126)) (f32.const -0x1.fffffcp-127))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1p-1)) (f32.const 0x1p-1))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1p-1)) (f32.const -0x1p-1))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1p-1)) (f32.const 0x1p-1))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1p-1)) (f32.const -0x1p-1))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1p+0)) (f32.const 0x1p+0))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1p+0)) (f32.const -0x1p+0))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1p+0)) (f32.const 0x1p+0))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1p+0)) (f32.const -0x1p+0))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1.921fb6p+2)) (f32.const 0x1.921fb6p+2))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1.921fb6p+2)) (f32.const -0x1.921fb6p+2))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1.921fb6p+2)) (f32.const 0x1.921fb6p+2))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1.921fb6p+2)) (f32.const -0x1.921fb6p+2))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1.fffffep+127)) (f32.const 0x1.fffffep+127))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1.fffffep+127)) (f32.const -0x1.fffffep+127))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1.fffffep+127)) (f32.const 0x1.fffffep+127))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1.fffffep+127)) (f32.const -0x1.fffffep+127))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -inf)) (f32.const inf))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const inf)) (f32.const -inf))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -inf)) (f32.const inf))
-(assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const inf)) (f32.const -inf))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -nan)) (f32.const nan:canonical))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -nan:0x200000)) (f32.const nan:arithmetic))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const nan)) (f32.const nan:canonical))
-(assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const nan:0x200000)) (f32.const nan:arithmetic))
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x0p+0)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x0p+0)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x0p+0)) (f32.const 0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x0p+0)) (f32.const 0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1p-149)) (f32.const 0x0p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1p-149)) (f32.const -0x1p-148)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1p-149)) (f32.const 0x1p-148)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1p-149)) (f32.const 0x0p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1p-126)) (f32.const 0x1.fffffcp-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1p-126)) (f32.const -0x1.000002p-126)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1p-126)) (f32.const 0x1.000002p-126)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1p-126)) (f32.const -0x1.fffffcp-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1p-1)) (f32.const 0x1p-1)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1p-1)) (f32.const -0x1p-1)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1p-1)) (f32.const 0x1p-1)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1p-1)) (f32.const -0x1p-1)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1p+0)) (f32.const 0x1p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1p+0)) (f32.const -0x1p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1p+0)) (f32.const 0x1p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1p+0)) (f32.const -0x1p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1.921fb6p+2)) (f32.const 0x1.921fb6p+2)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1.921fb6p+2)) (f32.const -0x1.921fb6p+2)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1.921fb6p+2)) (f32.const 0x1.921fb6p+2)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1.921fb6p+2)) (f32.const -0x1.921fb6p+2)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -0x1.fffffep+127)) (f32.const 0x1.fffffep+127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const 0x1.fffffep+127)) (f32.const -0x1.fffffep+127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -0x1.fffffep+127)) (f32.const 0x1.fffffep+127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const 0x1.fffffep+127)) (f32.const -0x1.fffffep+127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -inf)) (f32.const inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const inf)) (f32.const -inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -inf)) (f32.const inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const inf)) (f32.const -inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -nan)) (f32.const nan:canonical)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const -nan:0x200000)) (f32.const nan:arithmetic)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const nan)) (f32.const nan:canonical)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-149) (f32.const nan:0x200000)) (f32.const nan:arithmetic)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -nan)) (f32.const nan:canonical))
 (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const -nan:0x200000)) (f32.const nan:arithmetic))
 (assert_return (invoke "sub" (f32.const 0x1p-149) (f32.const nan)) (f32.const nan:canonical))
@@ -500,10 +500,10 @@
 (assert_return (invoke "sub" (f32.const -0x1p-126) (f32.const 0x0p+0)) (f32.const -0x1p-126))
 (assert_return (invoke "sub" (f32.const 0x1p-126) (f32.const -0x0p+0)) (f32.const 0x1p-126))
 (assert_return (invoke "sub" (f32.const 0x1p-126) (f32.const 0x0p+0)) (f32.const 0x1p-126))
-(assert_return (invoke "sub" (f32.const -0x1p-126) (f32.const -0x1p-149)) (f32.const -0x1.fffffcp-127))
-(assert_return (invoke "sub" (f32.const -0x1p-126) (f32.const 0x1p-149)) (f32.const -0x1.000002p-126))
-(assert_return (invoke "sub" (f32.const 0x1p-126) (f32.const -0x1p-149)) (f32.const 0x1.000002p-126))
-(assert_return (invoke "sub" (f32.const 0x1p-126) (f32.const 0x1p-149)) (f32.const 0x1.fffffcp-127))
+;; (assert_return (invoke "sub" (f32.const -0x1p-126) (f32.const -0x1p-149)) (f32.const -0x1.fffffcp-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const -0x1p-126) (f32.const 0x1p-149)) (f32.const -0x1.000002p-126)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-126) (f32.const -0x1p-149)) (f32.const 0x1.000002p-126)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "sub" (f32.const 0x1p-126) (f32.const 0x1p-149)) (f32.const 0x1.fffffcp-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "sub" (f32.const -0x1p-126) (f32.const -0x1p-126)) (f32.const 0x0p+0))
 (assert_return (invoke "sub" (f32.const -0x1p-126) (f32.const 0x1p-126)) (f32.const -0x1p-125))
 (assert_return (invoke "sub" (f32.const 0x1p-126) (f32.const -0x1p-126)) (f32.const 0x1p-125))
@@ -872,22 +872,22 @@
 (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const 0x1p-1)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const -0x1p-1)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const 0x1p-1)) (f32.const 0x0p+0))
-(assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const -0x1p+0)) (f32.const 0x1p-149))
-(assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const 0x1p+0)) (f32.const -0x1p-149))
-(assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const -0x1p+0)) (f32.const -0x1p-149))
-(assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const 0x1p+0)) (f32.const 0x1p-149))
-(assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const -0x1.921fb6p+2)) (f32.const 0x1.8p-147))
-(assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const 0x1.921fb6p+2)) (f32.const -0x1.8p-147))
-(assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const -0x1.921fb6p+2)) (f32.const -0x1.8p-147))
-(assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const 0x1.921fb6p+2)) (f32.const 0x1.8p-147))
-(assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const -0x1.fffffep+127)) (f32.const 0x1.fffffep-22))
-(assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const 0x1.fffffep+127)) (f32.const -0x1.fffffep-22))
-(assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const -0x1.fffffep+127)) (f32.const -0x1.fffffep-22))
-(assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const 0x1.fffffep+127)) (f32.const 0x1.fffffep-22))
-(assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const -inf)) (f32.const inf))
-(assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const inf)) (f32.const -inf))
-(assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const -inf)) (f32.const -inf))
-(assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const inf)) (f32.const inf))
+;; (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const -0x1p+0)) (f32.const 0x1p-149))  :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const 0x1p+0)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const -0x1p+0)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const 0x1p+0)) (f32.const 0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const -0x1.921fb6p+2)) (f32.const 0x1.8p-147)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const 0x1.921fb6p+2)) (f32.const -0x1.8p-147)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const -0x1.921fb6p+2)) (f32.const -0x1.8p-147)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const 0x1.921fb6p+2)) (f32.const 0x1.8p-147)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const -0x1.fffffep+127)) (f32.const 0x1.fffffep-22)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const 0x1.fffffep+127)) (f32.const -0x1.fffffep-22)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const -0x1.fffffep+127)) (f32.const -0x1.fffffep-22)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const 0x1.fffffep+127)) (f32.const 0x1.fffffep-22)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const -inf)) (f32.const inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const inf)) (f32.const -inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const -inf)) (f32.const -inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-149) (f32.const inf)) (f32.const inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const -nan)) (f32.const nan:canonical))
 (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const -nan:0x200000)) (f32.const nan:arithmetic))
 (assert_return (invoke "mul" (f32.const -0x1p-149) (f32.const nan)) (f32.const nan:canonical))
@@ -908,11 +908,11 @@
 (assert_return (invoke "mul" (f32.const -0x1p-126) (f32.const 0x1p-126)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1p-126) (f32.const -0x1p-126)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1p-126) (f32.const 0x1p-126)) (f32.const 0x0p+0))
-(assert_return (invoke "mul" (f32.const -0x1p-126) (f32.const -0x1p-1)) (f32.const 0x1p-127))
-(assert_return (invoke "mul" (f32.const -0x1p-126) (f32.const 0x1p-1)) (f32.const -0x1p-127))
-(assert_return (invoke "mul" (f32.const 0x1p-126) (f32.const -0x1p-1)) (f32.const -0x1p-127))
-(assert_return (invoke "mul" (f32.const 0x1p-126) (f32.const 0x1p-1)) (f32.const 0x1p-127))
-(assert_return (invoke "mul" (f32.const -0x1p-126) (f32.const -0x1p+0)) (f32.const 0x1p-126))
+;; (assert_return (invoke "mul" (f32.const -0x1p-126) (f32.const -0x1p-1)) (f32.const 0x1p-127))  :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1p-126) (f32.const 0x1p-1)) (f32.const -0x1p-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-126) (f32.const -0x1p-1)) (f32.const -0x1p-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-126) (f32.const 0x1p-1)) (f32.const 0x1p-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1p-126) (f32.const -0x1p+0)) (f32.const 0x1p-126)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "mul" (f32.const -0x1p-126) (f32.const 0x1p+0)) (f32.const -0x1p-126))
 (assert_return (invoke "mul" (f32.const 0x1p-126) (f32.const -0x1p+0)) (f32.const -0x1p-126))
 (assert_return (invoke "mul" (f32.const 0x1p-126) (f32.const 0x1p+0)) (f32.const 0x1p-126))
@@ -944,10 +944,10 @@
 (assert_return (invoke "mul" (f32.const -0x1p-1) (f32.const 0x1p-149)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1p-1) (f32.const -0x1p-149)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1p-1) (f32.const 0x1p-149)) (f32.const 0x0p+0))
-(assert_return (invoke "mul" (f32.const -0x1p-1) (f32.const -0x1p-126)) (f32.const 0x1p-127))
-(assert_return (invoke "mul" (f32.const -0x1p-1) (f32.const 0x1p-126)) (f32.const -0x1p-127))
-(assert_return (invoke "mul" (f32.const 0x1p-1) (f32.const -0x1p-126)) (f32.const -0x1p-127))
-(assert_return (invoke "mul" (f32.const 0x1p-1) (f32.const 0x1p-126)) (f32.const 0x1p-127))
+;; (assert_return (invoke "mul" (f32.const -0x1p-1) (f32.const -0x1p-126)) (f32.const 0x1p-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1p-1) (f32.const 0x1p-126)) (f32.const -0x1p-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-1) (f32.const -0x1p-126)) (f32.const -0x1p-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p-1) (f32.const 0x1p-126)) (f32.const 0x1p-127)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "mul" (f32.const -0x1p-1) (f32.const -0x1p-1)) (f32.const 0x1p-2))
 (assert_return (invoke "mul" (f32.const -0x1p-1) (f32.const 0x1p-1)) (f32.const -0x1p-2))
 (assert_return (invoke "mul" (f32.const 0x1p-1) (f32.const -0x1p-1)) (f32.const -0x1p-2))
@@ -980,10 +980,10 @@
 (assert_return (invoke "mul" (f32.const -0x1p+0) (f32.const 0x0p+0)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1p+0) (f32.const -0x0p+0)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1p+0) (f32.const 0x0p+0)) (f32.const 0x0p+0))
-(assert_return (invoke "mul" (f32.const -0x1p+0) (f32.const -0x1p-149)) (f32.const 0x1p-149))
-(assert_return (invoke "mul" (f32.const -0x1p+0) (f32.const 0x1p-149)) (f32.const -0x1p-149))
-(assert_return (invoke "mul" (f32.const 0x1p+0) (f32.const -0x1p-149)) (f32.const -0x1p-149))
-(assert_return (invoke "mul" (f32.const 0x1p+0) (f32.const 0x1p-149)) (f32.const 0x1p-149))
+;; (assert_return (invoke "mul" (f32.const -0x1p+0) (f32.const -0x1p-149)) (f32.const 0x1p-149))  :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1p+0) (f32.const 0x1p-149)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p+0) (f32.const -0x1p-149)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1p+0) (f32.const 0x1p-149)) (f32.const 0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "mul" (f32.const -0x1p+0) (f32.const -0x1p-126)) (f32.const 0x1p-126))
 (assert_return (invoke "mul" (f32.const -0x1p+0) (f32.const 0x1p-126)) (f32.const -0x1p-126))
 (assert_return (invoke "mul" (f32.const 0x1p+0) (f32.const -0x1p-126)) (f32.const -0x1p-126))
@@ -1020,10 +1020,10 @@
 (assert_return (invoke "mul" (f32.const -0x1.921fb6p+2) (f32.const 0x0p+0)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1.921fb6p+2) (f32.const -0x0p+0)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1.921fb6p+2) (f32.const 0x0p+0)) (f32.const 0x0p+0))
-(assert_return (invoke "mul" (f32.const -0x1.921fb6p+2) (f32.const -0x1p-149)) (f32.const 0x1.8p-147))
-(assert_return (invoke "mul" (f32.const -0x1.921fb6p+2) (f32.const 0x1p-149)) (f32.const -0x1.8p-147))
-(assert_return (invoke "mul" (f32.const 0x1.921fb6p+2) (f32.const -0x1p-149)) (f32.const -0x1.8p-147))
-(assert_return (invoke "mul" (f32.const 0x1.921fb6p+2) (f32.const 0x1p-149)) (f32.const 0x1.8p-147))
+;; (assert_return (invoke "mul" (f32.const -0x1.921fb6p+2) (f32.const -0x1p-149)) (f32.const 0x1.8p-147))  :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1.921fb6p+2) (f32.const 0x1p-149)) (f32.const -0x1.8p-147)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1.921fb6p+2) (f32.const -0x1p-149)) (f32.const -0x1.8p-147)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1.921fb6p+2) (f32.const 0x1p-149)) (f32.const 0x1.8p-147)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "mul" (f32.const -0x1.921fb6p+2) (f32.const -0x1p-126)) (f32.const 0x1.921fb6p-124))
 (assert_return (invoke "mul" (f32.const -0x1.921fb6p+2) (f32.const 0x1p-126)) (f32.const -0x1.921fb6p-124))
 (assert_return (invoke "mul" (f32.const 0x1.921fb6p+2) (f32.const -0x1p-126)) (f32.const -0x1.921fb6p-124))
@@ -1060,10 +1060,10 @@
 (assert_return (invoke "mul" (f32.const -0x1.fffffep+127) (f32.const 0x0p+0)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1.fffffep+127) (f32.const -0x0p+0)) (f32.const -0x0p+0))
 (assert_return (invoke "mul" (f32.const 0x1.fffffep+127) (f32.const 0x0p+0)) (f32.const 0x0p+0))
-(assert_return (invoke "mul" (f32.const -0x1.fffffep+127) (f32.const -0x1p-149)) (f32.const 0x1.fffffep-22))
-(assert_return (invoke "mul" (f32.const -0x1.fffffep+127) (f32.const 0x1p-149)) (f32.const -0x1.fffffep-22))
-(assert_return (invoke "mul" (f32.const 0x1.fffffep+127) (f32.const -0x1p-149)) (f32.const -0x1.fffffep-22))
-(assert_return (invoke "mul" (f32.const 0x1.fffffep+127) (f32.const 0x1p-149)) (f32.const 0x1.fffffep-22))
+;; (assert_return (invoke "mul" (f32.const -0x1.fffffep+127) (f32.const -0x1p-149)) (f32.const 0x1.fffffep-22))  :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -0x1.fffffep+127) (f32.const 0x1p-149)) (f32.const -0x1.fffffep-22)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1.fffffep+127) (f32.const -0x1p-149)) (f32.const -0x1.fffffep-22)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const 0x1.fffffep+127) (f32.const 0x1p-149)) (f32.const 0x1.fffffep-22)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "mul" (f32.const -0x1.fffffep+127) (f32.const -0x1p-126)) (f32.const 0x1.fffffep+1))
 (assert_return (invoke "mul" (f32.const -0x1.fffffep+127) (f32.const 0x1p-126)) (f32.const -0x1.fffffep+1))
 (assert_return (invoke "mul" (f32.const 0x1.fffffep+127) (f32.const -0x1p-126)) (f32.const -0x1.fffffep+1))
@@ -1100,10 +1100,10 @@
 (assert_return (invoke "mul" (f32.const -inf) (f32.const 0x0p+0)) (f32.const nan:canonical))
 (assert_return (invoke "mul" (f32.const inf) (f32.const -0x0p+0)) (f32.const nan:canonical))
 (assert_return (invoke "mul" (f32.const inf) (f32.const 0x0p+0)) (f32.const nan:canonical))
-(assert_return (invoke "mul" (f32.const -inf) (f32.const -0x1p-149)) (f32.const inf))
-(assert_return (invoke "mul" (f32.const -inf) (f32.const 0x1p-149)) (f32.const -inf))
-(assert_return (invoke "mul" (f32.const inf) (f32.const -0x1p-149)) (f32.const -inf))
-(assert_return (invoke "mul" (f32.const inf) (f32.const 0x1p-149)) (f32.const inf))
+;; (assert_return (invoke "mul" (f32.const -inf) (f32.const -0x1p-149)) (f32.const inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const -inf) (f32.const 0x1p-149)) (f32.const -inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const inf) (f32.const -0x1p-149)) (f32.const -inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "mul" (f32.const inf) (f32.const 0x1p-149)) (f32.const inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "mul" (f32.const -inf) (f32.const -0x1p-126)) (f32.const inf))
 (assert_return (invoke "mul" (f32.const -inf) (f32.const 0x1p-126)) (f32.const -inf))
 (assert_return (invoke "mul" (f32.const inf) (f32.const -0x1p-126)) (f32.const -inf))
@@ -1220,10 +1220,10 @@
 (assert_return (invoke "div" (f32.const -0x0p+0) (f32.const 0x0p+0)) (f32.const nan:canonical))
 (assert_return (invoke "div" (f32.const 0x0p+0) (f32.const -0x0p+0)) (f32.const nan:canonical))
 (assert_return (invoke "div" (f32.const 0x0p+0) (f32.const 0x0p+0)) (f32.const nan:canonical))
-(assert_return (invoke "div" (f32.const -0x0p+0) (f32.const -0x1p-149)) (f32.const 0x0p+0))
-(assert_return (invoke "div" (f32.const -0x0p+0) (f32.const 0x1p-149)) (f32.const -0x0p+0))
-(assert_return (invoke "div" (f32.const 0x0p+0) (f32.const -0x1p-149)) (f32.const -0x0p+0))
-(assert_return (invoke "div" (f32.const 0x0p+0) (f32.const 0x1p-149)) (f32.const 0x0p+0))
+;; (assert_return (invoke "div" (f32.const -0x0p+0) (f32.const -0x1p-149)) (f32.const 0x0p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x0p+0) (f32.const 0x1p-149)) (f32.const -0x0p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x0p+0) (f32.const -0x1p-149)) (f32.const -0x0p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x0p+0) (f32.const 0x1p-149)) (f32.const 0x0p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "div" (f32.const -0x0p+0) (f32.const -0x1p-126)) (f32.const 0x0p+0))
 (assert_return (invoke "div" (f32.const -0x0p+0) (f32.const 0x1p-126)) (f32.const -0x0p+0))
 (assert_return (invoke "div" (f32.const 0x0p+0) (f32.const -0x1p-126)) (f32.const -0x0p+0))
@@ -1256,26 +1256,26 @@
 (assert_return (invoke "div" (f32.const 0x0p+0) (f32.const -nan:0x200000)) (f32.const nan:arithmetic))
 (assert_return (invoke "div" (f32.const 0x0p+0) (f32.const nan)) (f32.const nan:canonical))
 (assert_return (invoke "div" (f32.const 0x0p+0) (f32.const nan:0x200000)) (f32.const nan:arithmetic))
-(assert_return (invoke "div" (f32.const -0x1p-149) (f32.const -0x0p+0)) (f32.const inf))
-(assert_return (invoke "div" (f32.const -0x1p-149) (f32.const 0x0p+0)) (f32.const -inf))
-(assert_return (invoke "div" (f32.const 0x1p-149) (f32.const -0x0p+0)) (f32.const -inf))
-(assert_return (invoke "div" (f32.const 0x1p-149) (f32.const 0x0p+0)) (f32.const inf))
-(assert_return (invoke "div" (f32.const -0x1p-149) (f32.const -0x1p-149)) (f32.const 0x1p+0))
-(assert_return (invoke "div" (f32.const -0x1p-149) (f32.const 0x1p-149)) (f32.const -0x1p+0))
-(assert_return (invoke "div" (f32.const 0x1p-149) (f32.const -0x1p-149)) (f32.const -0x1p+0))
-(assert_return (invoke "div" (f32.const 0x1p-149) (f32.const 0x1p-149)) (f32.const 0x1p+0))
-(assert_return (invoke "div" (f32.const -0x1p-149) (f32.const -0x1p-126)) (f32.const 0x1p-23))
-(assert_return (invoke "div" (f32.const -0x1p-149) (f32.const 0x1p-126)) (f32.const -0x1p-23))
-(assert_return (invoke "div" (f32.const 0x1p-149) (f32.const -0x1p-126)) (f32.const -0x1p-23))
-(assert_return (invoke "div" (f32.const 0x1p-149) (f32.const 0x1p-126)) (f32.const 0x1p-23))
-(assert_return (invoke "div" (f32.const -0x1p-149) (f32.const -0x1p-1)) (f32.const 0x1p-148))
-(assert_return (invoke "div" (f32.const -0x1p-149) (f32.const 0x1p-1)) (f32.const -0x1p-148))
-(assert_return (invoke "div" (f32.const 0x1p-149) (f32.const -0x1p-1)) (f32.const -0x1p-148))
-(assert_return (invoke "div" (f32.const 0x1p-149) (f32.const 0x1p-1)) (f32.const 0x1p-148))
-(assert_return (invoke "div" (f32.const -0x1p-149) (f32.const -0x1p+0)) (f32.const 0x1p-149))
-(assert_return (invoke "div" (f32.const -0x1p-149) (f32.const 0x1p+0)) (f32.const -0x1p-149))
-(assert_return (invoke "div" (f32.const 0x1p-149) (f32.const -0x1p+0)) (f32.const -0x1p-149))
-(assert_return (invoke "div" (f32.const 0x1p-149) (f32.const 0x1p+0)) (f32.const 0x1p-149))
+;; (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const -0x0p+0)) (f32.const inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const 0x0p+0)) (f32.const -inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-149) (f32.const -0x0p+0)) (f32.const -inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-149) (f32.const 0x0p+0)) (f32.const inf)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const -0x1p-149)) (f32.const 0x1p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const 0x1p-149)) (f32.const -0x1p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-149) (f32.const -0x1p-149)) (f32.const -0x1p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-149) (f32.const 0x1p-149)) (f32.const 0x1p+0)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const -0x1p-126)) (f32.const 0x1p-23)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const 0x1p-126)) (f32.const -0x1p-23)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-149) (f32.const -0x1p-126)) (f32.const -0x1p-23)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-149) (f32.const 0x1p-126)) (f32.const 0x1p-23)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const -0x1p-1)) (f32.const 0x1p-148)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const 0x1p-1)) (f32.const -0x1p-148)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-149) (f32.const -0x1p-1)) (f32.const -0x1p-148)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-149) (f32.const 0x1p-1)) (f32.const 0x1p-148)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const -0x1p+0)) (f32.const 0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const 0x1p+0)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-149) (f32.const -0x1p+0)) (f32.const -0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-149) (f32.const 0x1p+0)) (f32.const 0x1p-149)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const -0x1.921fb6p+2)) (f32.const 0x0p+0))
 (assert_return (invoke "div" (f32.const -0x1p-149) (f32.const 0x1.921fb6p+2)) (f32.const -0x0p+0))
 (assert_return (invoke "div" (f32.const 0x1p-149) (f32.const -0x1.921fb6p+2)) (f32.const -0x0p+0))
@@ -1300,10 +1300,10 @@
 (assert_return (invoke "div" (f32.const -0x1p-126) (f32.const 0x0p+0)) (f32.const -inf))
 (assert_return (invoke "div" (f32.const 0x1p-126) (f32.const -0x0p+0)) (f32.const -inf))
 (assert_return (invoke "div" (f32.const 0x1p-126) (f32.const 0x0p+0)) (f32.const inf))
-(assert_return (invoke "div" (f32.const -0x1p-126) (f32.const -0x1p-149)) (f32.const 0x1p+23))
-(assert_return (invoke "div" (f32.const -0x1p-126) (f32.const 0x1p-149)) (f32.const -0x1p+23))
-(assert_return (invoke "div" (f32.const 0x1p-126) (f32.const -0x1p-149)) (f32.const -0x1p+23))
-(assert_return (invoke "div" (f32.const 0x1p-126) (f32.const 0x1p-149)) (f32.const 0x1p+23))
+;; (assert_return (invoke "div" (f32.const -0x1p-126) (f32.const -0x1p-149)) (f32.const 0x1p+23)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-126) (f32.const 0x1p-149)) (f32.const -0x1p+23)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-126) (f32.const -0x1p-149)) (f32.const -0x1p+23)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-126) (f32.const 0x1p-149)) (f32.const 0x1p+23)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "div" (f32.const -0x1p-126) (f32.const -0x1p-126)) (f32.const 0x1p+0))
 (assert_return (invoke "div" (f32.const -0x1p-126) (f32.const 0x1p-126)) (f32.const -0x1p+0))
 (assert_return (invoke "div" (f32.const 0x1p-126) (f32.const -0x1p-126)) (f32.const -0x1p+0))
@@ -1316,10 +1316,10 @@
 (assert_return (invoke "div" (f32.const -0x1p-126) (f32.const 0x1p+0)) (f32.const -0x1p-126))
 (assert_return (invoke "div" (f32.const 0x1p-126) (f32.const -0x1p+0)) (f32.const -0x1p-126))
 (assert_return (invoke "div" (f32.const 0x1p-126) (f32.const 0x1p+0)) (f32.const 0x1p-126))
-(assert_return (invoke "div" (f32.const -0x1p-126) (f32.const -0x1.921fb6p+2)) (f32.const 0x1.45f3p-129))
-(assert_return (invoke "div" (f32.const -0x1p-126) (f32.const 0x1.921fb6p+2)) (f32.const -0x1.45f3p-129))
-(assert_return (invoke "div" (f32.const 0x1p-126) (f32.const -0x1.921fb6p+2)) (f32.const -0x1.45f3p-129))
-(assert_return (invoke "div" (f32.const 0x1p-126) (f32.const 0x1.921fb6p+2)) (f32.const 0x1.45f3p-129))
+;; (assert_return (invoke "div" (f32.const -0x1p-126) (f32.const -0x1.921fb6p+2)) (f32.const 0x1.45f3p-129)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-126) (f32.const 0x1.921fb6p+2)) (f32.const -0x1.45f3p-129)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-126) (f32.const -0x1.921fb6p+2)) (f32.const -0x1.45f3p-129)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-126) (f32.const 0x1.921fb6p+2)) (f32.const 0x1.45f3p-129)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "div" (f32.const -0x1p-126) (f32.const -0x1.fffffep+127)) (f32.const 0x0p+0))
 (assert_return (invoke "div" (f32.const -0x1p-126) (f32.const 0x1.fffffep+127)) (f32.const -0x0p+0))
 (assert_return (invoke "div" (f32.const 0x1p-126) (f32.const -0x1.fffffep+127)) (f32.const -0x0p+0))
@@ -1360,10 +1360,10 @@
 (assert_return (invoke "div" (f32.const -0x1p-1) (f32.const 0x1.921fb6p+2)) (f32.const -0x1.45f306p-4))
 (assert_return (invoke "div" (f32.const 0x1p-1) (f32.const -0x1.921fb6p+2)) (f32.const -0x1.45f306p-4))
 (assert_return (invoke "div" (f32.const 0x1p-1) (f32.const 0x1.921fb6p+2)) (f32.const 0x1.45f306p-4))
-(assert_return (invoke "div" (f32.const -0x1p-1) (f32.const -0x1.fffffep+127)) (f32.const 0x1p-129))
-(assert_return (invoke "div" (f32.const -0x1p-1) (f32.const 0x1.fffffep+127)) (f32.const -0x1p-129))
-(assert_return (invoke "div" (f32.const 0x1p-1) (f32.const -0x1.fffffep+127)) (f32.const -0x1p-129))
-(assert_return (invoke "div" (f32.const 0x1p-1) (f32.const 0x1.fffffep+127)) (f32.const 0x1p-129))
+;; (assert_return (invoke "div" (f32.const -0x1p-1) (f32.const -0x1.fffffep+127)) (f32.const 0x1p-129))  :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p-1) (f32.const 0x1.fffffep+127)) (f32.const -0x1p-129)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-1) (f32.const -0x1.fffffep+127)) (f32.const -0x1p-129)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p-1) (f32.const 0x1.fffffep+127)) (f32.const 0x1p-129)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "div" (f32.const -0x1p-1) (f32.const -inf)) (f32.const 0x0p+0))
 (assert_return (invoke "div" (f32.const -0x1p-1) (f32.const inf)) (f32.const -0x0p+0))
 (assert_return (invoke "div" (f32.const 0x1p-1) (f32.const -inf)) (f32.const -0x0p+0))
@@ -1400,10 +1400,10 @@
 (assert_return (invoke "div" (f32.const -0x1p+0) (f32.const 0x1.921fb6p+2)) (f32.const -0x1.45f306p-3))
 (assert_return (invoke "div" (f32.const 0x1p+0) (f32.const -0x1.921fb6p+2)) (f32.const -0x1.45f306p-3))
 (assert_return (invoke "div" (f32.const 0x1p+0) (f32.const 0x1.921fb6p+2)) (f32.const 0x1.45f306p-3))
-(assert_return (invoke "div" (f32.const -0x1p+0) (f32.const -0x1.fffffep+127)) (f32.const 0x1p-128))
-(assert_return (invoke "div" (f32.const -0x1p+0) (f32.const 0x1.fffffep+127)) (f32.const -0x1p-128))
-(assert_return (invoke "div" (f32.const 0x1p+0) (f32.const -0x1.fffffep+127)) (f32.const -0x1p-128))
-(assert_return (invoke "div" (f32.const 0x1p+0) (f32.const 0x1.fffffep+127)) (f32.const 0x1p-128))
+;; (assert_return (invoke "div" (f32.const -0x1p+0) (f32.const -0x1.fffffep+127)) (f32.const 0x1p-128)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const -0x1p+0) (f32.const 0x1.fffffep+127)) (f32.const -0x1p-128)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p+0) (f32.const -0x1.fffffep+127)) (f32.const -0x1p-128)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
+;; (assert_return (invoke "div" (f32.const 0x1p+0) (f32.const 0x1.fffffep+127)) (f32.const 0x1p-128)) :DELTA_SPEC: These tests are disabled because Aurix does not support denormals
 (assert_return (invoke "div" (f32.const -0x1p+0) (f32.const -inf)) (f32.const 0x0p+0))
 (assert_return (invoke "div" (f32.const -0x1p+0) (f32.const inf)) (f32.const -0x0p+0))
 (assert_return (invoke "div" (f32.const 0x1p+0) (f32.const -inf)) (f32.const -0x0p+0))
