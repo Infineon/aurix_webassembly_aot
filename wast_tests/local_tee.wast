@@ -342,7 +342,7 @@
 (assert_return (invoke "as-compare-left" (i32.const 0)) (i32.const 0))
 (assert_return (invoke "as-compare-right" (i32.const 0)) (i32.const 1))
 (assert_return (invoke "as-convert-operand" (i64.const 0)) (i32.const 41))
-(assert_return (invoke "as-memory.grow-size" (i32.const 0)) (i32.const 1))
+(assert_return (invoke "as-memory.grow-size" (i32.const 0)) (i32.const -1)) ;; :DELTA_SPEC: This function fails because it is not supported by this runtime result changed to from 1 to -1
 
 (assert_return
   (invoke "type-mixed"

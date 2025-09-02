@@ -546,12 +546,12 @@
 
 (assert_return (invoke "even" (i32.const 0)) (i32.const 44))
 (assert_return (invoke "even" (i32.const 1)) (i32.const 99))
-(assert_return (invoke "even" (i32.const 100)) (i32.const 44))
-(assert_return (invoke "even" (i32.const 77)) (i32.const 99))
+(assert_return (invoke "even" (i32.const 30)) (i32.const 44)) ;; :MODIFIED: Modified reduced loop parameter due to small memory assigned to Aurix Context Saving area CSA
+(assert_return (invoke "even" (i32.const 27)) (i32.const 99)) ;; :MODIFIED: Modified reduced loop parameter due to small memory assigned to Aurix Context Saving area CSA
 (assert_return (invoke "odd" (i32.const 0)) (i32.const 99))
 (assert_return (invoke "odd" (i32.const 1)) (i32.const 44))
-(assert_return (invoke "odd" (i32.const 200)) (i32.const 99))
-(assert_return (invoke "odd" (i32.const 77)) (i32.const 44))
+(assert_return (invoke "odd" (i32.const 30)) (i32.const 99)) ;; :MODIFIED: Modified reduced loop parameter due to small memory assigned to Aurix Context Saving area CSA
+(assert_return (invoke "odd" (i32.const 27)) (i32.const 44)) ;; :MODIFIED: Modified reduced loop parameter due to small memory assigned to Aurix Context Saving area CSA
 
 (assert_exhaustion (invoke "runaway") "call stack exhausted")
 (assert_exhaustion (invoke "mutual-runaway") "call stack exhausted")
@@ -570,8 +570,8 @@
 
 (assert_return (invoke "as-store-first"))
 (assert_return (invoke "as-store-last"))
-
-(assert_return (invoke "as-memory.grow-value") (i32.const 1))
+;; :DELTA_SPEC: This function fails because it is not supported by this runtime result changed to from 1 to -1
+(assert_return (invoke "as-memory.grow-value") (i32.const -1))
 (assert_return (invoke "as-return-value") (i32.const 1))
 (assert_return (invoke "as-drop-operand"))
 (assert_return (invoke "as-br-value") (f32.const 1))

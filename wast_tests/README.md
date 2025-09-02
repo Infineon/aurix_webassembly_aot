@@ -7,3 +7,9 @@ https://github.com/WebAssembly/spec/tree/w3c-1.0 (commit: f750d21dcc4903280b4db8
 # Changes
 
  * Added test file `wast_tests/wrap-around-memory.wast` to test the address wrapping for load and store
+ * Disabled wast by renaming extensions to .dwast
+   * export.wast --> partially supported feature disable for the time being
+   * linking.wast --> unsupported feature
+   * binary-leb128.wast --> it is only parsing test. Project relay on wasmtime parser and assume it is correct.
+   * imports.wast --> partially supported feature disable for the time being
+   * names.wast --> Requires export keyword

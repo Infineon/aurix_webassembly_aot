@@ -32,25 +32,22 @@ install_crate = { crate_name = "rustfilt", binary = "rustfilt", test_arg = ["--h
 [tasks.install-wasm-tools]
 install_crate = { crate_name = "wasm-tools", binary = " wasm-tools", test_arg = ["--version"] }
 
-[tasks.generate-tests]
-description = "Generate .json tests from .wast files"
+[tasks.generate-json-from-wast]
+condition = { files_modified = { input = ["${CARGO_MAKE_WORKING_DIRECTORY}/wast_tests/*.wast"], output = ["${CARGO_MAKE_WORKING_DIRECTORY}/wasm_json_from_wast/*.*"] } }
+description = "Generate .json and .wasm file from .wast files stored in wast_tests folder"
 workspace = false
 script_runner='@duckscript'
 cwd='wast_tests'
 script='''
-if not is_path_exists ../target
-    mkdir ./target
-end
-rm  -r ../target/test_wasm
-mkdir ../target/test_wasm
+rm  -r ../wasm_json_from_wast
+mkdir ../wasm_json_from_wast
 handle = glob_array *.wast
 for path in ${handle}
     echo ${path}
     wast_file_name = basename ${path}
     split_array = split ${wast_file_name} .
     file_name = array_get ${split_array} 0
-    target_path = join_path .. target test_wasm ${file_name}.json
-    echo ${target_path}
+    target_path = join_path .. wasm_json_from_wast ${file_name}.json
     exec  wast2json --disable-simd --disable-multi-value --disable-bulk-memory --disable-bulk-memory --disable-saturating-float-to-int --disable-sign-extension ${path} -o ${target_path}
 end
 '''
@@ -70,8 +67,28 @@ end
 
 
 
+[tasks._generate-wasm-tests]
+private = true
+description = "Generated wasm tests from wast-test and update Cargo.toml if needed"
+workspace = false
+cwd ="tests_generator"
+command="cargo"
+args=["run","--target","${CARGO_MAKE_HOST_TRIPLE}","--","../wasm_json_from_wast","../generated_tests","../Cargo.toml"]
+dependencies = ["generate-json-from-wast","clean-generated-wasm-tests"]
+
 [tasks.generate-wasm-tests]
-description = "Gneerated wasm tests from mvp-tests and update Cargo.toml if needed"
+description = "Generated wasm tests from wast-test and update Cargo.toml if needed"
+workspace = false
+condition = { files_modified = { input = ["${CARGO_MAKE_WORKING_DIRECTORY}/wasm_json_from_wast/*.json", 
+"${CARGO_MAKE_WORKING_DIRECTORY}/wasm_json_from_wast/*.wasm",
+"${CARGO_MAKE_WORKING_DIRECTORY}/wasm_json_from_wast/*.wat"], output = ["${CARGO_MAKE_WORKING_DIRECTORY}/generated_tests/*.rs"] } }
+run_task = "_generate-wasm-tests"
+dependencies = []
+
+
+
+[tasks.generate-mvp-wasm-tests]
+description = "Generated wasm tests from mvp-tests and update Cargo.toml if needed"
 condition = { files_modified = { input = ["${CARGO_MAKE_WORKING_DIRECTORY}/mvp-tests/*.json", 
 "${CARGO_MAKE_WORKING_DIRECTORY}/mvp-tests/*.wasm",
 "${CARGO_MAKE_WORKING_DIRECTORY}/mvp-tests/*.wat"], output = ["${CARGO_MAKE_WORKING_DIRECTORY}/generated_tests/*.rs"] } }
@@ -110,7 +127,7 @@ dependencies = ["check-tsim"]
 workspace = false
 command = "cargo"
 args = ["test","--features=tsim","${@}"]
-dependencies = ["env-linux-tsim","env-windows-tsim","install-defmt-print","install-rustfilt","generate-wasm-tests"]
+dependencies = ["env-linux-tsim","env-windows-tsim","install-defmt-print","install-rustfilt"]
 
 [tasks.run-benchmark-tsim]
 workspace = false
@@ -130,7 +147,7 @@ workspace = false
 env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = "tricore-probe -c 1" }
 command = "cargo"
 args = ["test","--features=board","${@}"]
-dependencies = ["check-tricore-probe","install-defmt-print","generate-wasm-tests"]
+dependencies = ["check-tricore-probe","install-defmt-print"]
 
 [tasks.run-demo-board]
 workspace = false

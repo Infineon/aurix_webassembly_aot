@@ -2,9 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
-
-
-static CODE_TEMPLATE: &str = r#"
+const CODE_TEMPLATE: &str = r#"
 #![no_std]
 #![no_main]
 
@@ -26,7 +24,7 @@ mod tests {
             use crate::test_utilities;
             let mut runtime = test_utilities::init();
 
-            let wasm_code = include_bytes!(concat!("../mvp-tests/", "{filename}"));
+            let wasm_code = include_bytes!(concat!("{json_test_folder}/", "{filename}"));
             assert!(runtime.parse_and_translate(wasm_code).is_ok());
             runtime
         
@@ -45,24 +43,31 @@ enum ReturnValue {
 }
 
 fn escape_string_literal(input: &str) -> String {
-    input.chars().map(|c| match c {
-        '\\' => "\\\\".to_string(),
-        '"' => "\\\"".to_string(),
-        '\n' => "\\n".to_string(),
-        '\r' => "\\r".to_string(),
-        '\t' => "\\t".to_string(),
-        '\u{20}'..='\u{7e}' => c.to_string(), // Printable ASCII range
-        _ => format!("\\u{{{:x}}}", c as u32),
-    }).collect()
+    input
+        .chars()
+        .map(|c| match c {
+            '\\' => "\\\\".to_string(),
+            '"' => "\\\"".to_string(),
+            '\n' => "\\n".to_string(),
+            '\r' => "\\r".to_string(),
+            '\t' => "\\t".to_string(),
+            '\u{20}'..='\u{7e}' => c.to_string(), // Printable ASCII range
+            _ => format!("\\u{{{:x}}}", c as u32),
+        })
+        .collect()
 }
 
-struct TestFilter{file_name:& 'static str, feature: & 'static str} 
+struct TestFilter {
+    file_name: &'static str,
+    feature: &'static str,
+}
 
- 
-const TEST_FILTERS: [TestFilter;1] = [TestFilter { file_name: "wrap-around-memory", feature: "address-masking" }];
+const TEST_FILTERS: [TestFilter; 1] = [TestFilter {
+    file_name: "wrap-around-memory",
+    feature: "address-masking",
+}];
 
-
-fn generate_tests_from_json(mvp_tests_dir:&Path,test_folder:&Path) -> Vec<(String,PathBuf)> {
+fn generate_tests_from_json(mvp_tests_dir: &Path, test_folder: &Path) -> Vec<(String, PathBuf)> {
     let mut result = vec![];
     if test_folder.exists() {
         for entry in fs::read_dir(test_folder).unwrap() {
@@ -75,35 +80,39 @@ fn generate_tests_from_json(mvp_tests_dir:&Path,test_folder:&Path) -> Vec<(Strin
     } else {
         panic!("generated_tests folder does not exist");
     }
-   
+
     // get all json files in mvp_tests
 
     let json_files = fs::read_dir(mvp_tests_dir).unwrap().filter_map(|entry| {
         let entry = entry.unwrap();
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("json") {
-            
             Some(path)
         } else {
             None
         }
     });
     for json_tests_file in json_files {
-      
         let json_file = fs::read(&json_tests_file).unwrap();
         let json_tests = json_file.as_slice();
 
         //parse to json object
         let tests: serde_json::Value = serde_json::from_slice(json_tests).unwrap();
         //iterate over tests.commands
-        let commands:Vec<_> = tests["commands"].as_array().unwrap().iter().map(|f|f.as_object().unwrap()).collect();
-        
-        let wasm_modules = commands.iter().filter(|cmd| cmd["type"].as_str().unwrap() == "module")
-                                        .map(|cmd| cmd["filename"].as_str().unwrap()).collect::<Vec<_>>();                            
+        let commands: Vec<_> = tests["commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f.as_object().unwrap())
+            .collect();
 
+        let wasm_modules = commands
+            .iter()
+            .filter(|cmd| cmd["type"].as_str().unwrap() == "module")
+            .map(|cmd| cmd["filename"].as_str().unwrap())
+            .collect::<Vec<_>>();
 
-
-         commands.split(|cmd| cmd["type"].as_str().unwrap() == "module").skip(1).enumerate().for_each( |(wasm_module_index, test_suite)| {
+        commands.split(|cmd| cmd["type"].as_str().unwrap() == "module").skip(1).enumerate().for_each( |(wasm_module_index, test_suite)| {
             let filename = wasm_modules[wasm_module_index];
             //println!("filename: {}", filename);
             let binding = test_suite.iter().filter(|cmd| ["assert_return","action"].contains(&cmd["type"].as_str().unwrap())).collect::<Vec<_>>();
@@ -113,7 +122,7 @@ fn generate_tests_from_json(mvp_tests_dir:&Path,test_folder:&Path) -> Vec<(Strin
                             binding.chunks(200).map(|chunk| chunk.to_vec()).collect::<Vec<_>>().into_iter()
                         };
             for (testsuite_index,test_suite) in testsuites.enumerate() { 
-            let test_code = test_suite.iter().enumerate().map(|(test_index,cmd)| {
+            let test_code: String = test_suite.iter().enumerate().map(|(test_index,cmd)| {
                     let line_number = cmd["line"].as_u64().unwrap();
                     let action = cmd["action"].as_object().unwrap();
                     let function_name = action["field"].as_str().unwrap();
@@ -179,26 +188,25 @@ fn generate_tests_from_json(mvp_tests_dir:&Path,test_folder:&Path) -> Vec<(Strin
             let filename_parts: Vec<&str> = filename.split('.').collect();
             let file_basename_without_extension = if testsuite_index == 0  { filename_parts[0..2].join("_") } else {format!("{}_{}", filename_parts[0..2].join("_"), testsuite_index)};
             let output_path = test_folder.join(format!("{}.rs",&file_basename_without_extension));
-            let output = CODE_TEMPLATE.replace("{tests}", &test_code).replace("{filename}", filename);
+            let output = CODE_TEMPLATE.replace("{tests}", &test_code).replace("{filename}", filename).replace("{json_test_folder}", &mvp_tests_dir.to_str().unwrap().replace('\\', "/"));
             fs::write(&output_path, output).unwrap();
             result.push((file_basename_without_extension,output_path));
         }
     });
-  }
-  result
+    }
+    result
 }
 
-
-fn update_cargo_toml(generated_tests: &[(String,PathBuf)], cargo_toml_path:&Path) {
-    use toml_edit::{DocumentMut, Item, value};
+fn update_cargo_toml(generated_tests: &[(String, PathBuf)], cargo_toml_path: &Path) {
+    use toml_edit::{value, DocumentMut, Item};
     let mut generated_tests = generated_tests.to_owned();
     generated_tests.sort_by(|a, b| a.0.cmp(&b.0));
     let cargo_toml_folder = cargo_toml_path.parent().unwrap();
     let cargo_toml_content = fs::read_to_string(cargo_toml_path).unwrap();
     let mut doc = cargo_toml_content.parse::<DocumentMut>().unwrap();
     // Remove existing [[test]] sections added by this script
-    
-    if let Some(test_table)=doc.get_mut("test") {
+
+    if let Some(test_table) = doc.get_mut("test") {
         let tests_array = test_table.as_array_of_tables_mut().unwrap();
         tests_array.retain(|item| {
             if let Some(path) = item.get("path").and_then(|n| n.as_str()) {
@@ -209,25 +217,28 @@ fn update_cargo_toml(generated_tests: &[(String,PathBuf)], cargo_toml_path:&Path
         })
     }
 
- 
     // Add new [[test]] sections for each generated test file
     for (test_name, test_path) in generated_tests {
-
-         if !doc.contains_array_of_tables("test") {
-             
+        if !doc.contains_array_of_tables("test") {
             doc["test"] = Item::ArrayOfTables(toml_edit::ArrayOfTables::new());
             doc.get_mut("test").unwrap();
         }
-        let array_of_test_table=doc["test"].as_array_of_tables_mut().unwrap();
+        let array_of_test_table = doc["test"].as_array_of_tables_mut().unwrap();
         let mut table = toml_edit::Table::new();
         table["name"] = value(test_name);
-        table["path"] = value(test_path.strip_prefix(cargo_toml_folder).unwrap().to_str().unwrap().replace('\\', "/"));
+        table["path"] = value(
+            test_path
+                .strip_prefix(cargo_toml_folder)
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .replace('\\', "/"),
+        );
         table["harness"] = value(false);
         array_of_test_table.push(table);
     }
     let new_content = doc.to_string();
     fs::write(cargo_toml_path, new_content).unwrap();
-   
 }
 
 fn main() {
@@ -241,12 +252,17 @@ fn main() {
         /// Path to the generated_tests folder
         generated_tests: PathBuf,
 
-        /// Path to the Cargo.toml file
-        cargo_toml: PathBuf,
+        /// Path to the Cargo.toml file. If present Cargo.toml will be updated to include the generated tests.
+        cargo_toml: Option<PathBuf>,
     }
 
     let args = Args::parse();
-    let generated_tests=generate_tests_from_json(&args.mvp_tests, &args.generated_tests);
-    update_cargo_toml(&generated_tests,&args.cargo_toml);
-
+    let generated_tests = generate_tests_from_json(&args.mvp_tests, &args.generated_tests);
+    if let Some(path_cargo_toml) = args.cargo_toml {
+        if !path_cargo_toml.exists() {
+            panic!("Cargo.toml file does not exist");
+        } else {
+            update_cargo_toml(&generated_tests, &path_cargo_toml);
+        }
+    }
 }
