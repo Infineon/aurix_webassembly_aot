@@ -19,7 +19,7 @@ const LINEAR_MEMORY_BASE : AddressRegister = AddressRegister(6);
 pub const GLOBAL_BASE : AddressRegister = AddressRegister(5);
 pub const STACK_POINTER : AddressRegister = AddressRegister(10);
 pub const FRAME_POINTER : AddressRegister = AddressRegister(12);
-pub const STACK_BASE : AddressRegister = AddressRegister(13);
+pub const STACK_BASE : AddressRegister = AddressRegister(13); // stack pointer at the beginning of the function
 pub const TABLE_BASE : AddressRegister = AddressRegister(4);
 
 pub const ADDRESS_ACCUMULATOR: AddressRegister = AddressRegister(2);
@@ -95,6 +95,21 @@ impl Immediate {
             Immediate::DoubleWord(imm) => vec![ (*imm >> 32) as u32, *imm as u32],
         }
     }
+
+    /// Check if this immediate fits as a comparison immediate.
+    /// This is used for comparison instructions.
+    /// Returns true if the immediate fits in 9 bits based on signedness.
+    /// - For unsigned: fits in 9 bits unsigned
+    /// - For signed: fits in 9 bits signed (upper bits must be sign extension of bit 8)
+    pub fn fits_as_comparison_immediate(&self, sign: SignValue) -> bool {
+        match sign {
+            SignValue::Unsigned => self.as_u32() >> 9 == 0,
+            SignValue::Signed => {
+                let shifted = self.as_i32() >> 8;
+                shifted == 0 || shifted == -1
+            }
+        }
+    }
 }
 
 
@@ -151,6 +166,7 @@ impl DataRegister {
 
 fn process_memory_access_offset<'a,'b>(dynamic_offset: &Option<Box<MapperLocation>>, static_offset: &usize, translator: &mut Translator<'a,'b>, scratch_variable_map: &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>) -> (u32, AddressRegister) {
     
+    // if dynamic offset is an immediate, we can compute the offset directly
     let (mut offset, dynamic_offset) = match dynamic_offset {
         None => (*static_offset as u32, None),
         Some(dynamic_offset)  => match **dynamic_offset {
@@ -159,6 +175,7 @@ fn process_memory_access_offset<'a,'b>(dynamic_offset: &Option<Box<MapperLocatio
         }
     };
 
+    // add dynamic offset to the adress base
     let mut base = LINEAR_MEMORY_BASE;
     compute_offset(translator, scratch_variable_map, used_registers, &mut offset, dynamic_offset, &mut base);
     (offset, base)
@@ -173,6 +190,7 @@ fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_m
     }
 }   
 
+/// This function computes the offset for memory access, taking into account dynamic offsets and address masking.
 #[cfg(feature="address-masking")]
 fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_map: &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>, offset: &mut u32, dynamic_offset: Option<&Box<MapperLocation>>, base: &mut AddressRegister) {
     use crate::parse_and_translate::BUFFER_SIZE;
@@ -187,6 +205,7 @@ fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_m
 
             let scratch_register = translator.next_available_data_register(scratch_variable_map, used_registers);
 
+            // need to split immediate in two parts, because the immediate is 32 bits and the instruction only supports 16 bits
             if higher_offset!=0 {
                 translator.push_instruction(Instr::ADDIH { lhs: dynamic_register, rhs: Const16(higher_offset), dest: scratch_register });
                 dynamic_register = scratch_register;
@@ -196,6 +215,7 @@ fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_m
                 translator.push_instruction(Instr::ADDI { lhs: dynamic_register, rhs: Const16(lower_offset), dest: scratch_register });
                 dynamic_register = scratch_register;
             }
+            // register 0 is the bitmask if you do bitmasking, so here you compute the bitmasking
             translator.push_instruction(Instr::AND { lhs: dynamic_register, rhs: RegisterOrConst::new_register(0), dest: scratch_register });
             translator.push_instruction(Instr::ADDSCA { lhs:LINEAR_MEMORY_BASE, rhs: scratch_register, dest: ADDRESS_ACCUMULATOR, shift: Const4(0) });
             *base = ADDRESS_ACCUMULATOR;
@@ -314,10 +334,6 @@ impl Const4 {
 impl Const18 {
     pub fn new(constant:u32) -> Self {
         Const18(constant & 0x3FFFF)
-    }
-    
-    pub fn from_address (address:u32) -> Self {
-        Const18(address & 0x3FFF | ((address & 0xF000000) >> 14))
     }
 }
 
@@ -458,7 +474,7 @@ impl MapperLocation {
     pub fn new_extended_register(register:u8) -> Self {
         MapperLocation::ExtendedRegister(ExtendedRegister::new(register))
     }
-
+    // lower 32 bits, not always the half
     pub fn lower_half (&self) -> Self {
         match self {
             MapperLocation::DataRegister(register) => MapperLocation::DataRegister(*register),
@@ -520,13 +536,8 @@ impl MapperLocation {
             },
             MapperLocation::Stack { size } => {
                 let register = target.unwrap_or_else(|| translator.next_available_data_register(scratch_variable_map, used_registers));
-                match size {
-                    ValueSize::Word => translator.push_instruction(Instr::LDWPI { base: STACK_POINTER, offset: Const10(4), dest: register }),
-                    ValueSize::DoubleWord => {
-                        translator.push_instruction(Instr::LDW { base: STACK_POINTER, offset: Const16(0), dest: register});
-                        translator.push_instruction(Instr::LEA { base: STACK_POINTER, offset: Const16(8), dest: STACK_POINTER});
-                    },
-                }
+                let size = size.as_bytes() as i16;
+                translator.push_instruction(Instr::LDWPI { base: STACK_POINTER, offset: Const10(size), dest: register });
                 register
             },
             MapperLocation::Global { offset, .. } => {
@@ -785,6 +796,7 @@ impl LocationCouple for  (&MapperLocation,&MapperLocation) {
     (lhs_register, rhs_register)
    }
 
+   // if the operation is commutative and one is an immediate and the other a register, we can swap them to have the register on the lhs
     fn map_abelian_large_children_to_register_or_const(self, is_signed_immediate:SignValue, translator: &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>) -> (ExtendedRegister, (RegisterOrConst,RegisterOrConst)) {
         match self {
             (MapperLocation::Immediate(imm), rhs) => {

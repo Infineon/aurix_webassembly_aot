@@ -1,4 +1,18 @@
 #![forbid(unsafe_code)]
+/// This module provides helper methods to emit instructions for accessing the linear memory 
+/// The helper methods take typically among their arguments:
+/// - a **base** address register
+/// - an (at translation known) offset
+/// The helper methods will emit insturctions to access the physical address expressed by (base + offset) while also taking into consideration an expected alignment hint, as provided from the wasm module.
+/// 
+/// Due to the fact that TriCore architecure supports only 10-bit and 16-bit long offsets, the offset is split into a higher and lower part prior to the memory load/store instruction (c.f. split_offset for more details).
+/// It is assumed here that the linear memory is at least 2 bytes aligned.
+/// If the alignment hint matches the TriCore requirements, a straightforward instruction is emitted. Otherwise the memory operation is performed byte per byte.
+/// 
+/// ### Usage:
+/// In case the full offset (static+dynamic) is known at translation time, it can be provided through the offset argument, while setting the base address register to the dedicated register for the linear memory base.
+/// 
+/// Otherwise (if the dynamic offset is e.g. dependent from a local variable), the base address register will contain the sum of the linear memory base and the dynamic offset, typically computed 
 use alloc::vec;
 use alloc::vec::Vec;
 use crate::isa_model::{AddressRegister, Const10, Const16, Const9, DataRegister, ExtendedRegister, MapperLocation, Register, RegisterOrConst, RegisterOrLargeConst, SignValue, ADDRESS_ACCUMULATOR};
@@ -8,11 +22,12 @@ use crate::translator::Translator;
 impl <'a,'b> Translator<'a,'b>{
 
     pub fn load_byte_from_memory(&mut self, dest: Register, base: AddressRegister, offset: u32, sign: SignValue){
+        // loading can only take a 16 bit offset, you add the upper offset to the base (with some minor caveats)
         let (lower_offset, base) = self.split_offset(offset, base);
         let lower_dest = dest.get_lower_register();
         let upper_dest = dest.get_upper_register();
 
-        match sign {
+        match sign { // sign extension or not from 8 to 32 bits
             SignValue::Signed => {
                 self.push_instruction(Instr::LDB {base, offset: Const16::new(lower_offset), dest: lower_dest});
             },
@@ -20,7 +35,7 @@ impl <'a,'b> Translator<'a,'b>{
                 self.push_instruction(Instr::LDBU {base, offset: Const16::new(lower_offset), dest: lower_dest});
             }
         }
-
+        // sign extension for the upper destination
         self.extend_sign_over_dest(upper_dest, sign, lower_dest);
     }
 
@@ -36,10 +51,10 @@ impl <'a,'b> Translator<'a,'b>{
         let upper_dest = dest.get_upper_register();
 
         match align {
-            0 => {
+            0 => { // aurix can't load unaligned half words so each byte needs to be loaded separately
                 let intermediate = self.next_available_data_register(scratch_variable_map, &vec![dest.as_location()]);
-                self.push_instruction(Instr::LDBU {base, offset: Const16::new(lower_offset), dest: intermediate});
-                match sign {
+                self.push_instruction(Instr::LDBU {base, offset: Const16::new(lower_offset), dest: intermediate}); // load first byte
+                match sign { //load second byte with right sign extension
                     SignValue::Signed => self.push_instruction(Instr::LDB {base, offset: Const16::new(lower_offset + 1), dest: lower_dest}),
                     SignValue::Unsigned =>self.push_instruction(Instr::LDBU {base, offset: Const16::new(lower_offset + 1), dest: lower_dest})
                 }
@@ -66,9 +81,9 @@ impl <'a,'b> Translator<'a,'b>{
         match align {
             0 => {
                 let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(src)]);
-                self.push_instruction(Instr::STB {base, offset: Const16::new(lower_offset), src});
-                self.push_instruction(Instr::SH {src, count: RegisterOrConst::Const9(Const9::new(-8i16 as u16)), dest: intermediate});
-                self.push_instruction(Instr::STB {base, offset: Const16::new(lower_offset + 1), src: intermediate});
+                self.push_instruction(Instr::STB {base, offset: Const16::new(lower_offset), src}); // store lower byte of register
+                self.push_instruction(Instr::SH {src, count: RegisterOrConst::Const9(Const9::new(-8i16 as u16)), dest: intermediate}); // shift upper byte into lower byte of register
+                self.push_instruction(Instr::STB {base, offset: Const16::new(lower_offset + 1), src: intermediate}); // store upper byte (that's now in the lower byte)
             },
             _ => {
                 self.push_instruction(Instr::STH {base, offset: Const16::new(lower_offset), src});
@@ -187,9 +202,12 @@ impl <'a,'b> Translator<'a,'b>{
     }
 
 
-
+    /// The Tricore architecture supports at most 16-bit offsets. Therefore 32-bit offsets should be split to be handled.
+    /// the method splits the offset into an upper and lower part. A machine instruction is emitted to add the upper part to the address base (if non-zero).
+    /// A 16-bit lower offset with a new address base register are returned. The latter corresponds to the location of (initial base address + upper_offset<<16)
     fn split_offset(&mut self, offset: u32, base: AddressRegister) -> (u16, AddressRegister) {
-        let upper_offset = ((offset + 0x8000) >>16) as u16;
+        // From Aurix manual volume 2 1.7 Adress arithmetic, solves sign extension for the lower offset 
+        let upper_offset = (offset.wrapping_add(0x8000) >> 16) as u16;
         let lower_offset = offset as u16;
 
         let mut base = base;
@@ -201,13 +219,15 @@ impl <'a,'b> Translator<'a,'b>{
         (lower_offset, base)
     }
 
+    /// Similar to split_offset for instructions that support only 10-bit offsets (e.g. 64-bit double word memory operations)
+    /// The upper part is added to the address base using  emitted machine instructions. The lower part is returned with the new address base.
     fn split_small_offset(&mut self, offset: u32, base: AddressRegister) -> (u16, AddressRegister) {
-        let upper_mid_offset = (offset + 0x200) >>10;
+        let upper_mid_offset = offset.wrapping_add(0x200) >>10; // upper 22 bits that will be added to the base, must be split as we can only add 16 bit constants
         let lower_offset = (offset & 0x3FF) as u16;
 
         let mut base = base;
 
-        let upper_offset = ( (upper_mid_offset + 0x20) >> 6) as u16;
+        let upper_offset = ( upper_mid_offset.wrapping_add(0x20) >> 6) as u16;
         let mid_offset = ((upper_mid_offset & 0x3F) << 10 ) as u16;
 
         if upper_offset > 0 {
@@ -224,12 +244,14 @@ impl <'a,'b> Translator<'a,'b>{
 
     }
 
-
+    /// helper method to extend the loaded value on a data register onto the wider extended register.
+    /// extension may be a sign extension, where the upper register is filled corresponding with uppermost bit of the lower register,
+    /// or a zero extension, where the upper register is set to zero
     fn extend_sign_over_dest(&mut self, upper_dest: Option<DataRegister>, sign: SignValue, lower_dest: DataRegister) {
         upper_dest.map(|upper_dest: DataRegister|  match sign {
             SignValue::Signed => {
                 self.push_instruction(Instr::MOV{ src: RegisterOrLargeConst::DataRegister(lower_dest), dest: Register::DataRegister(upper_dest)});
-                self.push_instruction(Instr::SHA { src: upper_dest, count: RegisterOrConst::Const9(Const9::new(32)), dest: upper_dest});
+                self.push_instruction(Instr::SHA { src: upper_dest, count: RegisterOrConst::Const9(Const9::new(32)), dest: upper_dest}); // here the count is a signed 6-bit so 32 will be interpreted as -32
             },
             SignValue::Unsigned => {
                 self.push_instruction(Instr::MOV {src: RegisterOrLargeConst::Const16(Const16::new(0)), dest: Register::DataRegister(upper_dest)});

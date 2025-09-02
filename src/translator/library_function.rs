@@ -64,13 +64,31 @@ pub enum LibraryFunction {
 
 impl <'a,'b> Translator<'a,'b>{
 
+    /// generates machine code for calling a runtime function from the translated wasm functions. This is to be used in code generation for subroutines that are not supported through a short sequence of machine instructions.
+    /// It is assumed that the runtime function takes at most 2 arguments from the same size (32-bit word or 64-bit double-word) and returns one result.
+    /// 
+    /// ### Parameters:
+    /// - **target**: the result is moved to the target location if available, otherwise placed in a scratch register
+    /// - **function**: runtime function to be called
+    /// - **ops**: vector containing the location of the operands
+    /// - **op_size**: size of the operand(s)
+    /// - **result_size**: size of the result
+    /// - **scratch_variable_map**: needs to be passed down in order to allocate a free register for the result, in case no target location is specified.
+    /// 
+    /// ### Return value:
+    ///  location of the result value
     pub fn call_library_function(&mut self, target: Option<&MapperLocation>, function:LibraryFunction, ops: Vec<&MapperLocation>, op_size: ValueSize, result_size: ValueSize, scratch_variable_map : &mut Vec<MapperLocation>) -> MapperLocation {
-        self.push_instruction(Instr::SVLCX);
         self.setup_ops(op_size, ops, scratch_variable_map);
         self.perform_external_call(function);
         self.process_external_result(target, result_size, scratch_variable_map)
     }
 
+    /// generates machine code to obtain the result returned by the runtime function from the return register (according to the C ABI calling conventions for TriCore (D[2] or E[2]))
+    /// and moves it to the target location if available, otherwise to an available scratch register.
+    /// 
+    /// Note that the call for the runtime function saves the lower context that needs to be therefore restored. Therefore if the result is to be stored in a lower context register,
+    /// it is first saved temporarily into the stack until the lower context is restored and is then retrieved to be loaded in its target. 
+    ///  
     fn process_external_result(&mut self, target: Option<&MapperLocation>, result_size: ValueSize, scratch_variable_map: &mut Vec<MapperLocation>) -> MapperLocation {
         let target = target.cloned().unwrap_or_else(|| self.next_available_register(result_size, scratch_variable_map).as_location());
         let intermediate_target =  match &target {
@@ -95,12 +113,20 @@ impl <'a,'b> Translator<'a,'b>{
         target
     }
 
+    /// helper method that maps the function to be called to its address and generates the machine code that performs the actual call.
+    /// 
+    /// Here direct calls are not an option because absolute addressing is only available for a portion of the address space (First 2MiB of every segment).
+    /// Relative addressing can also not be implemented given that it requires the displacement to be less than 32 MiB.
+    /// 
+    /// Therefore indirect calls are implemented. The jump address is loaded in the address accumulator (over 2 steps given that immediates are 16-bit wide)
+    /// 
+    /// 
     fn perform_external_call(&mut self, function: LibraryFunction) {
         let library_function_ptr = match function {
             LibraryFunction::F32Sqrt => libm::sqrtf as u32,
             LibraryFunction::F64Eq => WasmRuntime::f64_eq as u32,
             LibraryFunction::F64Sub => WasmRuntime::f64_sub as u32,
-            LibraryFunction::F64Mul => compiler_builtins::float::mul::__muldf3 as u32,
+            LibraryFunction::F64Mul => compiler_builtins::float::mul::__muldf3 as u32, // The compiler builtin f64 mul is bugged so we use another implementation
             LibraryFunction::F64Le => WasmRuntime::f64_le as u32,
             LibraryFunction::F64Add => WasmRuntime::f64_add as u32,
             LibraryFunction::F64Div => WasmRuntime::f64_div as u32,
@@ -154,30 +180,44 @@ impl <'a,'b> Translator<'a,'b>{
         self.push_instruction(Instr::CALLI { target: ADDRESS_ACCUMULATOR });
     }
 
-    fn setup_ops(&mut self, op_size: ValueSize, mut ops: Vec<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>) {
+    /// helper function to load the operands in the respective registers according to the TriCore C ABI calling convention:
+    /// If the arguments are 32-bit wide. The first argument is placed in D[4], while the second if existent will be in D[5].
+    /// Otherwise if the arguments are 64-bit wide. The first is placed in E[4], while the second if existent will be in E[6].
+    /// 
+    /// Note that we need to account for the scenario where we have multiple arguments and one exists already in the target of the other one.
+    /// In this implementation, the arguments are filled backward and the first argument is saved in another register first if it is located at the target of the second one.
+    // TODO: this might need to be rewritten, this function is only called for library functions that take at most 2 arguments, 
+    // so it might be better to just use a match statement.
+    // Also using D[0] as a temporary register for swapping the arguments is not a good idea as it is used for the bitmask
+    fn setup_ops(&mut self, arg_size: ValueSize, mut args: Vec<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>) {
+        self.push_instruction(Instr::SVLCX);
         let start_index = 4;
-        let increment = match op_size {
+        let increment = match arg_size {
             ValueSize::Word => 1,
             ValueSize::DoubleWord => 2
         };
-        let mut index = start_index + increment * ops.len() as u8;
-        if ops.len() == 2 {
-            match ops[0]{
+        //start register index for filling the arguments backwards 
+        // TODO: you don't need to fill backwards
+        let mut index = start_index + increment * args.len() as u8;
+        //checks if first argument is located in the target of the second one
+        if args.len() == 2 {
+            match args[0]{
                 MapperLocation::DataRegister(DataRegister(i)) if *i == index-increment => {
                     self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::DataRegister(DataRegister(*i)), dest: Register::DataRegister(DataRegister(0)) });
-                    ops[0] = &MapperLocation::DataRegister(DataRegister(0));
+                    args[0] = &MapperLocation::DataRegister(DataRegister(0));
                 },
                 MapperLocation::ExtendedRegister(ExtendedRegister(i)) if *i == index-increment => {
                     self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::RegisterCouple {lower: DataRegister(*i), upper: DataRegister(*i+1)}, dest: Register::ExtendedRegister(ExtendedRegister(0)) });
-                    ops[0] = &MapperLocation::ExtendedRegister(ExtendedRegister(0));
+                    args[0] = &MapperLocation::ExtendedRegister(ExtendedRegister(0));
                 },
                 _ => ()
             }
-            ops.swap(0, 1);
+            //swap arguments to iterate over them in reverse order.
+            args.swap(0, 1);
         }
-        for op in ops {
+        for op in args {
             index -= increment;
-            match op_size {
+            match arg_size {
                 ValueSize::Word => {
                     op.map_to_data_register(Some(DataRegister::new(index)), self, scratch_variable_map, &vec![]);
                 },
@@ -394,6 +434,9 @@ impl <'a> WasmRuntime <'a> {
         x.trailing_zeros() as u64
     }
 
+    /// This subroutine is to be called prior to an indirect call in a wasm function. It performs the necessary checks before running the indirect call to ensure
+    /// type safety. It checks that the provided table offset does not exceed the table size (in case sandboxing is enabled) and checks whether the referenced function
+    /// matches the statically annotated type.
     pub extern "C" fn compare_subtypes(types: *const SubType, table_type_indices: *const u32, table_offset :u32, target_type_index : u32, _table_size: u32)  {
         #[cfg(feature="address-masking")]
         assert!(table_offset < _table_size);
@@ -405,6 +448,9 @@ impl <'a> WasmRuntime <'a> {
         }
     }
 
+    /// This subroutine is to be called for implementing the memory.grow instruction.
+    /// It checks whether the new expected size of the memory (in pages) exceeds the maximum size allowed.
+    /// The maximum allowed size is dependent both of the allocated space for the linear memory and the maximum indicated by the wasm module.
     pub extern "C" fn grow_memory(current_size: &mut u32, grow_size:u32, maximum_size:u32) -> u32 {
         let previous_size = *current_size;
         match previous_size.checked_add(grow_size){

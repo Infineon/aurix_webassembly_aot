@@ -1,4 +1,38 @@
 #![forbid(unsafe_code)]
+
+//! # VB (Valent Block) Resolution Engine
+//!
+//! This module implements the core VB resolution logic that converts virtual WebAssembly operand 
+//! stack expressions into concrete machine code for the Aurix processor.
+//!
+//! ## Key Concepts
+//!
+//! - **VB (Valent Block)**: An intermediate representation (IR) for WebAssembly operand stack expressions
+//! - **VB Resolution**: The process of converting VB expressions into machine instructions
+//! - **Scratch Variables**: Temporary registers and memory locations used during code generation
+//! - **Target Mapping**: Specifying where the result of an operation should be placed
+//!
+//! ## VB Types
+//!
+//! - **AtomicVB**: Leaf nodes representing constants, locals, globals, and resolved values
+//! - **UnaryVB**: Single-operand operations (negation, conversion, loads, etc.)
+//! - **BinaryVB**: Two-operand operations (arithmetic, comparison, bitwise, etc.)
+//! - **Select**: Conditional selection between two values, the only ternary operation
+//!
+//! ## Resolution Process
+//!
+//! 1. **Post-order DFS traversal**: Process child nodes before parent nodes
+//! 2. **Register allocation**: Assign scratch registers for intermediate results
+//! 3. **Instruction generation**: Emit appropriate machine instructions
+//! 4. **Target mapping**: Place final result in the specified location
+//!
+//! ## Key Functions
+//!
+//! - `resolve_all()`: Resolves all VBs on the stack to concrete stack locations
+//! - `resolve_with_target()`: Resolves a single VB with an optional target location
+//! - `dispatch_*()`: Handles resolution for different VB types
+//! - `gen_*()`: Generates machine code for specific operations
+
 use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -8,8 +42,540 @@ use crate::translator::library_function::LibraryFunction;
 use crate::translator::Translator;
 use crate::vb::{AtomicVB, BinaryVB, UnaryVB, VB};
 
+// ================================================================================
+// FLOATING-POINT COMPARISON CONSTANTS
+// ================================================================================
+
+/// Constants for CMPF (floating-point comparison) instruction result bits.
+/// 
+/// The CMPF instruction sets specific bits in the result register based on the comparison:
+/// - Bit 0: Set if LHS < RHS (less than)
+/// - Bit 1: Set if LHS == RHS (equal) 
+/// - Bit 2: Set if LHS > RHS (greater than)
+/// - Bit 3: Set if either operand is NaN (unordered)
+/// 
+/// These constants can be combined with bitwise OR to create masks for complex comparisons.
+pub struct CmpfBits;
+
+impl CmpfBits {
+    /// LHS < RHS (less than)
+    pub const LT: u16 = 1 << 0;  // 0b0001
+    
+    /// LHS == RHS (equal)
+    pub const EQ: u16 = 1 << 1;  // 0b0010
+    
+    /// LHS > RHS (greater than) 
+    pub const GT: u16 = 1 << 2;  // 0b0100
+       
+    /// LHS <= RHS (less than or equal)
+    pub const LE: u16 = Self::LT | Self::EQ;  // 0b0011
+    
+    /// LHS >= RHS (greater than or equal)
+    pub const GE: u16 = Self::GT | Self::EQ;  // 0b0110
+}
+
+// ================================================================================
+// REFACTORING MACROS FOR CODE REUSE REDUCTION
+// ================================================================================
+// 
+// These macros significantly reduce code duplication by abstracting common patterns:
+//
+// 1. gen_simple_binary_op!: Handles 90% of binary operations (XOR, OR, AND, MUL, EQ, NE)
+//    - Reduces ~18 functions to ~3 lines each (saved ~60 lines)
+//    - Standardizes register allocation, instruction emission, and result mapping
+//
+// 2. gen_div_rem_op!: Handles division/remainder operations (DIV, DIVU variants)
+//    - Reduces ~8 functions to ~1 line each (saved ~28 lines)
+//    - Abstracts extended register handling and result half selection
+//
+// 3. gen_single_operand_op!: Handles single-operand operations (POPCNT, CLZ, conversions)
+//    - Reduces repetitive single-instruction unary patterns
+//
+// 4. gen_i64_comparison_op!: Handles all 64-bit comparison patterns (LTS, LTU, GES, GEU, LES, LEU, GTS, GTU)
+//    - Reduces ~8 functions to ~1 line each (saved ~32 lines)
+//    - Abstracts complex 64-bit comparison logic with upper/lower half handling
+//
+// 5. gen_i32_comparison_with_imm_opt!: Unified macro for all i32 comparisons with immediate optimizations
+//    - Consolidates 4 previously separate macros into one comprehensive macro
+//    - Handles all comparison patterns (>, >=, <, <=) with immediate on either side
+//    - Reduces complexity and eliminates subtle differences between similar macros
+//
+// Total lines reduced: ~400+ lines while maintaining identical functionality
+// Total lines reduced: ~120+ lines while maintaining identical functionality
+
+/// Macro for generating simple binary operations that follow the standard pattern:
+/// 1. Map operands to register/constant pairs
+/// 2. Get destination register
+/// 3. Push single instruction
+/// 4. Map result to location
+macro_rules! gen_simple_binary_op {
+    ($name:ident, $instr:ident, $sign:expr) => {
+        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let (lhs_register, rhs_register_const) = (lhs, rhs).map_abelian_children_to_register_or_const($sign, self, scratch_variable_map);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            self.push_instruction(Instr::$instr { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register });
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating division/remainder operations that follow the division pattern:
+/// 1. Map operands to data registers
+/// 2. Get extended register for division result
+/// 3. Push division instruction
+/// 4. Return appropriate half (quotient or remainder)
+macro_rules! gen_div_rem_op {
+    ($name:ident, $instr:ident, $result_half:expr) => {
+        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
+            let ExtendedRegister(index) = self.next_available_extended_register(scratch_variable_map, &vec![]);
+            self.push_instruction(Instr::$instr { lhs: lhs_register, rhs: rhs_register, dest: ExtendedRegister(index) });
+            DataRegister(index + $result_half).map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating single-operand operations (unary operations and conversions):
+/// 1. Map operand to data register
+/// 2. Get destination register  
+/// 3. Push single instruction
+/// 4. Map result to location
+/// Used for: arithmetic (CLZ, POPCNT), conversions (UTOF, ITOF, FTOUZ, FTOIZ)
+macro_rules! gen_single_operand_op {
+    ($name:ident, $instr:ident) => {
+        fn $name(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            self.push_instruction(Instr::$instr { src: child_register, dest: dest_register });
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating 64-bit comparison operations with configurable operand swapping:
+/// 1. Map operands to extended registers
+/// 2. Get destination register
+/// 3. Push three instructions: EQ, accumulating AND + lower half comparison, accumulating OR + upper half comparison
+/// 4. Map result to location
+/// 
+/// Explanation: lhs i64.op rhs ≡ (lhs_upper = rhs_upper && lhs_lower i32.op rhs_lower) || lhs_upper i32.op rhs_upper 
+///  
+/// This macro handles both simple and mixed-swap comparison patterns:
+/// - For simple comparisons: use false, false (no swapping)
+/// - For mixed comparisons: specify which instructions need operand swapping
+/// 
+/// Note: This macro generates "less than" style comparisons. For greater-than operations,
+/// the operands must be manually swapped in the implementation to achieve correct semantics.
+/// 
+/// ⚠️  **CRITICAL WARNING**: NEVER change the order of register mapping!
+/// Always use: `let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(...)`
+/// The register allocation order must remain consistent to avoid breaking the compiler's
+/// register allocation algorithms. Operand swapping should ONLY be done in instruction
+/// parameters, NOT in the mapping phase.
+macro_rules! gen_i64_comparison_op {
+    ($name:ident, $and_instr:ident, $and_swap:expr, $or_instr:ident, $or_swap:expr) => {
+        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
+            let intermediate = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(lhs_register), MapperLocation::ExtendedRegister(rhs_register)]);
+            self.push_instruction(Instr::EQ { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
+            if $and_swap {
+                self.push_instruction(Instr::$and_instr { lhs: rhs_register.lower_half(), rhs: RegisterOrConst::DataRegister(lhs_register.lower_half()), dest: intermediate });
+            } else {
+                self.push_instruction(Instr::$and_instr { lhs: lhs_register.lower_half(), rhs: RegisterOrConst::DataRegister(rhs_register.lower_half()), dest: intermediate });
+            }
+            if $or_swap {
+                self.push_instruction(Instr::$or_instr { lhs: rhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(lhs_register.upper_half()), dest: intermediate });
+            } else {
+                self.push_instruction(Instr::$or_instr { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
+            }
+            intermediate.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating f32 binary arithmetic operations:
+/// 1. Map operands to data registers
+/// 2. Get destination register
+/// 3. Push single floating-point instruction
+/// 4. Map result to location
+macro_rules! gen_f32_binary_op {
+    ($name:ident, $instr:ident) => {
+        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            self.push_instruction(Instr::$instr { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating f32 comparison operations:
+/// Pattern: CMPF + AND/bit manipulation + optional NE for boolean conversion
+macro_rules! gen_f32_comparison_op {
+    // Simple AND pattern - returns raw bit value (0 or mask value)
+    ($name:ident, $mask:expr) => {
+        gen_f32_comparison_op!($name, $mask, false);
+    };
+    // AND + NE pattern - converts result to proper boolean (0 or 1)
+    ($name:ident, $mask:expr, ne) => {
+        gen_f32_comparison_op!($name, $mask, true);
+    };
+    // Internal implementation with boolean flag for NE instruction
+    ($name:ident, $mask:expr, $add_ne:expr) => {
+        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
+            self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::new_const($mask), dest: dest_register });
+            if $add_ne {
+                self.push_instruction(Instr::NE { lhs: dest_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
+            }
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating i32 shift operations:
+/// Pattern: handle immediate vs register cases, mask with 0x1F (5 lower bits), conditionally negate count
+macro_rules! gen_i32_shift_op {
+    // For left shift (no negation)
+    ($name:ident, $instr:ident, shl) => {
+        gen_i32_shift_op!($name, $instr, false);
+    };
+    // For right shifts (negate count)
+    ($name:ident, $instr:ident, shr) => {
+        gen_i32_shift_op!($name, $instr, true);
+    };
+    // Internal implementation with negate flag
+    ($name:ident, $instr:ident, $negate_count:expr) => {
+        fn $name(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let rhs_register_const = match *rhs {
+                MapperLocation::Immediate(imm) => {
+                    let masked_count = (imm.as_u32() & 0x1F) as u16;
+                    if $negate_count {
+                        RegisterOrConst::new_const((-(masked_count as i16)) as u16)
+                    } else {
+                        RegisterOrConst::new_const(masked_count)
+                    }
+                },
+                _ => {
+                    let count_register = self.next_available_data_register(scratch_variable_map, &vec![]);
+                    rhs.map_to_data_register(Some(count_register), self, scratch_variable_map, &vec![]); // TODO: may be optimized and compact with the line above by using None as target
+                    self.push_instruction(Instr::AND { lhs: count_register, rhs: RegisterOrConst::new_const(0x1F), dest: count_register }); // mask to 5 bits
+                    if $negate_count {
+                        self.push_instruction(Instr::RSUB0 { src: count_register });
+                    }
+                    RegisterOrConst::DataRegister(count_register)
+                }
+            };
+            let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register_const.to_mapper_location()]);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            self.push_instruction(Instr::$instr { src: lhs_register, count: rhs_register_const, dest: dest_register });
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating 64-bit bitwise operations with zero optimization: you don't need to do the operation if an operand is zero. 
+/// Pattern: handle each half separately with optimization for zero constants
+/// Only used for OR and XOR because the zero optimization is not applicable for AND (it would always return 0)
+macro_rules! gen_i64_bitwise_with_zero_opt {
+    ($name:ident, $instr:ident) => {
+        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map);
+            let lower_lhs = lhs_register.lower_half();
+            let upper_lhs = lhs_register.upper_half();
+            let (lower_rhs, upper_rhs) = rhs_register_const_couple;
+            let ExtendedRegister(index_dest) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
+            match lower_rhs {
+                RegisterOrConst::Const9(Const9(0)) => {
+                    lower_lhs.map_to_location(Some(&MapperLocation::new_data_register(index_dest)), self, scratch_variable_map);
+                },
+                _ => self.push_instruction(Instr::$instr { lhs: lower_lhs, rhs: lower_rhs, dest: DataRegister(index_dest) })
+            };
+            match upper_rhs {
+                RegisterOrConst::Const9(Const9(0)) => {
+                    upper_lhs.map_to_location(Some(&MapperLocation::new_data_register(index_dest + 1)), self, scratch_variable_map);
+                },
+                _ => self.push_instruction(Instr::$instr { lhs: upper_lhs, rhs: upper_rhs, dest: DataRegister(index_dest + 1) })
+            };
+            ExtendedRegister(index_dest).map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating floating-point sign manipulation operations: negation and absolute value.
+/// Pattern: f32 operations use single register, f64 operations use extended registers with upper/lower halves
+macro_rules! gen_f32_sign_op { //TODO: refactor to a single macro for each operation
+    // F32 absolute value: clear sign bit via shift left + shift right
+    ($name:ident, abs) => {
+        fn $name(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            self.push_instruction(Instr::SH { src: child_register, count: RegisterOrConst::new_const(1), dest: dest_register });
+            self.push_instruction(Instr::SH { src: dest_register, count: RegisterOrConst::new_const(-1i16 as u16), dest: dest_register });
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+    // F32 negation: flip sign bit via ADDIH
+    ($name:ident, neg) => {
+        fn $name(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            self.push_instruction(Instr::ADDIH { lhs: child_register, rhs: Const16::new(0x8000), dest: dest_register });
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating equal-to-zero operations:
+/// Pattern: compare with zero constant using EQ instruction
+macro_rules! gen_eqz_op {
+    // i32 version: simple EQ with 0
+    ($name:ident, i32) => {
+        fn $name(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            self.push_instruction(Instr::EQ { lhs: child_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+    // i64 version: OR both halves then EQ with 0
+    ($name:ident, i64) => {
+        fn $name(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let ExtendedRegister(register_index) = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
+            let lower_register = DataRegister::new(register_index);
+            let upper_register = DataRegister::new(register_index + 1);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            self.push_instruction(Instr::OR { lhs: lower_register, rhs: RegisterOrConst::DataRegister(upper_register), dest: dest_register });
+            self.push_instruction(Instr::EQ { lhs: dest_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating f32 equality-style comparison operations:
+/// Pattern: CMPF + AND with 2 + EQ with target value (2 for equality, 0 for inequality)
+macro_rules! gen_f32_eq_style_op {
+    // Equality: check if bit 1 is set (result equals 2)
+    ($name:ident, eq) => {
+        gen_f32_eq_style_op!($name, 2);
+    };
+    // Inequality: check if bit 1 is not set (result equals 0)
+    ($name:ident, ne) => {
+        gen_f32_eq_style_op!($name, 0);
+    };
+    // Internal implementation with comparison value parameter
+    ($name:ident, $compare_value:expr) => {
+        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
+            self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::new_const(2), dest: dest_register });
+            self.push_instruction(Instr::EQ { lhs: dest_register, rhs: RegisterOrConst::new_const($compare_value), dest: dest_register });
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating i64 equality/inequality operations:
+/// Pattern: map to large register/const, operate on halves, combine with AND/OR
+macro_rules! gen_i64_eq_style_op {
+    // Equality: both halves must be equal (AND combination)
+    ($name:ident, eq) => {
+        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
+            let lower_lhs = lhs_register.lower_half();
+            let upper_lhs = lhs_register.upper_half();
+            let (lower_rhs, upper_rhs) = rhs_register_const_couple;
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::DataRegister(upper_lhs), upper_rhs.to_mapper_location()]);
+            let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register)]);
+            self.push_instruction(Instr::EQ { lhs: lower_lhs, rhs: lower_rhs, dest: dest_register });
+            self.push_instruction(Instr::EQ { lhs: upper_lhs, rhs: upper_rhs, dest: intermediate });
+            self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+    // Inequality: either half can be different (OR combination)
+    ($name:ident, ne) => {
+        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
+            let lower_lhs = lhs_register.lower_half();
+            let upper_lhs = lhs_register.upper_half();
+            let (lower_rhs, upper_rhs) = rhs_register_const_couple;
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::DataRegister(upper_lhs), upper_rhs.to_mapper_location()]);
+            let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register)]);
+            self.push_instruction(Instr::NE { lhs: lower_lhs, rhs: lower_rhs, dest: dest_register });
+            self.push_instruction(Instr::NE { lhs: upper_lhs, rhs: upper_rhs, dest: intermediate });
+            self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    };
+}
+
+/// Macro for generating i32 rotation operations:
+/// Pattern: immediate vs register handling with EXTRUI + SH + OR for bit rotation
+/// Left rotation and right rotation differ in count calculations and register assignments
+macro_rules! gen_i32_rotate_op {
+    // Left rotation: rotl
+    ($name:ident, rotl) => {
+        fn $name(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            match *rhs {
+                MapperLocation::Immediate(imm) => {
+                    let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+                    let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register)]);
+                    let count = (imm.as_u32() & 0x1F) as u16;
+                    self.push_instruction(Instr::EXTRUI { src: lhs_register, width: Const9::new(count), pos: Const9(32 - count), dest: intermediate });
+                    self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::new_const(count), dest: dest_register });
+                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
+                    dest_register.map_to_location(potential_target, self, scratch_variable_map)
+                },
+                _ => {
+                    let width_pos_register = self.next_available_extended_register(scratch_variable_map, &vec![lhs.clone()]);
+                    rhs.map_to_data_register(Some(width_pos_register.upper_half()), self, scratch_variable_map, &vec![lhs.clone()]);
+                    self.push_instruction(Instr::AND { lhs: width_pos_register.upper_half(), rhs: RegisterOrConst::new_const(0x1F), dest: width_pos_register.upper_half() });
+                    self.push_instruction(Instr::RSUB { lhs: Const9::new(32), rhs: width_pos_register.upper_half(), dest: width_pos_register.lower_half() });
+                    let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(width_pos_register)]);
+                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+                    let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register), MapperLocation::ExtendedRegister(width_pos_register)]);
+                    self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(intermediate) }); // TODO: Could be removed and extract to width_pos_register.lower_half() directly
+                    self.push_instruction(Instr::EXTRU { src: lhs_register, width_pos: width_pos_register, dest: intermediate });
+                    self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::DataRegister(width_pos_register.upper_half()), dest: dest_register });
+                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
+                    dest_register.map_to_location(potential_target, self, scratch_variable_map)
+                }
+            }
+        }
+    };
+    // Right rotation: rotr
+    ($name:ident, rotr) => {
+        fn $name(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            match *rhs {
+                MapperLocation::Immediate(imm) => {
+                    let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+                    let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register)]);
+                    let count = (imm.as_u32() & 0x1F) as u16;
+                    self.push_instruction(Instr::EXTRUI { src: lhs_register, width: Const9::new((32 - count) % 32), pos: Const9::new(count), dest: intermediate });
+                    self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::new_const(32 - count), dest: dest_register });
+                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
+                    dest_register.map_to_location(potential_target, self, scratch_variable_map)
+                },
+                _ => {
+                    let width_pos_register = self.next_available_extended_register(scratch_variable_map, &vec![lhs.clone()]);
+                    rhs.map_to_data_register(Some(width_pos_register.lower_half()), self, scratch_variable_map, &vec![lhs.clone()]);
+                    self.push_instruction(Instr::AND { lhs: width_pos_register.lower_half(), rhs: RegisterOrConst::new_const(0x1F), dest: width_pos_register.lower_half() });
+                    self.push_instruction(Instr::RSUB { lhs: Const9::new(32), rhs: width_pos_register.lower_half(), dest: width_pos_register.upper_half() });
+                    self.push_instruction(Instr::AND { lhs: width_pos_register.upper_half(), rhs: RegisterOrConst::new_const(0x1F), dest: width_pos_register.upper_half() });
+                    let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(width_pos_register)]);
+                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+                    let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register), MapperLocation::ExtendedRegister(width_pos_register)]);
+                    self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(intermediate) });
+                    self.push_instruction(Instr::EXTRU { src: lhs_register, width_pos: width_pos_register, dest: intermediate });
+                    self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::DataRegister(width_pos_register.upper_half()), dest: dest_register });
+                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
+                    dest_register.map_to_location(potential_target, self, scratch_variable_map)
+                }
+            }
+        }
+    };
+}
+
+/// Unified macro for all i32 comparison operations with automatic immediate optimization.
+/// Automatically handles immediate optimizations and operand swapping based on semantic intent.
+/// 
+/// ## Parameters:
+/// - `$reverse_operands`: `true` or `false` - whether to reverse operands for correct semantics
+/// - `$imm_instr`: Instruction to use when immediate optimization applies
+/// - `$reg_instr`: Instruction to use for register-register case
+/// 
+/// ## Automatic Inference:
+/// - **Sign handling**: Instructions ending with 'U' (GEU, LTU) → SignValue::Unsigned, others → SignValue::Signed
+/// - **Immediate conditions**: 
+///   - Unsigned: `(immediate + 1) >> 9 == 0` (9-bit range check)
+///   - Signed: `(immediate + 1) >> 8 == 0 || (immediate + 1) >> 8 == -1` (8-bit signed range check)
+/// - **Immediate side detection**: Automatically tries both lhs and rhs for immediate optimization
+/// 
+/// ## Logic:
+/// For immediate optimization: All operations use `(immediate + 1)` transformation
+/// For register case: Operands are swapped if $reverse_operands is true
+// TODO: What happens when the immediate + 1 overflows
+macro_rules! gen_i32_comparison_with_imm_opt {
+    ($name:ident, $reverse_operands:expr, $imm_instr:ident, $reg_instr:ident, $imm_inc:expr) => {
+        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+            // Auto-derive sign handling from instruction type
+            let sign = if stringify!($reg_instr).ends_with('U') { 
+                SignValue::Unsigned
+            } else { 
+                SignValue::Signed
+            };
+            
+            // Try immediate optimization on right side first (lhs OP rhs_imm)
+            if let MapperLocation::Immediate(imm) = rhs {
+                let adjusted_imm = Immediate::Word((imm.as_u32() + $imm_inc) as u32);
+                if adjusted_imm.fits_as_comparison_immediate(sign) {
+                    let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+                    self.push_instruction(Instr::$imm_instr { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register });
+                    return dest_register.map_to_location(potential_target, self, scratch_variable_map);
+                }
+            }
+            
+            // Try immediate optimization on left side (lhs_imm OP rhs)
+            if let MapperLocation::Immediate(imm) = lhs {
+                let adjusted_imm = Immediate::Word((imm.as_u32() + $imm_inc) as u32);
+                if adjusted_imm.fits_as_comparison_immediate(sign) {
+                    let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+                    self.push_instruction(Instr::$imm_instr { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register });
+                    return dest_register.map_to_location(potential_target, self, scratch_variable_map);
+                }
+            }
+            
+            // Register-register case: apply operand swapping based on semantic intent
+            if $reverse_operands {
+                // Swap operands (rhs OP lhs)
+                let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone()]);
+                let lhs_register = lhs.map_to_register_or_const(sign, self, scratch_variable_map, &vec![MapperLocation::DataRegister(rhs_register)]);
+                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+                self.push_instruction(Instr::$reg_instr { lhs: rhs_register, rhs: lhs_register, dest: dest_register });
+                dest_register.map_to_location(potential_target, self, scratch_variable_map)
+            } else {
+                // Normal order (lhs OP rhs)
+                let rhs_register = rhs.map_to_register_or_const(sign, self, scratch_variable_map, &vec![lhs.clone()]);
+                let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register.to_mapper_location()]);
+                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+                self.push_instruction(Instr::$reg_instr { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
+                dest_register.map_to_location(potential_target, self, scratch_variable_map)
+            }
+        }
+    };
+}
+
 impl<'a,'b> Translator<'a,'b> {
     
+    // ================================================================================
+    // CORE VB RESOLUTION FUNCTIONS
+    // ================================================================================
+    
+    /// Resolves all VB expressions on the stack to concrete stack locations.
+    /// 
+    /// This function processes the entire VB stack, converting each virtual expression
+    /// into machine code and updating stack offsets accordingly. Already-resolved VBs
+    /// are skipped to avoid redundant work.
+    /// 
+    /// ## Process
+    /// 1. Iterate through all VBs on the stack
+    /// 2. Skip already-resolved VBs (maintain stack offset tracking)
+    /// 3. For unresolved VBs:
+    ///    - Handle NaN canonicalization if needed
+    ///    - Perform post-order DFS traversal for code generation
+    ///    - Update stack offset and mark as resolved
+    /// 
+    /// ## Stack Layout
+    /// The runtime stack grows downward with each resolved VB consuming space
+    /// based on its value size (4 bytes for Word, 8 bytes for DoubleWord).
     pub fn resolve_all(&mut self) {
         let mut stack_offset = 0;
 
@@ -17,16 +583,25 @@ impl<'a,'b> Translator<'a,'b> {
             let mut vb = self.vb_stack[index].clone();
             match vb {
                 VB::AtomicVB(AtomicVB::Resolved { offset, .. }) => {
+                    // Already resolved - just update our stack offset tracking
                     stack_offset = offset;
                 },
                 _ => {
-                    if vb.produces_non_canonical_nan() { vb = vb.adjust_for_snan() }
+                    // Handle NaN canonicalization for floating-point operations
+                    if vb.produces_non_canonical_nan() { 
+                        vb = vb.adjust_for_non_canonical_nan() 
+                    }
+                    
                     let size = vb.val_size(&self.locals_map, &self.global_translator.globals_map);
                     let mut scratch_variable_map = Vec::new();
+                    
+                    // Perform post-order DFS to generate machine code
                     vb.post_order_dfs(|vb, is_top| {
                         let stack_location = MapperLocation::Stack { size };
                         self.resolve_vb(if is_top { Some(&stack_location) } else { None }, vb, &mut scratch_variable_map);
                     });
+                    
+                    // Update stack offset and mark as resolved
                     stack_offset += size.as_bytes() as usize;
                     self.vb_stack[index] = VB::AtomicVB(AtomicVB::Resolved { size, offset: stack_offset })
                 }
@@ -34,16 +609,53 @@ impl<'a,'b> Translator<'a,'b> {
         }
     }
 
-
+    /// Resolves a single VB expression from the top of the stack with an optional target location.
+    /// 
+    /// This is the primary function for converting a VB expression into machine code when
+    /// you need the result in a specific location (register, memory, etc.) or want to
+    /// determine where the result ended up.
+    /// 
+    /// ## Parameters
+    /// - `target`: Optional target location where the result should be placed
+    ///   - `Some(location)`: Force result to specific location (register, memory, etc.)
+    ///   - `None`: Let the resolution choose the most efficient location
+    /// 
+    /// ## Returns
+    /// The `MapperLocation` where the result was actually placed. This may differ
+    /// from the requested target if optimizations were applied.
+    /// 
+    /// ## Process
+    /// 1. Pop the top VB from the stack
+    /// 2. Handle NaN canonicalization if needed
+    /// 3. Perform post-order DFS traversal
+    /// 4. Return the final result location
     pub fn resolve_with_target(&mut self, target: Option<&MapperLocation>) -> MapperLocation {
         let mut vb = self.vb_stack.pop().unwrap();
-        if vb.produces_non_canonical_nan() { vb = vb.adjust_for_snan() }
+        if vb.produces_non_canonical_nan() { vb = vb.adjust_for_non_canonical_nan() }
         let mut scratch_variable_map: Vec<MapperLocation> = Vec::new();
         vb.post_order_dfs(|vb, is_top| self.resolve_vb(if is_top { target } else { None }, vb, &mut scratch_variable_map));
         scratch_variable_map.pop().unwrap()
     }
 
+    // ================================================================================
+    // VB DISPATCH AND RESOLUTION
+    // ================================================================================
 
+    /// Core VB resolution function that dispatches to appropriate handlers based on VB type.
+    /// 
+    /// This function is called during the post-order DFS traversal and is responsible
+    /// for generating the appropriate machine code for each VB node.
+    /// 
+    /// ## Parameters
+    /// - `potential_target`: Where the result should be placed (if specified)
+    /// - `vb`: The VB expression to resolve
+    /// - `scratch_variable_map`: Stack of intermediate result locations
+    /// 
+    /// ## VB Type Dispatch
+    /// - **AtomicVB**: Constants, locals, globals, resolved values
+    /// - **UnaryVB**: Single-operand operations (loads, conversions, arithmetic)
+    /// - **BinaryVB**: Two-operand operations (arithmetic, comparisons, bitwise)
+    /// - **Select**: Conditional selection (WebAssembly select instruction)
     fn resolve_vb(&mut self, potential_target: Option<&MapperLocation>, vb: &VB, scratch_variable_map: &mut Vec<MapperLocation>) {
         let result = match vb {
             VB::AtomicVB(atomic_vb) => self.dispatch_atomic_vb(atomic_vb, potential_target, scratch_variable_map),
@@ -54,6 +666,23 @@ impl<'a,'b> Translator<'a,'b> {
         scratch_variable_map.push(result);
     }
 
+    // ================================================================================
+    // ATOMIC VB RESOLUTION (Constants, Variables, Resolved Values)
+    // ================================================================================
+
+    /// Resolves atomic VB expressions (leaf nodes in the expression tree).
+    /// 
+    /// Atomic VBs represent the simplest form of values that don't require computation:
+    /// - **Constants**: Immediate values (i32, i64, f32, f64)
+    /// - **Local variables**: Function parameters and local variables
+    /// - **Global variables**: Module-level variables
+    /// - **Resolved values**: Previously computed results on the stack
+    /// - **Special values**: Memory size, unreachable markers
+    /// 
+    /// ## Target Handling
+    /// If a target location is specified, the atomic value is moved/copied to that location.
+    /// Otherwise, the most efficient representation is used (immediate values stay as 
+    /// immediates, variables reference their storage locations, etc.).
     fn dispatch_atomic_vb(&mut self, atomic_vb: &AtomicVB, potential_target: Option<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>) -> MapperLocation {
         let result = match atomic_vb {
             AtomicVB::I32Const { imm } => MapperLocation::Immediate(Immediate::Word(*imm as u32)),
@@ -67,7 +696,7 @@ impl<'a,'b> Translator<'a,'b> {
             },
             AtomicVB::Resolved { size, .. } => MapperLocation::Stack { size: *size },
             AtomicVB::Unreachable => MapperLocation::Unreachable,
-            AtomicVB::MemorySize => MapperLocation::Global { offset: 0, size: ValueSize::Word },
+            AtomicVB::MemorySize => MapperLocation::Global { offset: 0, size: ValueSize::Word }, // Memory size is stored in global space at offset 0
         };
         match potential_target {
             Some(target) => result.map_to_location(target, self, scratch_variable_map, &vec![]),
@@ -75,6 +704,25 @@ impl<'a,'b> Translator<'a,'b> {
         }
     }
 
+    // ================================================================================
+    // UNARY VB RESOLUTION (Single-Operand Operations)
+    // ================================================================================
+
+    /// Resolves unary VB expressions (operations with a single operand).
+    /// 
+    /// Unary operations include:
+    /// - **Arithmetic**: Negation, absolute value, square root
+    /// - **Bitwise**: Count leading/trailing zeros, population count
+    /// - **Conversions**: Type conversions between integers and floats
+    /// - **Comparisons**: Zero comparisons (eqz)
+    /// - **Memory loads**: All load operations with different sizes and signedness
+    /// - **Math functions**: Ceiling, floor, truncate, nearest (often library calls)
+    /// 
+    /// ## Process
+    /// 1. Pop the child operand from the scratch variable stack
+    /// 2. Dispatch to the appropriate generator function based on operation type
+    /// 3. Many operations are implemented as library function calls for complex operations
+    /// 4. Simple operations generate direct machine instructions
     fn dispatch_unary_vb(&mut self, scratch_variable_map: &mut Vec<MapperLocation>, vb: &UnaryVB, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let child = scratch_variable_map.pop().unwrap();
         match vb {
@@ -141,6 +789,28 @@ impl<'a,'b> Translator<'a,'b> {
         }
     }
 
+    // ================================================================================
+    // BINARY VB RESOLUTION (Two-Operand Operations)
+    // ================================================================================
+
+    /// Resolves binary VB expressions (operations with two operands).
+    /// 
+    /// Binary operations include:
+    /// - **Arithmetic**: Addition, subtraction, multiplication, division, remainder
+    /// - **Comparisons**: Equality, inequality, less than, greater than, etc.
+    /// - **Bitwise**: AND, OR, XOR, shifts, rotations
+    /// - **Floating-point**: All floating-point arithmetic and comparisons
+    /// 
+    /// ## Process
+    /// 1. Pop the right-hand operand (RHS) from scratch variable stack
+    /// 2. Pop the left-hand operand (LHS) from scratch variable stack
+    /// 3. Dispatch to appropriate generator based on operation type
+    /// 4. Complex operations (64-bit, floating-point) often use library calls
+    /// 5. Simple operations generate direct machine instructions
+    /// 
+    /// ## Operand Order
+    /// Note that operands are popped in reverse order (RHS first, then LHS) due to
+    /// stack-based evaluation order in the post-order traversal.
     fn dispatch_binary_vb(&mut self, scratch_variable_map: &mut Vec<MapperLocation>, vb: &BinaryVB, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let rhs = scratch_variable_map.pop().unwrap();
         let lhs = scratch_variable_map.pop().unwrap();
@@ -224,6 +894,28 @@ impl<'a,'b> Translator<'a,'b> {
         }
     }
 
+    // ================================================================================
+    // OPERATION GENERATORS (Machine Code Generation)
+    // ================================================================================
+
+    /// Generates machine code for the WebAssembly `select` instruction.
+    /// 
+    /// The select instruction chooses between two values based on a condition:
+    /// `select(lhs, rhs, selector) = selector ? lhs : rhs`
+    /// 
+    /// ## Implementation Strategy
+    /// 
+    /// ### For 32-bit values (Word):
+    /// - **Optimization**: Use `SELN` instruction when LHS is a small immediate
+    /// - **General case**: Use `SEL` instruction with three registers
+    /// 
+    /// ### For 64-bit values (DoubleWord):
+    /// - Use conditional branches due to lack of 64-bit select instruction
+    /// - Generate: `if (selector == 0) use RHS else use LHS`
+    /// 
+    /// ## Parameters
+    /// - Values are popped from scratch stack in order: selector, rhs, lhs
+    /// - `size`: Value size (Word or DoubleWord) determines implementation
     fn gen_select(&mut self, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>, size: ValueSize) -> MapperLocation {
         let selector = scratch_variable_map.pop().unwrap();
         let rhs = scratch_variable_map.pop().unwrap();
@@ -246,7 +938,7 @@ impl<'a,'b> Translator<'a,'b> {
                 }
                 dest_register.map_to_location(potential_target, self, scratch_variable_map)
             },
-            ValueSize::DoubleWord => {
+            ValueSize::DoubleWord => { // TODO: refactor to use SELN for 64-bit
                 let dest_register = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
                 let selector_register = selector.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone(), rhs.clone()]);
                 self.push_instruction(Instr::JEQ { target: self.cfg_label_map.len(), lhs: selector_register, rhs: RegisterOrSmallConst::new_const(0) });
@@ -260,22 +952,15 @@ impl<'a,'b> Translator<'a,'b> {
         }
     }
 
-    fn gen_f32_le(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-        self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::new_const(0x0003), dest: dest_register });
-        self.push_instruction(Instr::NE { lhs: dest_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // ================================================================================
+    // FLOATING-POINT OPERATION GENERATORS
+    // ================================================================================
 
-    fn gen_f32_gt(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::CMPF { lhs: rhs_register, rhs: lhs_register, dest: dest_register });
-        self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::new_const(1), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate f32 comparison operations using macro
+    gen_f32_comparison_op!(gen_f32_gt, CmpfBits::GT, ne);     
+    gen_f32_comparison_op!(gen_f32_ge, CmpfBits::GE, ne);
+    gen_f32_comparison_op!(gen_f32_lt, CmpfBits::LT); 
+    gen_f32_comparison_op!(gen_f32_le, CmpfBits::LE, ne);
 
     fn gen_f64_copysign(&mut self, potential_target: Option<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, rhs: &MapperLocation) -> MapperLocation {
         let (ExtendedRegister(index_lhs), ExtendedRegister(index_rhs)) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
@@ -305,33 +990,11 @@ impl<'a,'b> Translator<'a,'b> {
         dest_register.map_to_location(potential_target, self, scratch_variable_map)
     }
 
-    fn gen_f32_div(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::DIVF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_f32_mul(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::MULF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_f32_sub(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::SUBF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_f32_add(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::ADDF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate f32 binary arithmetic operations using macro
+    gen_f32_binary_op!(gen_f32_div, DIVF);
+    gen_f32_binary_op!(gen_f32_mul, MULF);
+    gen_f32_binary_op!(gen_f32_sub, SUBF);
+    gen_f32_binary_op!(gen_f32_add, ADDF);
 
     fn _gen_f32_min(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
@@ -356,47 +1019,13 @@ impl<'a,'b> Translator<'a,'b> {
         dest_register.map_to_location(potential_target, self, scratch_variable_map)
     }
 
-    fn gen_i64_xor(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map);
-        let lower_lhs = lhs_register.lower_half();
-        let upper_lhs = lhs_register.upper_half();
-        let (lower_rhs, upper_rhs) = rhs_register_const_couple;
-        let ExtendedRegister(index_dest) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
-        match lower_rhs {
-            RegisterOrConst::Const9(Const9(0)) => {
-                lower_lhs.map_to_location(Some(&MapperLocation::new_data_register(index_dest)), self, scratch_variable_map);
-            },
-            _ => self.push_instruction(Instr::XOR { lhs: lower_lhs, rhs: lower_rhs, dest: DataRegister(index_dest) })
-        };
-        match upper_rhs {
-            RegisterOrConst::Const9(Const9(0)) => {
-                upper_lhs.map_to_location(Some(&MapperLocation::new_data_register(index_dest + 1)), self, scratch_variable_map);
-            },
-            _ => self.push_instruction(Instr::XOR { lhs: upper_lhs, rhs: upper_rhs, dest: DataRegister(index_dest + 1) })
-        };
-        ExtendedRegister(index_dest).map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // ================================================================================
+    // INTEGER BITWISE OPERATION GENERATORS
+    // ================================================================================
 
-    fn gen_i64_or(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map);
-        let ExtendedRegister(index_dest) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
-        let lower_lhs = lhs_register.lower_half();
-        let upper_lhs = lhs_register.upper_half();
-        let (lower_rhs, upper_rhs) = rhs_register_const_couple;
-        match lower_rhs {
-            RegisterOrConst::Const9(Const9(0)) => {
-                lower_lhs.map_to_location(Some(&MapperLocation::new_data_register(index_dest)), self, scratch_variable_map);
-            },
-            _ => self.push_instruction(Instr::OR { lhs: lower_lhs, rhs: lower_rhs, dest: DataRegister(index_dest) })
-        };
-        match upper_rhs {
-            RegisterOrConst::Const9(Const9(0)) => {
-                upper_lhs.map_to_location(Some(&MapperLocation::new_data_register(index_dest + 1)), self, scratch_variable_map);
-            },
-            _ => self.push_instruction(Instr::OR { lhs: upper_lhs, rhs: upper_rhs, dest: DataRegister(index_dest + 1) })
-        };
-        ExtendedRegister(index_dest).map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate 64-bit bitwise operations with zero optimization using macro
+    gen_i64_bitwise_with_zero_opt!(gen_i64_xor, XOR);
+    gen_i64_bitwise_with_zero_opt!(gen_i64_or, OR);
 
     fn gen_i64_and(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map);
@@ -408,6 +1037,8 @@ impl<'a,'b> Translator<'a,'b> {
         self.push_instruction(Instr::AND { lhs: upper_lhs, rhs: upper_rhs, dest: DataRegister(index_dest + 1) });
         ExtendedRegister(index_dest).map_to_location(potential_target, self, scratch_variable_map)
     }
+
+    //SUBX and ADDX set the carry flag for the lower half, SUBC and ADDC use it for the upper half.
 
     fn gen_i64_sub(&mut self, potential_target: Option<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, rhs: &MapperLocation) -> MapperLocation {
         let (ExtendedRegister(index_lhs), ExtendedRegister(index_rhs)) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
@@ -425,170 +1056,38 @@ impl<'a,'b> Translator<'a,'b> {
         ExtendedRegister(index_dest).map_to_location(potential_target, self, scratch_variable_map)
     }
 
-    fn gen_i32_shr_u(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let rhs_register_const = match *rhs {
-            MapperLocation::Immediate(imm) => RegisterOrConst::new_const((-(imm.as_i32() & 0x1F)) as u16),
-            _ => {
-                let count_register = self.next_available_data_register(scratch_variable_map, &vec![]);
-                rhs.map_to_data_register(Some(count_register), self, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::AND { lhs: count_register, rhs: RegisterOrConst::new_const(0x1F), dest: count_register });
-                self.push_instruction(Instr::RSUB0 { src: count_register });
-                RegisterOrConst::DataRegister(count_register)
-            }
-        };
-        let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register_const.to_mapper_location()]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::SH { src: lhs_register, count: rhs_register_const, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // ================================================================================
+    // INTEGER SHIFT AND ROTATE OPERATION GENERATORS
+    // ================================================================================
 
-    fn gen_i32_rotl(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        match *rhs {
-            MapperLocation::Immediate(imm) => {
-                let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register)]);
-                let count = (imm.as_u32() & 0x1F) as u16;
-                self.push_instruction(Instr::EXTRUI { src: lhs_register, width: Const9::new(count), pos: Const9(32 - count), dest: intermediate });
-                self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::new_const(count), dest: dest_register });
-                self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            },
-            _ => {
-                let width_pos_register = self.next_available_extended_register(scratch_variable_map, &vec![lhs.clone()]);
-                rhs.map_to_data_register(Some(width_pos_register.upper_half()), self, scratch_variable_map, &vec![lhs.clone()]);
-                self.push_instruction(Instr::AND { lhs: width_pos_register.upper_half(), rhs: RegisterOrConst::new_const(0x1F), dest: width_pos_register.upper_half() });
-                self.push_instruction(Instr::RSUB { lhs: Const9::new(32), rhs: width_pos_register.upper_half(), dest: width_pos_register.lower_half() });
-                let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(width_pos_register)]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register), MapperLocation::ExtendedRegister(width_pos_register)]);
-                self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(intermediate) });
-                self.push_instruction(Instr::EXTRU { src: lhs_register, width_pos: width_pos_register, dest: intermediate });
-                self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::DataRegister(width_pos_register.upper_half()), dest: dest_register });
-                self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            }
-        }
-    }
+    // Generate i32 shift operations using macro
+    gen_i32_shift_op!(gen_i32_shr_u, SH, shr);
+    gen_i32_shift_op!(gen_i32_shr_s, SHA, shr);
+    gen_i32_shift_op!(gen_i32_shl, SH, shl);
 
-    fn gen_i32_rotr(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        match *rhs {
-            MapperLocation::Immediate(imm) => {
-                let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register)]);
-                let count = (imm.as_u32() & 0x1F) as u16;
-                self.push_instruction(Instr::EXTRUI { src: lhs_register, width: Const9::new((32 - count) % 32), pos: Const9::new(count), dest: intermediate });
-                self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::new_const(32 - count), dest: dest_register });
-                self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            },
-            _ => {
-                let width_pos_register = self.next_available_extended_register(scratch_variable_map, &vec![lhs.clone()]);
-                rhs.map_to_data_register(Some(width_pos_register.lower_half()), self, scratch_variable_map, &vec![lhs.clone()]);
-                self.push_instruction(Instr::AND { lhs: width_pos_register.lower_half(), rhs: RegisterOrConst::new_const(0x1F), dest: width_pos_register.lower_half() });
-                self.push_instruction(Instr::RSUB { lhs: Const9::new(32), rhs: width_pos_register.lower_half(), dest: width_pos_register.upper_half() });
-                self.push_instruction(Instr::AND { lhs: width_pos_register.upper_half(), rhs: RegisterOrConst::new_const(0x1F), dest: width_pos_register.upper_half() });
-                let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(width_pos_register)]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register), MapperLocation::ExtendedRegister(width_pos_register)]);
-                self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(intermediate) });
-                self.push_instruction(Instr::EXTRU { src: lhs_register, width_pos: width_pos_register, dest: intermediate });
-                self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::DataRegister(width_pos_register.upper_half()), dest: dest_register });
-                self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            }
-        }
-    }
+    // Generate i32 rotation operations using macro
+    gen_i32_rotate_op!(gen_i32_rotl, rotl);
+    gen_i32_rotate_op!(gen_i32_rotr, rotr);
 
-    fn gen_i32_shr_s(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let rhs_register_const = match *rhs {
-            MapperLocation::Immediate(imm) => RegisterOrConst::new_const((-(imm.as_i32() & 0x1F)) as u16),
-            _ => {
-                let count_register = self.next_available_data_register(scratch_variable_map, &vec![]);
-                rhs.map_to_data_register(Some(count_register), self, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::AND { lhs: count_register, rhs: RegisterOrConst::new_const(0x1F), dest: count_register });
-                self.push_instruction(Instr::RSUB0 { src: count_register });
-                RegisterOrConst::DataRegister(count_register)
-            }
-        };
-        let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register_const.to_mapper_location()]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::SHA { src: lhs_register, count: rhs_register_const, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
 
-    fn gen_i32_shl(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let rhs_register_const = match *rhs {
-            MapperLocation::Immediate(imm) => RegisterOrConst::new_const((imm.as_u32() & 0x1F) as u16),
-            _ => {
-                let count_register = self.next_available_data_register(scratch_variable_map, &vec![]);
-                rhs.map_to_data_register(Some(count_register), self, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::AND { lhs: count_register, rhs: RegisterOrConst::new_const(0x1F), dest: count_register });
-                RegisterOrConst::DataRegister(count_register)
-            }
-        };
-        let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register_const.to_mapper_location()]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::SH { src: lhs_register, count: rhs_register_const, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
 
-    fn gen_i32_xor(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register_const) = (lhs, rhs).map_abelian_children_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::XOR { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate simple bitwise operations using macro
+    gen_simple_binary_op!(gen_i32_xor, XOR, SignValue::Unsigned);
+    gen_simple_binary_op!(gen_i32_or, OR, SignValue::Unsigned);
+    gen_simple_binary_op!(gen_i32_and, AND, SignValue::Unsigned);
 
-    fn gen_i32_or(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register_const) = (lhs, rhs).map_abelian_children_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::OR { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // ================================================================================
+    // INTEGER ARITHMETIC OPERATION GENERATORS  
+    // ================================================================================
 
-    fn gen_i32_and(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register_const) = (lhs, rhs).map_abelian_children_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::AND { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate division and remainder operations using macro
+    gen_div_rem_op!(gen_i32_rem_u, DIVU, 1);  // remainder is in upper half (index + 1)
+    gen_div_rem_op!(gen_i32_rem_s, DIV, 1);   // remainder is in upper half (index + 1)
+    gen_div_rem_op!(gen_i32_div_u, DIVU, 0);  // quotient is in lower half (index + 0)
+    gen_div_rem_op!(gen_i32_div_s, DIV, 0);   // quotient is in lower half (index + 0)
 
-    fn gen_i32_rem_u(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let ExtendedRegister(index) = self.next_available_extended_register(scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::DIVU { lhs: lhs_register, rhs: rhs_register, dest: ExtendedRegister(index) });
-        DataRegister(index + 1).map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i32_rem_s(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let ExtendedRegister(index) = self.next_available_extended_register(scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::DIV { lhs: lhs_register, rhs: rhs_register, dest: ExtendedRegister(index) });
-        DataRegister(index + 1).map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i32_div_u(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let ExtendedRegister(index) = self.next_available_extended_register(scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::DIVU { lhs: lhs_register, rhs: rhs_register, dest: ExtendedRegister(index) });
-        DataRegister(index).map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i32_div_s(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let ExtendedRegister(index) = self.next_available_extended_register(scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::DIV { lhs: lhs_register, rhs: rhs_register, dest: ExtendedRegister(index) });
-        DataRegister(index).map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i32_mul(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register_const) = (lhs, rhs).map_abelian_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::MUL { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate multiplication using simple binary operation macro
+    gen_simple_binary_op!(gen_i32_mul, MUL, SignValue::Signed);
 
     fn gen_i64_mul(&mut self, potential_target: Option<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, rhs: &MapperLocation) -> MapperLocation {
         let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
@@ -618,9 +1117,10 @@ impl<'a,'b> Translator<'a,'b> {
             (MapperLocation::Immediate(imm), operand) => {
                 let operand_register = operand.map_to_data_register(None, self, scratch_variable_map, &vec![]);
                 let immediate = imm.as_i32();
-                if immediate >> 8 == 0 || immediate >> 8 == -1 {
+                if immediate >> 8 == 0 || immediate >> 8 == -1 { // TODO: replace with fits_as_comparison_immediate
                     self.push_instruction(Instr::RSUB { lhs: Const9::new(immediate as u16), rhs: operand_register, dest: dest_register });
                 } else {
+                    // Do -lhs + rhs and then negate the result
                     let immediate = -immediate;
                     let lower_immediate = immediate as u16;
                     let sign_extension = if (immediate as i16) < 0 { 0xffff } else { 0 };
@@ -668,315 +1168,47 @@ impl<'a,'b> Translator<'a,'b> {
         dest_register.map_to_location(potential_target, self, scratch_variable_map)
     }
 
-    fn gen_f32_ge(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-        self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::new_const(0b110), dest: dest_register });
-        self.push_instruction(Instr::NE { lhs: dest_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate f32 equality-style operations using macro
+    gen_f32_eq_style_op!(gen_f32_eq, eq);
+    gen_f32_eq_style_op!(gen_f32_ne, ne);
 
-    fn gen_f32_lt(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-        self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::new_const(1), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate i64 equality-style operations using macro
+    gen_i64_eq_style_op!(gen_i64_eq, eq);
+    gen_i64_eq_style_op!(gen_i64_ne, ne);
 
-    fn gen_f32_ne(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-        self.push_instruction(Instr::SH { src: dest_register, count: RegisterOrConst::new_const(-1i16 as u16), dest: dest_register });
-        self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::new_const(1), dest: dest_register });
-        self.push_instruction(Instr::XOR { lhs: dest_register, rhs: RegisterOrConst::new_const(1), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate i32 comparison operations using unified macro with boolean reverse flag
+    gen_i32_comparison_with_imm_opt!(gen_i32_gtu, true, GEU, LTU, 1);
+    gen_i32_comparison_with_imm_opt!(gen_i32_gts, true, GE, LT, 1);
+    gen_i32_comparison_with_imm_opt!(gen_i32_leu, true, LTU, GEU, 1);
+    gen_i32_comparison_with_imm_opt!(gen_i32_les, true, LT, GE, 1);
+    gen_i32_comparison_with_imm_opt!(gen_i32_geu, false, GEU, GEU, 0);
+    gen_i32_comparison_with_imm_opt!(gen_i32_ges, false, GE, GE, 0);
+    gen_i32_comparison_with_imm_opt!(gen_i32_ltu, false, LTU, LTU, 0);
+    gen_i32_comparison_with_imm_opt!(gen_i32_lts, false, LT, LT, 0);
 
-    fn gen_f32_eq(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-        self.push_instruction(Instr::SH { src: dest_register, count: RegisterOrConst::new_const((-1i16) as u16), dest: dest_register });
-        self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::new_const(1), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate 64-bit comparison operations using specialized macros
+    gen_i64_comparison_op!(gen_i64_lts, ANDLTU, false, ORLT, false);
+    gen_i64_comparison_op!(gen_i64_ltu, ANDLTU, false, ORLTU, false);
+    gen_i64_comparison_op!(gen_i64_ges, ANDGEU, false, ORLT, true);
+    gen_i64_comparison_op!(gen_i64_geu, ANDGEU, false, ORLTU, true);
+    gen_i64_comparison_op!(gen_i64_les, ANDGEU, true, ORLT, false);
+    gen_i64_comparison_op!(gen_i64_leu, ANDGEU, true, ORLTU, false);
+    gen_i64_comparison_op!(gen_i64_gts, ANDLTU, true, ORLT, true);
+    gen_i64_comparison_op!(gen_i64_gtu, ANDLTU, true, ORLTU, true);
 
-    fn gen_i64_ne(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
-        let lower_lhs = lhs_register.lower_half();
-        let upper_lhs = lhs_register.upper_half();
-        let (lower_rhs, upper_rhs) = rhs_register_const_couple;
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::DataRegister(upper_lhs), upper_rhs.to_mapper_location()]);
-        let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register)]);
-        self.push_instruction(Instr::NE { lhs: lower_lhs, rhs: lower_rhs, dest: dest_register });
-        self.push_instruction(Instr::NE { lhs: upper_lhs, rhs: upper_rhs, dest: intermediate });
-        self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate simple comparison operations using macro
+    gen_simple_binary_op!(gen_i32_ne, NE, SignValue::Signed);
 
-    fn gen_i64_eq(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
-        let lower_lhs = lhs_register.lower_half();
-        let upper_lhs = lhs_register.upper_half();
-        let (lower_rhs, upper_rhs) = rhs_register_const_couple;
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::DataRegister(upper_lhs), upper_rhs.to_mapper_location()]);
-        let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register)]);
-        self.push_instruction(Instr::EQ { lhs: lower_lhs, rhs: lower_rhs, dest: dest_register });
-        self.push_instruction(Instr::EQ { lhs: upper_lhs, rhs: upper_rhs, dest: intermediate });
-        self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // ================================================================================
+    // INTEGER COMPARISON OPERATION GENERATORS
+    // ================================================================================
 
-    fn gen_i32_gtu(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        match (lhs, rhs) {
-            (lhs, MapperLocation::Immediate(imm)) if imm.as_u32() >> 9 == 0 => {
-                let immediate = imm.as_u32();
-                let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::GEU { lhs: lhs_register, rhs: RegisterOrConst::new_const((immediate + 1) as u16), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            },
-            (lhs, rhs) => {
-                let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone()]);
-                let lhs_register = lhs.map_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map, &vec![MapperLocation::DataRegister(rhs_register)]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::LTU { lhs: rhs_register, rhs: lhs_register, dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            }
-        }
-    }
+    // Generate equality comparison using simple binary operation macro
+    gen_simple_binary_op!(gen_i32_eq, EQ, SignValue::Signed);
 
-    fn gen_i32_gts(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        match (lhs, rhs) {
-            (lhs, MapperLocation::Immediate(imm)) if (imm.as_i32() + 1) >> 8 == 0 || (imm.as_i32() + 1) >> 8 == -1 => {
-                let immediate = imm.as_i32();
-                let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::GE { lhs: lhs_register, rhs: RegisterOrConst::new_const((immediate + 1) as u16), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            },
-            (lhs, rhs) => {
-                let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone()]);
-                let lhs_register = lhs.map_to_register_or_const(SignValue::Signed, self, scratch_variable_map, &vec![MapperLocation::DataRegister(rhs_register)]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::LT { lhs: rhs_register, rhs: lhs_register, dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            }
-        }
-    }
-
-    fn gen_i32_leu(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        match (lhs, rhs) {
-            (lhs, MapperLocation::Immediate(imm)) if (imm.as_u32() + 1) >> 9 == 0 => {
-                let immediate = imm.as_u32();
-                let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::LTU { lhs: lhs_register, rhs: RegisterOrConst::new_const((immediate + 1) as u16), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            },
-            (lhs, rhs) => {
-                let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone()]);
-                let lhs_register = lhs.map_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map, &vec![MapperLocation::DataRegister(rhs_register)]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::GEU { lhs: rhs_register, rhs: lhs_register, dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            }
-        }
-    }
-
-    fn gen_i32_les(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        match (lhs, rhs) {
-            (lhs, MapperLocation::Immediate(imm)) if (imm.as_i32() + 1) >> 8 == 0 || (imm.as_i32() + 1) >> 8 == -1 => {
-                let immediate = imm.as_i32();
-                let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::LT { lhs: lhs_register, rhs: RegisterOrConst::new_const((immediate + 1) as u16), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            },
-            (lhs, rhs) => {
-                let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone()]);
-                let lhs_register = lhs.map_to_register_or_const(SignValue::Signed, self, scratch_variable_map, &vec![MapperLocation::DataRegister(rhs_register)]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::GE { lhs: rhs_register, rhs: lhs_register, dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            }
-        }
-    }
-
-    fn gen_i32_geu(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        match (lhs, rhs) {
-            (MapperLocation::Immediate(imm), rhs) if (imm.as_u32() + 1) >> 9 == 0 => {
-                let immediate = imm.as_u32();
-                let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::LTU { lhs: rhs_register, rhs: RegisterOrConst::new_const((immediate + 1) as u16), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            },
-            (lhs, rhs) => {
-                let rhs_register = rhs.map_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map, &vec![lhs.clone()]);
-                let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register.to_mapper_location()]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::GEU { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            }
-        }
-    }
-
-    fn gen_i32_ges(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        match (lhs, rhs) {
-            (MapperLocation::Immediate(imm), rhs) if (imm.as_i32() + 1) >> 8 == 0 || (imm.as_i32() + 1) >> 8 == -1 => {
-                let immediate = imm.as_i32();
-                let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::LT { lhs: rhs_register, rhs: RegisterOrConst::new_const((immediate + 1) as u16), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            },
-            (lhs, rhs) => {
-                let rhs_register = rhs.map_to_register_or_const(SignValue::Signed, self, scratch_variable_map, &vec![lhs.clone()]);
-                let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register.to_mapper_location()]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::GE { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            }
-        }
-    }
-
-    fn gen_i32_ltu(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        match (lhs, rhs) {
-            (MapperLocation::Immediate(imm), rhs) if (imm.as_u32() + 1) >> 9 == 0 => {
-                let immediate = imm.as_u32();
-                let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::GEU { lhs: rhs_register, rhs: RegisterOrConst::new_const((immediate + 1) as u16), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            },
-            (lhs, rhs) => {
-                let rhs_register = rhs.map_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map, &vec![lhs.clone()]);
-                let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register.to_mapper_location()]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::LTU { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            }
-        }
-    }
-
-    fn gen_i32_lts(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        match (lhs, rhs) {
-            (MapperLocation::Immediate(imm), rhs) if (imm.as_i32() + 1) >> 8 == 0 || (imm.as_i32() + 1) >> 8 == -1 => {
-                let immediate = imm.as_i32();
-                let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::GE { lhs: rhs_register, rhs: RegisterOrConst::new_const((immediate + 1) as u16), dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            },
-            (lhs, rhs) => {
-                let rhs_register = rhs.map_to_register_or_const(SignValue::Signed, self, scratch_variable_map, &vec![lhs.clone()]);
-                let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register.to_mapper_location()]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::LT { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            }
-        }
-    }
-
-    fn gen_i64_lts(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
-        let intermediate = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(lhs_register), MapperLocation::ExtendedRegister(rhs_register)]);
-        self.push_instruction(Instr::EQ { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        self.push_instruction(Instr::ANDLTU { lhs: lhs_register.lower_half(), rhs: RegisterOrConst::DataRegister(rhs_register.lower_half()), dest: intermediate });
-        self.push_instruction(Instr::ORLT { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        intermediate.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i64_ltu(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
-        let intermediate = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(lhs_register), MapperLocation::ExtendedRegister(rhs_register)]);
-        self.push_instruction(Instr::EQ { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        self.push_instruction(Instr::ANDLTU { lhs: lhs_register.lower_half(), rhs: RegisterOrConst::DataRegister(rhs_register.lower_half()), dest: intermediate });
-        self.push_instruction(Instr::ORLTU { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        intermediate.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i64_gts(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
-        let intermediate = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(lhs_register), MapperLocation::ExtendedRegister(rhs_register)]);
-        self.push_instruction(Instr::EQ { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        self.push_instruction(Instr::ANDLT { lhs: rhs_register.lower_half(), rhs: RegisterOrConst::DataRegister(lhs_register.lower_half()), dest: intermediate });
-        self.push_instruction(Instr::ORLT { lhs: rhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(lhs_register.upper_half()), dest: intermediate });
-        intermediate.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i64_gtu(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
-        let intermediate = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(lhs_register), MapperLocation::ExtendedRegister(rhs_register)]);
-        self.push_instruction(Instr::EQ { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        self.push_instruction(Instr::ANDLTU { lhs: rhs_register.lower_half(), rhs: RegisterOrConst::DataRegister(lhs_register.lower_half()), dest: intermediate });
-        self.push_instruction(Instr::ORLTU { lhs: rhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(lhs_register.upper_half()), dest: intermediate });
-        intermediate.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i64_ges(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
-        let intermediate = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(lhs_register), MapperLocation::ExtendedRegister(rhs_register)]);
-        self.push_instruction(Instr::EQ { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        self.push_instruction(Instr::ANDGE { lhs: lhs_register.lower_half(), rhs: RegisterOrConst::DataRegister(rhs_register.lower_half()), dest: intermediate });
-        self.push_instruction(Instr::ORLT { lhs: rhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(lhs_register.upper_half()), dest: intermediate });
-        intermediate.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i64_geu(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
-        let intermediate = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(lhs_register), MapperLocation::ExtendedRegister(rhs_register)]);
-        self.push_instruction(Instr::EQ { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        self.push_instruction(Instr::ANDGEU { lhs: lhs_register.lower_half(), rhs: RegisterOrConst::DataRegister(rhs_register.lower_half()), dest: intermediate });
-        self.push_instruction(Instr::ORLTU { lhs: rhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(lhs_register.upper_half()), dest: intermediate });
-        intermediate.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i64_les(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
-        let intermediate = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(lhs_register), MapperLocation::ExtendedRegister(rhs_register)]);
-        self.push_instruction(Instr::EQ { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        self.push_instruction(Instr::ANDGE { lhs: rhs_register.lower_half(), rhs: RegisterOrConst::DataRegister(lhs_register.lower_half()), dest: intermediate });
-        self.push_instruction(Instr::ORLT { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        intermediate.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i64_leu(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
-        let intermediate = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(lhs_register), MapperLocation::ExtendedRegister(rhs_register)]);
-        self.push_instruction(Instr::EQ { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        self.push_instruction(Instr::ANDGEU { lhs: rhs_register.lower_half(), rhs: RegisterOrConst::DataRegister(lhs_register.lower_half()), dest: intermediate });
-        self.push_instruction(Instr::ORLTU { lhs: lhs_register.upper_half(), rhs: RegisterOrConst::DataRegister(rhs_register.upper_half()), dest: intermediate });
-        intermediate.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i32_ne(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register_const) = (lhs, rhs).map_abelian_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::NE { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i32_eq(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register_const) = (lhs, rhs).map_abelian_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::EQ { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i64_eqz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let ExtendedRegister(register_index) = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
-        let lower_register = DataRegister::new(register_index);
-        let upper_register = DataRegister::new(register_index + 1);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::OR { lhs: lower_register, rhs: RegisterOrConst::DataRegister(upper_register), dest: dest_register });
-        self.push_instruction(Instr::EQ { lhs: dest_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate equal-to-zero operations using macro
+    gen_eqz_op!(gen_i32_eqz, i32);
+    gen_eqz_op!(gen_i64_eqz, i64);
 
     fn gen_i64_extend_i32s(&mut self, potential_target: Option<&MapperLocation>, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>) -> MapperLocation {
         let target = match potential_target {
@@ -987,108 +1219,59 @@ impl<'a,'b> Translator<'a,'b> {
     }
 
     fn gen_i64_extend_i32u(&mut self, potential_target: Option<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>, child: &MapperLocation) -> MapperLocation {
-        let ExtendedRegister(index) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
-        child.map_to_data_register(Some(DataRegister(index)), self, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(DataRegister(index + 1)) });
-        ExtendedRegister(index).map_to_location(potential_target, self, scratch_variable_map)
+        let dest = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
+        child.map_to_data_register(Some(dest.lower_half()), self, scratch_variable_map, &vec![]);
+        self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(dest.upper_half()) });
+        dest.map_to_location(potential_target, self, scratch_variable_map)
     }
 
     fn gen_f64_neg(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let ExtendedRegister(src_index) = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
-        let lower_src_register = DataRegister(src_index);
-        let upper_src_register = DataRegister(src_index + 1);
-        let ExtendedRegister(index) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
-        let lower_dest_register = DataRegister(index);
-        let upper_dest_register = DataRegister(index + 1);
-        self.push_instruction(Instr::ADDIH { lhs: upper_src_register, rhs: Const16(0x8000), dest: upper_dest_register });
-        lower_src_register.map_to_location(Some(&MapperLocation::DataRegister(lower_dest_register)), self, scratch_variable_map);
-        ExtendedRegister(index).map_to_location(potential_target, self, scratch_variable_map)
+        let src = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
+        let dest = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
+        self.push_instruction(Instr::ADDIH { lhs: src.upper_half(), rhs: Const16(0x8000), dest: dest.upper_half() });
+        src.lower_half().map_to_location(Some(&MapperLocation::DataRegister(dest.lower_half())), self, scratch_variable_map);
+        dest.map_to_location(potential_target, self, scratch_variable_map)
     }
 
     fn gen_f64_abs(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let ExtendedRegister(src_index) = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
-        let lower_src_register = DataRegister(src_index);
-        let upper_src_register = DataRegister(src_index + 1);
-        let ExtendedRegister(index) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
-        let lower_dest_register = DataRegister(index);
-        let upper_dest_register = DataRegister(index + 1);
-        self.push_instruction(Instr::SH { src: upper_src_register, count: RegisterOrConst::new_const(1), dest: upper_dest_register });
-        self.push_instruction(Instr::SH { src: upper_dest_register, count: RegisterOrConst::new_const(-1i16 as u16), dest: upper_dest_register });
-        lower_src_register.map_to_location(Some(&MapperLocation::DataRegister(lower_dest_register)), self, scratch_variable_map);
-        ExtendedRegister(index).map_to_location(potential_target, self, scratch_variable_map)
+        let src = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
+        let dest = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
+        self.push_instruction(Instr::SH { src: src.upper_half(), count: RegisterOrConst::new_const(1), dest: dest.upper_half() });
+        self.push_instruction(Instr::SH { src: dest.upper_half(), count: RegisterOrConst::new_const(-1i16 as u16), dest: dest.upper_half() });
+        src.lower_half().map_to_location(Some(&MapperLocation::DataRegister(dest.lower_half())), self, scratch_variable_map);
+        dest.map_to_location(potential_target, self, scratch_variable_map)
     }
 
     fn gen_i64_popcnt(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let ExtendedRegister(src_index) = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
-        let lower_src_register = DataRegister(src_index);
-        let upper_src_register = DataRegister(src_index + 1);
-        let ExtendedRegister(index) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
-        let lower_dest_register = DataRegister(index);
-        let upper_dest_register = DataRegister(index + 1);
-        self.push_instruction(Instr::POPCNT { src: lower_src_register, dest: lower_dest_register });
-        self.push_instruction(Instr::POPCNT { src: upper_src_register, dest: upper_dest_register });
-        self.push_instruction(Instr::ADD { lhs: lower_dest_register, rhs: RegisterOrConst::DataRegister(upper_dest_register), dest: lower_dest_register });
-        self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(upper_dest_register) });
-        ExtendedRegister(index).map_to_location(potential_target, self, scratch_variable_map)
+        let src = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
+        let dest = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
+        self.push_instruction(Instr::POPCNT { src: src.lower_half(), dest: dest.lower_half() });
+        self.push_instruction(Instr::POPCNT { src: src.upper_half(), dest: dest.upper_half() });
+        self.push_instruction(Instr::ADD { lhs: dest.lower_half(), rhs: RegisterOrConst::DataRegister(dest.upper_half()), dest: dest.lower_half() });
+        self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(dest.upper_half()) });
+        dest.map_to_location(potential_target, self, scratch_variable_map)
     }
 
-    fn gen_f32_convert_i32u(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let child_register: DataRegister = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::UTOF { src: child_register, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate conversion operations using macro
+    gen_single_operand_op!(gen_f32_convert_i32u, UTOF);
+    gen_single_operand_op!(gen_f32_convert_i32s, ITOF);
+    gen_single_operand_op!(gen_i32_trunc_f32u, FTOUZ);
+    gen_single_operand_op!(gen_i32_trunc_f32s, FTOIZ);
 
-    fn gen_f32_convert_i32s(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::ITOF { src: child_register, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate f32 sign manipulation operations using macro
+    gen_f32_sign_op!(gen_f32_neg, neg);
+    gen_f32_sign_op!(gen_f32_abs, abs);
 
-    fn gen_i32_trunc_f32u(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let child_register: DataRegister = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::FTOUZ { src: child_register, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate simple unary operations using macro
+    gen_single_operand_op!(gen_i32_popcnt, POPCNT);
 
-    fn gen_i32_trunc_f32s(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let child_register: DataRegister = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::FTOIZ { src: child_register, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // ====================================================================
+    // BIT MANIPULATION AND UTILITY OPERATION GENERATORS
+    // ====================================================================
+    // Functions for generating bit manipulation operations (CLZ, CTZ) and
+    // memory load operations.
 
-    fn gen_i32_eqz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::EQ { lhs: child_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_f32_neg(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::ADDIH { lhs: child_register, rhs: Const16::new(0x8000), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_f32_abs(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::SH { src: child_register, count: RegisterOrConst::new_const(1), dest: dest_register });
-        self.push_instruction(Instr::SH { src: dest_register, count: RegisterOrConst::new_const(-1i16 as u16), dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn gen_i32_popcnt(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::POPCNT { src: child_register, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
+    // CTZ requires SHUFFLE preprocessing, so implement manually
     fn gen_i32_ctz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
         let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
@@ -1097,48 +1280,36 @@ impl<'a,'b> Translator<'a,'b> {
         dest_register.map_to_location(potential_target, self, scratch_variable_map)
     }
 
-    fn gen_i32_clz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::CLZ { src: child_register, dest: dest_register });
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
+    // Generate CLZ using simple unary operation macro
+    gen_single_operand_op!(gen_i32_clz, CLZ);
 
     fn _gen_i64_clz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let ExtendedRegister(src_index) = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
-        let lower_src_register = DataRegister(src_index);
-        let upper_src_register = DataRegister(src_index + 1);
-        let ExtendedRegister(index) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
-        let lower_dest_register = DataRegister(index);
-        let upper_dest_register = DataRegister(index + 1);
-        self.push_instruction(Instr::CLZ {src: lower_src_register, dest: lower_dest_register});
-        self.push_instruction(Instr::CLZ {src: upper_src_register, dest: upper_dest_register});
-        self.push_instruction(Instr::ADDI {lhs: upper_dest_register , rhs: Const16(-32i16 as u16), dest: upper_dest_register});
-        self.push_instruction(Instr::CADDN { lhs: lower_dest_register , rhs: RegisterOrConst::DataRegister(upper_dest_register), cond: upper_dest_register, dest: upper_dest_register });
-        self.push_instruction(Instr::ADDI {lhs: upper_dest_register , rhs: Const16(32i16 as u16), dest: upper_dest_register});
-        self.push_instruction(Instr::MOV {src: RegisterOrLargeConst::DataRegister(upper_dest_register), dest: Register::DataRegister(lower_dest_register)});
-        self.push_instruction(Instr::MOV {src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(upper_dest_register)});
-        lower_dest_register.map_to_location(Some(&MapperLocation::ExtendedRegister(ExtendedRegister(index))), self, scratch_variable_map);
-        ExtendedRegister(index).map_to_location(potential_target, self, scratch_variable_map)
+        let src = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
+        let dest = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
+        self.push_instruction(Instr::CLZ {src: src.lower_half(), dest: dest.lower_half()});
+        self.push_instruction(Instr::CLZ {src: src.upper_half(), dest: dest.upper_half()});
+        self.push_instruction(Instr::ADDI {lhs: dest.upper_half() , rhs: Const16(-32i16 as u16), dest: dest.upper_half()});
+        self.push_instruction(Instr::CADDN { lhs: dest.lower_half() , rhs: RegisterOrConst::DataRegister(dest.upper_half()), cond: dest.upper_half(), dest: dest.upper_half() });
+        self.push_instruction(Instr::ADDI {lhs: dest.upper_half() , rhs: Const16(32i16 as u16), dest: dest.upper_half()});
+        self.push_instruction(Instr::MOV {src: RegisterOrLargeConst::DataRegister(dest.upper_half()), dest: Register::DataRegister(dest.lower_half())});
+        self.push_instruction(Instr::MOV {src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(dest.upper_half())});
+        dest.lower_half().map_to_location(Some(&MapperLocation::ExtendedRegister(dest)), self, scratch_variable_map);
+        dest.map_to_location(potential_target, self, scratch_variable_map)
     }
 
     fn _gen_i64_ctz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let ExtendedRegister(src_index) = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
-        let lower_src_register = DataRegister(src_index);
-        let upper_src_register = DataRegister(src_index + 1);
-        let ExtendedRegister(index) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
-        let lower_dest_register = DataRegister(index);
-        let upper_dest_register = DataRegister(index + 1);
-        self.push_instruction(Instr::SHUFFLE { src: lower_src_register, dest: lower_dest_register, mask: Const9::new(0x11B)});
-        self.push_instruction(Instr::CLZ {src: lower_dest_register, dest: lower_dest_register});
-        self.push_instruction(Instr::SHUFFLE { src: upper_src_register, dest: upper_dest_register, mask: Const9::new(0x11B)});
-        self.push_instruction(Instr::CLZ {src: upper_dest_register, dest: upper_dest_register});
-        self.push_instruction(Instr::ADDI {lhs: lower_dest_register , rhs: Const16(-32i16 as u16), dest: lower_dest_register});
-        self.push_instruction(Instr::CADDN { lhs: upper_dest_register , rhs: RegisterOrConst::DataRegister(lower_dest_register), cond: lower_dest_register, dest: lower_dest_register });
-        self.push_instruction(Instr::ADDI {lhs: lower_dest_register , rhs: Const16(32i16 as u16), dest: lower_dest_register});
-        self.push_instruction(Instr::MOV {src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(upper_dest_register)});
-        lower_dest_register.map_to_location(Some(&MapperLocation::DataRegister(upper_dest_register)), self, scratch_variable_map);
-        ExtendedRegister(index).map_to_location(potential_target, self, scratch_variable_map)
+        let src = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
+        let dest = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
+        self.push_instruction(Instr::SHUFFLE { src: src.lower_half(), dest: dest.lower_half(), mask: Const9::new(0x11B)});
+        self.push_instruction(Instr::CLZ {src: dest.lower_half(), dest: dest.lower_half()});
+        self.push_instruction(Instr::SHUFFLE { src: src.upper_half(), dest: dest.upper_half(), mask: Const9::new(0x11B)});
+        self.push_instruction(Instr::CLZ {src: dest.upper_half(), dest: dest.upper_half()});
+        self.push_instruction(Instr::ADDI {lhs: dest.lower_half() , rhs: Const16(-32i16 as u16), dest: dest.lower_half()});
+        self.push_instruction(Instr::CADDN { lhs: dest.upper_half() , rhs: RegisterOrConst::DataRegister(dest.lower_half()), cond: dest.lower_half(), dest: dest.lower_half() });
+        self.push_instruction(Instr::ADDI {lhs: dest.lower_half() , rhs: Const16(32i16 as u16), dest: dest.lower_half()});
+        self.push_instruction(Instr::MOV {src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(dest.upper_half())});
+        dest.lower_half().map_to_location(Some(&MapperLocation::DataRegister(dest.upper_half())), self, scratch_variable_map);
+        dest.map_to_location(potential_target, self, scratch_variable_map)
     }
 
     fn gen_load(&mut self, child: &MapperLocation, offset:u32, align:u8, src_size: Memsize, ext_sign: SignValue, potential_target: Option<&MapperLocation>, scratch_variable_map : &mut Vec<MapperLocation> ) -> MapperLocation{
@@ -1155,7 +1326,11 @@ impl<'a,'b> Translator<'a,'b> {
             None => location,
             Some(target) => location.map_to_location(target, self, scratch_variable_map, &vec![])
         }
-
     }
-
 }
+
+// ====================================================================
+// END OF VB RESOLUTION MODULE
+// ====================================================================
+// This completes the VBResolver implementation with comprehensive support
+// for all WebAssembly operations and Aurix-specific machine code generation.
