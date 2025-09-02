@@ -33,12 +33,13 @@ install_crate = { crate_name = "rustfilt", binary = "rustfilt", test_arg = ["--h
 install_crate = { crate_name = "wasm-tools", binary = " wasm-tools", test_arg = ["--version"] }
 
 [tasks.generate-json-from-wast]
-condition = { files_modified = { input = ["${CARGO_MAKE_WORKING_DIRECTORY}/wast_tests/*.wast"], output = ["${CARGO_MAKE_WORKING_DIRECTORY}/wasm_json_from_wast/*.*"] } }
+condition = { files_modified = { input = ["${CARGO_MAKE_WORKING_DIRECTORY}/../wast_tests/*.wast"], output = ["${CARGO_MAKE_WORKING_DIRECTORY}/../wasm_json_from_wast/*.json"] } }
 description = "Generate .json and .wasm file from .wast files stored in wast_tests folder"
 workspace = false
 script_runner='@duckscript'
 cwd='wast_tests'
 script='''
+echo ${CARGO_MAKE_WORKING_DIRECTORY}
 rm  -r ../wasm_json_from_wast
 mkdir ../wasm_json_from_wast
 handle = glob_array *.wast
@@ -74,7 +75,7 @@ workspace = false
 cwd ="tests_generator"
 command="cargo"
 args=["run","--target","${CARGO_MAKE_HOST_TRIPLE}","--","../wasm_json_from_wast","../generated_tests","../Cargo.toml"]
-dependencies = ["generate-json-from-wast","clean-generated-wasm-tests"]
+dependencies = ["clean-generated-wasm-tests"]
 
 [tasks.generate-wasm-tests]
 description = "Generated wasm tests from wast-test and update Cargo.toml if needed"
@@ -83,7 +84,7 @@ condition = { files_modified = { input = ["${CARGO_MAKE_WORKING_DIRECTORY}/wasm_
 "${CARGO_MAKE_WORKING_DIRECTORY}/wasm_json_from_wast/*.wasm",
 "${CARGO_MAKE_WORKING_DIRECTORY}/wasm_json_from_wast/*.wat"], output = ["${CARGO_MAKE_WORKING_DIRECTORY}/generated_tests/*.rs"] } }
 run_task = "_generate-wasm-tests"
-dependencies = []
+dependencies = ["generate-json-from-wast"]
 
 
 

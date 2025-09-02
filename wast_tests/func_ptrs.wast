@@ -6,8 +6,8 @@
   (type    (func (param) (result i32)))      ;; 4: void -> i32
   (type $T (func (param i32) (result i32)))  ;; 5: i32 -> i32
   (type $U (func (param i32)))               ;; 6: i32 -> void
-
-  (func $print (import "spectest" "print_i32") (type 6))
+;; :DELTA_SPEC: Linking external modules unsupported
+;;  (func $print (import "spectest" "print_i32") (type 6))
 
   (func (type 0))
   (func (type $S))
@@ -20,14 +20,14 @@
   (func (export "three") (type $T) (param $a i32) (result i32)
     (i32.sub (local.get 0) (i32.const 2))
   )
-
-  (func (export "four") (type $U) (call $print (local.get 0)))
+;; :DELTA_SPEC: Linking external modules unsupported
+  ;; (func (export "four") (type $U) (call $print (local.get 0)))
 )
 
 (assert_return (invoke "one") (i32.const 13))
 (assert_return (invoke "two" (i32.const 13)) (i32.const 14))
 (assert_return (invoke "three" (i32.const 13)) (i32.const 11))
-(invoke "four" (i32.const 83))
+;; (invoke "four" (i32.const 83)) ;; :DELTA_SPEC: Linking external modules unsupported
 
 (assert_invalid (module (elem (i32.const 0))) "unknown table")
 (assert_invalid (module (elem (i32.const 0) 0) (func)) "unknown table")
@@ -46,7 +46,7 @@
 )
 
 (assert_invalid (module (func (type 42))) "unknown type")
-(assert_invalid (module (import "spectest" "print_i32" (func (type 43)))) "unknown type")
+;;(assert_invalid (module (import "spectest" "print_i32" (func (type 43)))) "unknown type") ;; :DELTA_SPEC: Linking external modules unsupported
 
 (module
   (type $T (func (param) (result i32)))
