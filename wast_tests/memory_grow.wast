@@ -41,11 +41,11 @@
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 0))
 (assert_return (invoke "grow" (i32.const 1)) (i32.const 0))
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 1))
-(assert_return (invoke "grow" (i32.const 2)) (i32.const -1)) ;; :DELTA_SPEC: This function fails because grow is not supported by this runtime result changed to -1
-(assert_return (invoke "grow" (i32.const 800)) (i32.const -1)) ;; :DELTA_SPEC: This function fails because grow is not supported by this runtime result changed to -1
+(assert_return (invoke "grow" (i32.const 2)) (i32.const -1))  ;; :MODIFIED: Test environment is limited to max 2 pages
+(assert_return (invoke "grow" (i32.const 800)) (i32.const -1))  ;; :MODIFIED: Test environment is limited to max 2 pages
 (assert_return (invoke "grow" (i32.const 0x10000)) (i32.const -1))
 (assert_return (invoke "grow" (i32.const 64736)) (i32.const -1))
-(assert_return (invoke "grow" (i32.const 1)) (i32.const -1)) ;; :DELTA_SPEC: This function fails because grow is not supported by this runtime result changed to -1
+(assert_return (invoke "grow" (i32.const 1)) (i32.const 1))
 
 (module
   (memory 0 10)
@@ -54,10 +54,10 @@
 
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 0))
 (assert_return (invoke "grow" (i32.const 1)) (i32.const 0))
-(assert_return (invoke "grow" (i32.const 1)) (i32.const -1))  ;; :DELTA_SPEC: This function fails because grow is not supported by this runtime result changed to -1
-(assert_return (invoke "grow" (i32.const 2)) (i32.const -1))  ;; :DELTA_SPEC: This function fails because grow is not supported by this runtime result changed to -1
-(assert_return (invoke "grow" (i32.const 6)) (i32.const -1))  ;; :DELTA_SPEC: This function fails because grow is not supported by this runtime result changed to -1
-(assert_return (invoke "grow" (i32.const 0)) (i32.const 1)) ;; :DELTA_SPEC: No grow therefore it is expected 1
+(assert_return (invoke "grow" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "grow" (i32.const 2)) (i32.const -1))  ;; :MODIFIED: Test environment is limited to max 2 pages
+(assert_return (invoke "grow" (i32.const 6)) (i32.const -1))   ;; :MODIFIED: Test environment is limited to max 2 pages
+(assert_return (invoke "grow" (i32.const 0)) (i32.const 2))  ;; :MODIFIED: Test environment is limited to max 2 pages
 (assert_return (invoke "grow" (i32.const 1)) (i32.const -1))
 (assert_return (invoke "grow" (i32.const 0x10000)) (i32.const -1))
 
@@ -85,9 +85,9 @@
 )
 
 (assert_return (invoke "check-memory-zero" (i32.const 0) (i32.const 0xffff)) (i32.const 0))
-(assert_return (invoke "grow" (i32.const 1)) (i32.const -1)) ;; :DELTA_SPEC: This function fails because grow is not supported by this runtime result changed to -1
-;; (assert_return (invoke "check-memory-zero" (i32.const 0x10000) (i32.const 0x1_ffff)) (i32.const 0)) :DELTA_SPEC: grow is not supported by this runtime
-;; (assert_return (invoke "grow" (i32.const 1)) (i32.const 2))
+(assert_return (invoke "grow" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "check-memory-zero" (i32.const 0x10000) (i32.const 0x1_ffff)) (i32.const 0)) 
+;; (assert_return (invoke "grow" (i32.const 1)) (i32.const 2)) ;; :MODIFIED: Test environment is limited to max 2 pages
 ;; (assert_return (invoke "check-memory-zero" (i32.const 0x20000) (i32.const 0x2_ffff)) (i32.const 0))
 ;; (assert_return (invoke "grow" (i32.const 1)) (i32.const 3))
 ;; (assert_return (invoke "check-memory-zero" (i32.const 0x30000) (i32.const 0x3_ffff)) (i32.const 0))
@@ -306,7 +306,7 @@
 (assert_return (invoke "as-compare-left") (i32.const 1))
 (assert_return (invoke "as-compare-right") (i32.const 1))
 
-(assert_return (invoke "as-memory.grow-size") (i32.const -1)) ;; :DELTA_SPEC: This function fails because grow is not supported by this runtime result changed to -1
+(assert_return (invoke "as-memory.grow-size") (i32.const 1)) 
 
 
 (assert_invalid

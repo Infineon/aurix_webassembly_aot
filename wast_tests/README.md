@@ -3,6 +3,11 @@ This folder contains tests for the core WebAssembly semantics, as described in [
 This test has been derived from the one stored here:
 https://github.com/WebAssembly/spec/tree/w3c-1.0 (commit: f750d21dcc4903280b4db80ca81795968c5557f4)
 
+# Ignored assertions
+
+Presently `tests_generator` recognize in generated  json files, only entries with type `action` and `assert_return`.
+This means that in wast all directives are ignored except `invoke` and `assert_return` 
+
 
 # Changes
 

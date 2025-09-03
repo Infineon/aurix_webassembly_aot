@@ -223,7 +223,7 @@
 (assert_return (invoke "as-store-first"))
 (assert_return (invoke "as-store-last"))
 (assert_return (invoke "as-load-operand") (i32.const 1))
-(assert_return (invoke "as-memory.grow-value") (i32.const -1)) ;; :DELTA_SPEC: This function fails because it is not supported by this runtime result changed to from 1 to -1
+(assert_return (invoke "as-memory.grow-value") (i32.const -1)) ;; :MODIFIED: Test environment supports only two memory page
 
 (assert_return (invoke "as-call-value") (i32.const 6))
 
@@ -297,10 +297,10 @@
   (module (global i32 (global.get 1)) (global i32 (i32.const 0)))
   "unknown global"
 )
-
-(module
-  (import "spectest" "global_i32" (global i32))
-)
+;; :DELTA_SPEC: import modules is not supported by this runtime
+;; (module
+;;   (import "spectest" "global_i32" (global i32))
+;; )
 (assert_malformed
   (module binary
     "\00asm" "\01\00\00\00"

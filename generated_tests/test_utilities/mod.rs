@@ -16,7 +16,7 @@ static HEAP: Heap = Heap::empty();
 use alloc::vec;
 
 // add padding to make boundary access safe
-const MAX_MEMORY_SIZE: usize = (1 << 16) + 7;
+const MAX_MEMORY_SIZE: usize = (1 << 17) + 7;
 
 
 #[link_section = ".CPU0.ramcode"]

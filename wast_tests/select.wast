@@ -253,8 +253,8 @@
 (assert_return (invoke "as-store-last" (i32.const 0)))
 (assert_return (invoke "as-store-last" (i32.const 1)))
 
-(assert_return (invoke "as-memory.grow-value" (i32.const 0)) (i32.const -1)) ;; :DELTA_SPEC: This function fails because it is not supported by this runtime result changed to -1
-(assert_return (invoke "as-memory.grow-value" (i32.const 1)) (i32.const -1)) ;; :DELTA_SPEC: This function fails because it is not supported by this runtime result changed to -1
+(assert_return (invoke "as-memory.grow-value" (i32.const 0)) (i32.const -1)) ;; :MODIFIED: Test environment supports only two memory pages
+(assert_return (invoke "as-memory.grow-value" (i32.const 1)) (i32.const 1)) 
 
 (assert_return (invoke "as-call-value" (i32.const 0)) (i32.const 2))
 (assert_return (invoke "as-call-value" (i32.const 1)) (i32.const 1))
