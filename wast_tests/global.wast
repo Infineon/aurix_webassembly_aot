@@ -223,7 +223,7 @@
 (assert_return (invoke "as-store-first"))
 (assert_return (invoke "as-store-last"))
 (assert_return (invoke "as-load-operand") (i32.const 1))
-(assert_return (invoke "as-memory.grow-value") (i32.const -1)) ;; :MODIFIED: Test environment supports only two memory page
+(assert_return (invoke "as-memory.grow-value") (i32.const -1)) ;; :MODIFIED: Test environment supports only two memory pages
 
 (assert_return (invoke "as-call-value") (i32.const 6))
 
