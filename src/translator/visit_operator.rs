@@ -106,8 +106,8 @@ impl<'a,'b> Translator<'a,'b> {
         // Determine the result type and size for this block
         // Empty blocks have no result, Type blocks have a single result,
         // FuncType blocks use the function signature's first result
-        // TODO: We always assume the block takes no arguments and only consider the first output type
-        // but that's not always true with function types
+        // TODO: The fact that block types are always a single valtype (or a function with no argument and one output)
+        // is specific to 1.0, might not be checked by wasmparser
         let blockty_value_size = match blockty {
             BlockType::Empty => None,
             BlockType::Type(ty) => Some(val_type_size(&ty)),
@@ -242,7 +242,7 @@ impl<'a,'b> Translator<'a,'b> {
 
         let value_register = self.resolve_to_register(Some(val_size)).unwrap();
 
-        //TODO: can the locked register be eliminated?
+        //TODO: can the locked register be eliminated? I tried and it didn't work
         self.locked_register = Some(value_register.clone());
         let dynamic_offset = self.resolve_with_target(None);
         self.locked_register = None;
