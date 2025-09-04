@@ -357,11 +357,11 @@
     (f64.mul (f64.mul (f64.mul (local.get $x) (local.get $y)) (local.get $z)) (local.get $w)))
 )
 
-(assert_return (invoke "f32.no_reassociate_mul" (f32.const 0x1.950ba8p-116) (f32.const 0x1.efdacep-33) (f32.const -0x1.5f9bcp+102) (f32.const 0x1.f04508p-56)) (f32.const -0x1.ff356ep-101))
+;; (assert_return (invoke "f32.no_reassociate_mul" (f32.const 0x1.950ba8p-116) (f32.const 0x1.efdacep-33) (f32.const -0x1.5f9bcp+102) (f32.const 0x1.f04508p-56)) (f32.const -0x1.ff356ep-101)) ;; :DELTA_SPEC: Intermediate value is denormal not supported by Aurix
 (assert_return (invoke "f32.no_reassociate_mul" (f32.const 0x1.5990aep-56) (f32.const -0x1.7dfb04p+102) (f32.const -0x1.4f774ap-125) (f32.const -0x1.595fe6p+70)) (f32.const -0x1.c7c8fcp-8))
 (assert_return (invoke "f32.no_reassociate_mul" (f32.const 0x1.6ad9a4p-48) (f32.const -0x1.9138aap+55) (f32.const -0x1.4a774ep-40) (f32.const 0x1.1ff08p+76)) (f32.const 0x1.9cd8ecp+44))
 (assert_return (invoke "f32.no_reassociate_mul" (f32.const 0x1.e1caecp-105) (f32.const 0x1.af0dd2p+77) (f32.const -0x1.016eep+56) (f32.const -0x1.ab70d6p+59)) (f32.const 0x1.54870ep+89))
-(assert_return (invoke "f32.no_reassociate_mul" (f32.const -0x1.3b1dcp-99) (f32.const 0x1.4e5a34p-49) (f32.const -0x1.38ba5ap+3) (f32.const 0x1.7fb8eep+59)) (f32.const 0x1.5bbf98p-85))
+;; (assert_return (invoke "f32.no_reassociate_mul" (f32.const -0x1.3b1dcp-99) (f32.const 0x1.4e5a34p-49) (f32.const -0x1.38ba5ap+3) (f32.const 0x1.7fb8eep+59)) (f32.const 0x1.5bbf98p-85)) ;; :DELTA_SPEC: Intermediate value is denormal not supported by Aurix
 (assert_return (invoke "f64.no_reassociate_mul" (f64.const -0x1.e7842ab7181p-667) (f64.const -0x1.fabf40ceeceafp+990) (f64.const -0x1.1a38a825ab01ap-376) (f64.const -0x1.27e8ea469b14fp+664)) (f64.const 0x1.336eb428af4f3p+613))
 (assert_return (invoke "f64.no_reassociate_mul" (f64.const 0x1.4ca2292a6acbcp+454) (f64.const 0x1.6ffbab850089ap-516) (f64.const -0x1.547c32e1f5b93p-899) (f64.const -0x1.c7571d9388375p+540)) (f64.const 0x1.1ac796954fc1p-419))
 (assert_return (invoke "f64.no_reassociate_mul" (f64.const 0x1.73881a52e0401p-501) (f64.const -0x1.1b68dd9efb1a7p+788) (f64.const 0x1.d1c5e6a3eb27cp-762) (f64.const -0x1.56cb2fcc7546fp+88)) (f64.const 0x1.f508db92c34efp-386))
@@ -431,11 +431,11 @@
                        (f64.mul (local.get $y) (local.get $y)))))
 )
 
-(assert_return (invoke "f32.no_fold_to_hypot" (f32.const 0x1.c2f338p-81) (f32.const 0x1.401b5ep-68)) (f32.const 0x1.401cccp-68))
-(assert_return (invoke "f32.no_fold_to_hypot" (f32.const -0x1.c38d1p-71) (f32.const -0x1.359ddp-107)) (f32.const 0x1.c36a62p-71))
-(assert_return (invoke "f32.no_fold_to_hypot" (f32.const -0x1.99e0cap-114) (f32.const -0x1.ed0c6cp-69)) (f32.const 0x1.ed0e48p-69))
+;; (assert_return (invoke "f32.no_fold_to_hypot" (f32.const 0x1.c2f338p-81) (f32.const 0x1.401b5ep-68)) (f32.const 0x1.401cccp-68)) ;; :DELTA_SPEC: Intermediate value is denormal not supported by Aurix
+;; (assert_return (invoke "f32.no_fold_to_hypot" (f32.const -0x1.c38d1p-71) (f32.const -0x1.359ddp-107)) (f32.const 0x1.c36a62p-71)) ;; :DELTA_SPEC: Intermediate value is denormal not supported by Aurix
+;; (assert_return (invoke "f32.no_fold_to_hypot" (f32.const -0x1.99e0cap-114) (f32.const -0x1.ed0c6cp-69)) (f32.const 0x1.ed0e48p-69)) ;; :DELTA_SPEC: Intermediate value is denormal not supported by Aurix
 (assert_return (invoke "f32.no_fold_to_hypot" (f32.const -0x1.1b6ceap+5) (f32.const 0x1.5440bep+17)) (f32.const 0x1.5440cp+17))
-(assert_return (invoke "f32.no_fold_to_hypot" (f32.const 0x1.8f019ep-76) (f32.const -0x1.182308p-71)) (f32.const 0x1.17e2bcp-71))
+;; (assert_return (invoke "f32.no_fold_to_hypot" (f32.const 0x1.8f019ep-76) (f32.const -0x1.182308p-71)) (f32.const 0x1.17e2bcp-71)) ;; :DELTA_SPEC: Intermediate value is denormal not supported by Aurix
 (assert_return (invoke "f64.no_fold_to_hypot" (f64.const 0x1.1a0ac4f7c8711p-636) (f64.const 0x1.1372ebafff551p-534)) (f64.const 0x1.13463fa37014ep-534))
 (assert_return (invoke "f64.no_fold_to_hypot" (f64.const 0x1.b793512167499p+395) (f64.const -0x1.11cbc52af4c36p+410)) (f64.const 0x1.11cbc530783a2p+410))
 (assert_return (invoke "f64.no_fold_to_hypot" (f64.const 0x1.76777f44ff40bp-536) (f64.const -0x1.c3896e4dc1fbp-766)) (f64.const 0x1.8p-536))
@@ -450,7 +450,7 @@
 )
 
 (assert_return (invoke "f32.no_approximate_reciprocal" (f32.const -0x1.2900b6p-10)) (f32.const -0x1.b950d4p+9))
-(assert_return (invoke "f32.no_approximate_reciprocal" (f32.const 0x1.e7212p+127)) (f32.const 0x1.0d11f8p-128))
+;; (assert_return (invoke "f32.no_approximate_reciprocal" (f32.const 0x1.e7212p+127)) (f32.const 0x1.0d11f8p-128)) ;; :DELTA_SPEC: Intermediate value is denormal not supported by Aurix
 (assert_return (invoke "f32.no_approximate_reciprocal" (f32.const -0x1.42a466p-93)) (f32.const -0x1.963ee6p+92))
 (assert_return (invoke "f32.no_approximate_reciprocal" (f32.const 0x1.5d0c32p+76)) (f32.const 0x1.778362p-77))
 (assert_return (invoke "f32.no_approximate_reciprocal" (f32.const -0x1.601de2p-82)) (f32.const -0x1.743d7ep+81))
@@ -570,10 +570,10 @@
 )
 
 (assert_return (invoke "f32.no_fold_mul_div" (f32.const -0x1.cd859ap+54) (f32.const 0x1.6ca936p-47)) (f32.const -0x1.cd8598p+54))
-(assert_return (invoke "f32.no_fold_mul_div" (f32.const -0x1.0b56b8p-26) (f32.const 0x1.48264cp-106)) (f32.const -0x1.0b56a4p-26))
+;; (assert_return (invoke "f32.no_fold_mul_div" (f32.const -0x1.0b56b8p-26) (f32.const 0x1.48264cp-106)) (f32.const -0x1.0b56a4p-26)) ;; :DELTA_SPEC: Intermediate value is denormal not supported by Aurix
 (assert_return (invoke "f32.no_fold_mul_div" (f32.const -0x1.e7555cp-48) (f32.const -0x1.9161cp+48)) (f32.const -0x1.e7555ap-48))
 (assert_return (invoke "f32.no_fold_mul_div" (f32.const 0x1.aaa50ep+52) (f32.const -0x1.dfb39ep+60)) (f32.const 0x1.aaa50cp+52))
-(assert_return (invoke "f32.no_fold_mul_div" (f32.const -0x1.2b7dfap-92) (f32.const -0x1.7c4ca6p-37)) (f32.const -0x1.2b7dfep-92))
+;; (assert_return (invoke "f32.no_fold_mul_div" (f32.const -0x1.2b7dfap-92) (f32.const -0x1.7c4ca6p-37)) (f32.const -0x1.2b7dfep-92)) ;; :DELTA_SPEC: Intermediate value is denormal not supported by Aurix
 
 (assert_return (invoke "f64.no_fold_mul_div" (f64.const -0x1.3d79ff4118a1ap-837) (f64.const -0x1.b8b5dda31808cp-205)) (f64.const -0x1.3d79ff412263ep-837))
 (assert_return (invoke "f64.no_fold_mul_div" (f64.const 0x1.f894d1ee6b3a4p+384) (f64.const 0x1.8c2606d03d58ap+585)) (f64.const 0x1.f894d1ee6b3a5p+384))
@@ -592,8 +592,8 @@
 
 (assert_return (invoke "f32.no_fold_div_mul" (f32.const -0x1.dc6364p+38) (f32.const 0x1.d630ecp+29)) (f32.const -0x1.dc6362p+38))
 (assert_return (invoke "f32.no_fold_div_mul" (f32.const -0x1.1f9836p-52) (f32.const -0x1.16c4e4p-18)) (f32.const -0x1.1f9838p-52))
-(assert_return (invoke "f32.no_fold_div_mul" (f32.const 0x1.c5972cp-126) (f32.const -0x1.d6659ep+7)) (f32.const 0x1.c5980ep-126))
-(assert_return (invoke "f32.no_fold_div_mul" (f32.const -0x1.2e3a9ep-74) (f32.const -0x1.353994p+59)) (f32.const -0x1.2e3a4p-74))
+;; (assert_return (invoke "f32.no_fold_div_mul" (f32.const 0x1.c5972cp-126) (f32.const -0x1.d6659ep+7)) (f32.const 0x1.c5980ep-126)) ;; :DELTA_SPEC: Intermediate value is denormal not supported by Aurix
+;; (assert_return (invoke "f32.no_fold_div_mul" (f32.const -0x1.2e3a9ep-74) (f32.const -0x1.353994p+59)) (f32.const -0x1.2e3a4p-74)) ;; :DELTA_SPEC: Intermediate value is denormal not supported by Aurix
 (assert_return (invoke "f32.no_fold_div_mul" (f32.const 0x1.d96b82p-98) (f32.const 0x1.95d908p+27)) (f32.const 0x1.d96b84p-98))
 
 (assert_return (invoke "f64.no_fold_div_mul" (f64.const 0x1.d01f913a52481p-876) (f64.const -0x1.2cd0668b28344p+184)) (f64.const 0x1.d020daf71cdcp-876))
@@ -1389,10 +1389,10 @@
 )
 
 (assert_return (invoke "f32.simple_x4_sum" (i32.const 0) (i32.const 16) (i32.const 32)))
-(assert_return (invoke "f32.load" (i32.const 32)) (f32.const 0x1p-148))
+;; (assert_return (invoke "f32.load" (i32.const 32)) (f32.const 0x1p-148)) ;; :DELTA_SPEC: Denormal not supported by Aurix
 (assert_return (invoke "f32.load" (i32.const 36)) (f32.const 0x0p+0))
-(assert_return (invoke "f32.load" (i32.const 40)) (f32.const 0x1p-149))
-(assert_return (invoke "f32.load" (i32.const 44)) (f32.const -0x1p-149))
+;; (assert_return (invoke "f32.load" (i32.const 40)) (f32.const 0x1p-149)) ;; :DELTA_SPEC: Denormal not supported by Aurix
+;; (assert_return (invoke "f32.load" (i32.const 44)) (f32.const -0x1p-149)) ;; :DELTA_SPEC: Denormal not supported by Aurix
 
 (module
   (memory (data
@@ -1703,8 +1703,8 @@
 (assert_return (invoke "f32.no_fold_div_div" (f32.const -0x1.f70228p+78) (f32.const -0x1.fbc612p-16) (f32.const -0x1.8c379p+10)) (f32.const -0x1.47b43cp+83))
 (assert_return (invoke "f32.no_fold_div_div" (f32.const 0x1.d29d2ep-70) (f32.const 0x1.f3a17ep+110) (f32.const -0x1.64d41p-112)) (f32.const -0x0p+0))
 (assert_return (invoke "f32.no_fold_div_div" (f32.const 0x1.867f98p+43) (f32.const 0x1.30acfcp-105) (f32.const 0x1.e210d8p+105)) (f32.const inf))
-(assert_return (invoke "f32.no_fold_div_div" (f32.const -0x1.c4001ap-14) (f32.const -0x1.9beb6cp+124) (f32.const -0x1.74f34cp-43)) (f32.const -0x1.819874p-96))
-(assert_return (invoke "f32.no_fold_div_div" (f32.const 0x1.db0e6ep+46) (f32.const 0x1.55eea2p+56) (f32.const -0x1.f3134p+124)) (f32.const -0x1.6cep-135))
+;; (assert_return (invoke "f32.no_fold_div_div" (f32.const -0x1.c4001ap-14) (f32.const -0x1.9beb6cp+124) (f32.const -0x1.74f34cp-43)) (f32.const -0x1.819874p-96)) ;; :DELTA_SPEC: Intermediate value denormal not supported by Aurix
+;; (assert_return (invoke "f32.no_fold_div_div" (f32.const 0x1.db0e6ep+46) (f32.const 0x1.55eea2p+56) (f32.const -0x1.f3134p+124)) (f32.const -0x1.6cep-135)) ;; :DELTA_SPEC: Intermediate value denormal not supported by Aurix
 
 (assert_return (invoke "f64.no_fold_div_div" (f64.const 0x1.b4dc8ec3c7777p+337) (f64.const 0x1.9f95ac2d1863p+584) (f64.const -0x1.d4318abba341ep-782)) (f64.const -0x1.2649159d87e02p+534))
 (assert_return (invoke "f64.no_fold_div_div" (f64.const -0x1.ac53af5eb445fp+791) (f64.const 0x1.8549c0a4ceb13p-29) (f64.const 0x1.64e384003c801p+316)) (f64.const -0x1.9417cdccbae91p+503))
@@ -1746,7 +1746,7 @@
     (f64.add (f64.div (local.get $x) (local.get $z)) (f64.div (local.get $y) (local.get $z))))
 )
 
-(assert_return (invoke "f32.no_fold_add_divs" (f32.const 0x1.795e7p+8) (f32.const -0x1.48a5eep-5) (f32.const -0x1.9a244cp+126)) (f32.const -0x1.d709b6p-119))
+;; (assert_return (invoke "f32.no_fold_add_divs" (f32.const 0x1.795e7p+8) (f32.const -0x1.48a5eep-5) (f32.const -0x1.9a244cp+126)) (f32.const -0x1.d709b6p-119)) ;; :DELTA_SPEC: Intermediate value denormal not supported by Aurix
 (assert_return (invoke "f32.no_fold_add_divs" (f32.const -0x1.ae89e8p-63) (f32.const -0x1.e9903ep-49) (f32.const -0x1.370a8cp+47)) (f32.const 0x1.92f3f6p-96))
 (assert_return (invoke "f32.no_fold_add_divs" (f32.const -0x1.626408p-46) (f32.const 0x1.2ee5b2p-64) (f32.const -0x1.ecefaap+48)) (f32.const 0x1.701864p-95))
 (assert_return (invoke "f32.no_fold_add_divs" (f32.const -0x1.061d3p-101) (f32.const 0x1.383492p-98) (f32.const -0x1.1d92d2p+88)) (f32.const 0x0p+0))
@@ -1768,9 +1768,9 @@
     (f64.sqrt (f64.mul (local.get $x) (local.get $x))))
 )
 
-(assert_return (invoke "f32.no_fold_sqrt_square" (f32.const -0x1.5cb316p-66)) (f32.const 0x1.5cb322p-66))
-(assert_return (invoke "f32.no_fold_sqrt_square" (f32.const -0x1.b0f9e4p-73)) (f32.const 0x1.b211b2p-73))
-(assert_return (invoke "f32.no_fold_sqrt_square" (f32.const -0x1.de417cp-71)) (f32.const 0x1.de65b8p-71))
+;; (assert_return (invoke "f32.no_fold_sqrt_square" (f32.const -0x1.5cb316p-66)) (f32.const 0x1.5cb322p-66)) ;; :DELTA_SPEC: Intermediate value denormal not supported by Aurix
+;; (assert_return (invoke "f32.no_fold_sqrt_square" (f32.const -0x1.b0f9e4p-73)) (f32.const 0x1.b211b2p-73)) ;; :DELTA_SPEC: Intermediate value denormal not supported by Aurix
+;; (assert_return (invoke "f32.no_fold_sqrt_square" (f32.const -0x1.de417cp-71)) (f32.const 0x1.de65b8p-71)) ;; :DELTA_SPEC: Intermediate value denormal not supported by Aurix
 (assert_return (invoke "f32.no_fold_sqrt_square" (f32.const 0x1.64c872p-86)) (f32.const 0x0p+0))
 (assert_return (invoke "f32.no_fold_sqrt_square" (f32.const 0x1.e199e4p+108)) (f32.const inf))
 
@@ -1836,7 +1836,7 @@
 
 (assert_return (invoke "f32.no_fold_mul_sqrt_div" (f32.const -0x1.f4a7cap+81) (f32.const 0x1.c09adep+92)) (f32.const -inf))
 (assert_return (invoke "f32.no_fold_mul_sqrt_div" (f32.const -0x1.90bf1cp-120) (f32.const 0x1.8dbe88p-97)) (f32.const -0x0p+0))
-(assert_return (invoke "f32.no_fold_mul_sqrt_div" (f32.const 0x1.8570e8p+29) (f32.const 0x1.217d3p-128)) (f32.const 0x1.6e391ap+93))
+;; (assert_return (invoke "f32.no_fold_mul_sqrt_div" (f32.const 0x1.8570e8p+29) (f32.const 0x1.217d3p-128)) (f32.const 0x1.6e391ap+93)) ;; :DELTA_SPEC: Intermediate value denormal not supported by Aurix
 (assert_return (invoke "f32.no_fold_mul_sqrt_div" (f32.const -0x1.5b4652p+43) (f32.const 0x1.a9d71cp+112)) (f32.const -0x1.0d423ap-13))
 (assert_return (invoke "f32.no_fold_mul_sqrt_div" (f32.const -0x1.910604p+8) (f32.const 0x1.0ca912p+7)) (f32.const -0x1.14cdecp+5))
 
@@ -1857,7 +1857,7 @@
     (f64.mul (f64.mul (local.get $x) (local.get $y)) (local.get $z)))
 )
 
-(assert_return (invoke "f32.no_flush_intermediate_subnormal" (f32.const 0x1p-126) (f32.const 0x1p-23) (f32.const 0x1p23)) (f32.const 0x1p-126))
+;; (assert_return (invoke "f32.no_flush_intermediate_subnormal" (f32.const 0x1p-126) (f32.const 0x1p-23) (f32.const 0x1p23)) (f32.const 0x1p-126)) ;; :DELTA_SPEC: Intermediate value denormal not supported by Aurix
 (assert_return (invoke "f64.no_flush_intermediate_subnormal" (f64.const 0x1p-1022) (f64.const 0x1p-52) (f64.const 0x1p52)) (f64.const 0x1p-1022))
 
 ;; Test corner cases of John Hauser's microarchitectural recoding scheme.
@@ -1902,7 +1902,7 @@
 (assert_return (invoke "f64.recoding_le" (f64.const 0x0p+0) (f64.const 0x1p+0)) (i32.const 1))
 (assert_return (invoke "f64.recoding_lt" (f64.const 0x0p+0) (f64.const 0x1p+0)) (i32.const 0))
 
-(assert_return (invoke "recoding_demote" (f64.const 0x1.4c8f8p-132) (f32.const 1221)) (f32.const 0x1.8c8a1cp-122))
+;; (assert_return (invoke "recoding_demote" (f64.const 0x1.4c8f8p-132) (f32.const 1221)) (f32.const 0x1.8c8a1cp-122)) ;; :DELTA_SPEC: Intermediate value denormal not supported by Aurix
 
 ;; Test that division is not done as on an extended-base system.
 ;; http://www.ucbtest.org/goldberg/addendum.html

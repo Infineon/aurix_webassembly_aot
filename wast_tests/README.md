@@ -18,4 +18,5 @@ This means that in wast all directives are ignored except `invoke` and `assert_r
    * binary-leb128.wast --> it is only parsing test. Project relay on wasmtime parser and assume it is correct.
    * imports.wast --> partially supported feature disable for the time being
    * names.wast --> Requires export keyword
+   * skip-stack-guard-page.wast --> Aurix core can be configured to limit stack size
  * Check inside the *.wast files for other changes marked with regular expression `:[A-Z_]+:`

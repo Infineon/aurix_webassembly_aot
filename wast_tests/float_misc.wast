@@ -58,7 +58,7 @@
 (assert_return (invoke "f64.add" (f64.const 1.0) (f64.const 0x1.0000000000001p-53)) (f64.const 0x1.0000000000001p+0))
 
 ;; Max subnormal + min subnormal = min normal.
-(assert_return (invoke "f32.add" (f32.const 0x1p-149) (f32.const 0x1.fffffcp-127)) (f32.const 0x1p-126))
+;; (assert_return (invoke "f32.add" (f32.const 0x1p-149) (f32.const 0x1.fffffcp-127)) (f32.const 0x1p-126)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 (assert_return (invoke "f64.add" (f64.const 0x0.0000000000001p-1022) (f64.const 0x0.fffffffffffffp-1022)) (f64.const 0x1p-1022))
 
 ;; Test for a case of double rounding, example from:
@@ -146,11 +146,11 @@
 (assert_return (invoke "f64.add" (f64.const 0x1.06cdae79f27b9p+1023) (f64.const -0x1.e05cb0c96f975p+991)) (f64.const 0x1.06cdae78121eep+1023))
 
 ;; Computations that utilize the minimum exponent value.
-(assert_return (invoke "f32.add" (f32.const 0x1.6a1a2p-127) (f32.const 0x1.378p-140)) (f32.const 0x1.6a23dcp-127))
-(assert_return (invoke "f32.add" (f32.const 0x1.28p-144) (f32.const -0x1p-148)) (f32.const 0x1.18p-144))
-(assert_return (invoke "f32.add" (f32.const -0x1p-146) (f32.const 0x1.c3cap-128)) (f32.const 0x1.c3c9cp-128))
-(assert_return (invoke "f32.add" (f32.const -0x1.4p-145) (f32.const 0x1.424052p-122)) (f32.const 0x1.42405p-122))
-(assert_return (invoke "f32.add" (f32.const 0x1.c5p-141) (f32.const -0x1.72f8p-135)) (f32.const -0x1.6be4p-135))
+;; (assert_return (invoke "f32.add" (f32.const 0x1.6a1a2p-127) (f32.const 0x1.378p-140)) (f32.const 0x1.6a23dcp-127)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
+;; (assert_return (invoke "f32.add" (f32.const 0x1.28p-144) (f32.const -0x1p-148)) (f32.const 0x1.18p-144)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
+;; (assert_return (invoke "f32.add" (f32.const -0x1p-146) (f32.const 0x1.c3cap-128)) (f32.const 0x1.c3c9cp-128)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
+;; (assert_return (invoke "f32.add" (f32.const -0x1.4p-145) (f32.const 0x1.424052p-122)) (f32.const 0x1.42405p-122)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
+;; (assert_return (invoke "f32.add" (f32.const 0x1.c5p-141) (f32.const -0x1.72f8p-135)) (f32.const -0x1.6be4p-135)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 (assert_return (invoke "f64.add" (f64.const 0x1.4774c681d1e21p-1022) (f64.const -0x1.271e58e9f58cap-1021)) (f64.const -0x1.06c7eb5219373p-1022))
 (assert_return (invoke "f64.add" (f64.const 0x1.10b3a75e31916p-1021) (f64.const -0x1.ffb82b0e868a7p-1021)) (f64.const -0x1.de090760a9f22p-1022))
 (assert_return (invoke "f64.add" (f64.const -0x0.6b58448b8098ap-1022) (f64.const -0x1.579796ed04cbep-1022)) (f64.const -0x1.c2efdb7885648p-1022))
@@ -252,7 +252,7 @@
 (assert_return (invoke "f64.sub" (f64.const 400000000000002) (f64.const 400000000000000)) (f64.const 2.0))
 
 ;; Min normal - max subnormal = min subnormal.
-(assert_return (invoke "f32.sub" (f32.const 0x1p-126) (f32.const 0x1.fffffcp-127)) (f32.const 0x1p-149))
+;; (assert_return (invoke "f32.sub" (f32.const 0x1p-126) (f32.const 0x1.fffffcp-127)) (f32.const 0x1p-149)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 (assert_return (invoke "f64.sub" (f64.const 0x1p-1022) (f64.const 0x0.fffffffffffffp-1022)) (f64.const 0x0.0000000000001p-1022))
 
 ;; Test subtraction of numbers very close to 1.
@@ -348,7 +348,7 @@
 
 ;; Test the least positive value with a positive square.
 (assert_return (invoke "f32.mul" (f32.const 0x1p-75) (f32.const 0x1p-75)) (f32.const 0x0p+0))
-(assert_return (invoke "f32.mul" (f32.const 0x1.000002p-75) (f32.const 0x1.000002p-75)) (f32.const 0x1p-149))
+;; (assert_return (invoke "f32.mul" (f32.const 0x1.000002p-75) (f32.const 0x1.000002p-75)) (f32.const 0x1p-149)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 (assert_return (invoke "f64.mul" (f64.const 0x1.6a09e667f3bccp-538) (f64.const 0x1.6a09e667f3bccp-538)) (f64.const 0x0p+0))
 (assert_return (invoke "f64.mul" (f64.const 0x1.6a09e667f3bcdp-538) (f64.const 0x1.6a09e667f3bcdp-538)) (f64.const 0x0.0000000000001p-1022))
 
@@ -372,17 +372,17 @@
 
 ;; Test MIN * EPSILON.
 ;; http://www.mpfr.org/mpfr-2.0.1/patch2
-(assert_return (invoke "f32.mul" (f32.const 0x1p-126) (f32.const 0x1p-23)) (f32.const 0x1p-149))
+;; (assert_return (invoke "f32.mul" (f32.const 0x1p-126) (f32.const 0x1p-23)) (f32.const 0x1p-149)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 (assert_return (invoke "f64.mul" (f64.const 0x1p-1022) (f64.const 0x1p-52)) (f64.const 0x0.0000000000001p-1022))
 
 ;; http://opencores.org/bug,view,2454
-(assert_return (invoke "f32.mul" (f32.const -0x1.0006p+4) (f32.const 0x1.ap-132)) (f32.const -0x1.a009cp-128))
+;; (assert_return (invoke "f32.mul" (f32.const -0x1.0006p+4) (f32.const 0x1.ap-132)) (f32.const -0x1.a009cp-128)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 
 ;; Miscellaneous values.
 (assert_return (invoke "f32.div" (f32.const 1.123456789) (f32.const 100)) (f32.const 0x1.702264p-7))
 (assert_return (invoke "f32.div" (f32.const 8391667.0) (f32.const 12582905.0)) (f32.const 0x1.55754p-1))
 (assert_return (invoke "f32.div" (f32.const 65536.0) (f32.const 0x1p-37)) (f32.const 0x1p+53))
-(assert_return (invoke "f32.div" (f32.const 0x1.dcbf6ap+0) (f32.const 0x1.fffffep+127)) (f32.const 0x1.dcbf68p-128))
+;; (assert_return (invoke "f32.div" (f32.const 0x1.dcbf6ap+0) (f32.const 0x1.fffffep+127)) (f32.const 0x1.dcbf68p-128)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 (assert_return (invoke "f32.div" (f32.const 4) (f32.const 3)) (f32.const 0x1.555556p+0))
 (assert_return (invoke "f64.div" (f64.const 1.123456789) (f64.const 100)) (f64.const 0.01123456789))
 (assert_return (invoke "f64.div" (f64.const 8391667.0) (f64.const 12582905.0)) (f64.const 0x1.55753f1d9ba27p-1))
@@ -411,7 +411,7 @@
 (assert_return (invoke "f32.div" (f32.const -0x1.c2c54ap+69) (f32.const -0x1.00d142p-86)) (f32.const inf))
 (assert_return (invoke "f32.div" (f32.const 0x1.e35abep-46) (f32.const 0x1.c69dfp+44)) (f32.const 0x1.102eb4p-90))
 (assert_return (invoke "f32.div" (f32.const 0x1.45ff2ap+0) (f32.const -0x1.1e8754p+89)) (f32.const -0x1.23434ep-89))
-(assert_return (invoke "f32.div" (f32.const 0x1.8db18ap-51) (f32.const 0x1.47c678p-128)) (f32.const 0x1.369b96p+77))
+;; (assert_return (invoke "f32.div" (f32.const 0x1.8db18ap-51) (f32.const 0x1.47c678p-128)) (f32.const 0x1.369b96p+77)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 (assert_return (invoke "f32.div" (f32.const 0x1.78599p+90) (f32.const 0x1.534144p+87)) (f32.const 0x1.1bfddcp+3))
 (assert_return (invoke "f64.div" (f64.const 0x0.f331c4f47eb51p-1022) (f64.const -0x1.c7ff45bf6f03ap+362)) (f64.const -0x0p+0))
 (assert_return (invoke "f64.div" (f64.const -0x1.0fc8707b9d19cp-987) (f64.const 0x1.77524d5f4a563p-536)) (f64.const -0x1.72c1a937d231p-452))
@@ -466,25 +466,25 @@
 (assert_return (invoke "f64.div" (f64.const 0x1.4c82cbb508e21p-11) (f64.const -0x1.6b57208c2d5d5p+52)) (f64.const -0x1.d48e8b369129ap-64))
 
 ;; Division involving the maximum subnormal value and the minimum normal value.
-(assert_return (invoke "f32.div" (f32.const 0x1p-126) (f32.const 0x1.fffffcp-127)) (f32.const 0x1.000002p+0))
-(assert_return (invoke "f32.div" (f32.const 0x1.fffffcp-127) (f32.const 0x1p-126)) (f32.const 0x1.fffffcp-1))
+;; (assert_return (invoke "f32.div" (f32.const 0x1p-126) (f32.const 0x1.fffffcp-127)) (f32.const 0x1.000002p+0)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
+;; (assert_return (invoke "f32.div" (f32.const 0x1.fffffcp-127) (f32.const 0x1p-126)) (f32.const 0x1.fffffcp-1)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 (assert_return (invoke "f64.div" (f64.const 0x1p-1022) (f64.const 0x0.fffffffffffffp-1022)) (f64.const 0x1.0000000000001p+0))
 (assert_return (invoke "f64.div" (f64.const 0x0.fffffffffffffp-1022) (f64.const 0x1p-1022)) (f64.const 0x1.ffffffffffffep-1))
 
 ;; Test the least positive value with a positive quotient with the maximum value.
 (assert_return (invoke "f32.div" (f32.const 0x1.fffffep-23) (f32.const 0x1.fffffep+127)) (f32.const 0x0p+0))
-(assert_return (invoke "f32.div" (f32.const 0x1p-22) (f32.const 0x1.fffffep+127)) (f32.const 0x1p-149))
+;; (assert_return (invoke "f32.div" (f32.const 0x1p-22) (f32.const 0x1.fffffep+127)) (f32.const 0x1p-149)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 (assert_return (invoke "f64.div" (f64.const 0x1.fffffffffffffp-52) (f64.const 0x1.fffffffffffffp+1023)) (f64.const 0x0p+0))
 (assert_return (invoke "f64.div" (f64.const 0x1p-51) (f64.const 0x1.fffffffffffffp+1023)) (f64.const 0x0.0000000000001p-1022))
 
 ;; Test the least positive value with a finite reciprocal.
 (assert_return (invoke "f32.div" (f32.const 1.0) (f32.const 0x1p-128)) (f32.const inf))
-(assert_return (invoke "f32.div" (f32.const 1.0) (f32.const 0x1.000008p-128)) (f32.const 0x1.fffffp+127))
+;; (assert_return (invoke "f32.div" (f32.const 1.0) (f32.const 0x1.000008p-128)) (f32.const 0x1.fffffp+127)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 (assert_return (invoke "f64.div" (f64.const 1.0) (f64.const 0x0.4p-1022)) (f64.const inf))
 (assert_return (invoke "f64.div" (f64.const 1.0) (f64.const 0x0.4000000000001p-1022)) (f64.const 0x1.ffffffffffff8p+1023))
 
 ;; Test the least positive value that has a subnormal reciprocal.
-(assert_return (invoke "f32.div" (f32.const 1.0) (f32.const 0x1.000002p+126)) (f32.const 0x1.fffffcp-127))
+;; (assert_return (invoke "f32.div" (f32.const 1.0) (f32.const 0x1.000002p+126)) (f32.const 0x1.fffffcp-127)) ;; :DELTA_SPEC: Denormal values not supported by Aurix
 (assert_return (invoke "f32.div" (f32.const 1.0) (f32.const 0x1p+126)) (f32.const 0x1p-126))
 (assert_return (invoke "f64.div" (f64.const 1.0) (f64.const 0x1.0000000000001p+1022)) (f64.const 0x0.fffffffffffffp-1022))
 (assert_return (invoke "f64.div" (f64.const 1.0) (f64.const 0x1p+1022)) (f64.const 0x1p-1022))
