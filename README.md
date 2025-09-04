@@ -67,6 +67,23 @@ The Runtime uses heap allocation for storing the IR (intermediate representation
 
 The benchmark code provides an example for constructing the Wasm Runtime, instantiating a module and calling an exported function.
 
+# Limitations
+
+Not all features of standard Webassembly runtime and translator are implemented.
+Below a list of major limitation and deviation from Webassembly standard
+
+* No features beyond WebAssembly 1.0 (exception for page size 64KB)
+* No trap e.g:
+  * Load and store sandbox implemented by address masking. No trap generated code continue to be executed.
+  * Division by zero
+  * ....
+* No time protection. It is not possible to limit the execution time of a Webassembly function.
+* Denormal floating point are not supported. Denormal floating point are not supported by Aurix FPU
+* memory.grow is not supported
+* Only one memory page is supported for each runtime instance.
+* No module linking. 
+  * Limited support for calling host function (only for demo purpose)
+
 
 # License 
 

@@ -11,3 +11,7 @@
 /memory.map
 *.profraw
 /demo-code/target/
+/generated_tests/*.rs
+
+/tests_generator/target/
+/wasm_json_from_wast/

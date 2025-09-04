@@ -1,3 +1,10 @@
+env_scripts = [ '''
+#!@duckscript
+
+output = exec rustc --print target-spec-json -Zunstable-options
+root = json_parse ${output.stdout}
+set_env CARGO_MAKE_HOST_TRIPLE ${root.llvm-target}
+''']     
 
 [tasks.check-tricore-probe]
 script_runner = "@duckscript"
@@ -7,14 +14,95 @@ if not which tricore-probe
 end
 '''
 
+[tasks.check-wast2json]
+script_runner = "@duckscript"
+install_script = '''
+if not which wast2json
+    trigger_error "Not found wast2json please install version 3.36 https://github.com/WebAssembly/wabt/releases/tag/1.0.36"
+end
+
+'''
+
 [tasks.install-defmt-print]
 install_crate = { crate_name = "defmt-print", binary = "defmt-print", test_arg = ["--help"],min_version = "1.0.0" }
 
 [tasks.install-rustfilt]
 install_crate = { crate_name = "rustfilt", binary = "rustfilt", test_arg = ["--help"] }
 
+[tasks.install-wasm-tools]
+install_crate = { crate_name = "wasm-tools", binary = " wasm-tools", test_arg = ["--version"] }
+
+[tasks.generate-json-from-wast]
+condition = { files_modified = { input = ["${CARGO_MAKE_WORKING_DIRECTORY}/../wast_tests/*.wast"], output = ["${CARGO_MAKE_WORKING_DIRECTORY}/../wasm_json_from_wast/*.json"] } }
+description = "Generate .json and .wasm file from .wast files stored in wast_tests folder"
+workspace = false
+script_runner='@duckscript'
+cwd='wast_tests'
+script='''
+echo ${CARGO_MAKE_WORKING_DIRECTORY}
+rm  -r ../wasm_json_from_wast
+mkdir ../wasm_json_from_wast
+handle = glob_array *.wast
+for path in ${handle}
+    echo ${path}
+    wast_file_name = basename ${path}
+    split_array = split ${wast_file_name} .
+    file_name = array_get ${split_array} 0
+    target_path = join_path .. wasm_json_from_wast ${file_name}.json
+    exec  wast2json --disable-simd --disable-multi-value --disable-bulk-memory --disable-bulk-memory --disable-saturating-float-to-int --disable-sign-extension ${path} -o ${target_path}
+end
+'''
+dependencies = ["check-wast2json"]
+
+
+[tasks.clean-generated-wasm-tests]
+description = "Clean generated wasm tests"
+workspace = false
+script_runner='@duckscript'
+script='''
+handle = glob_array ./generated_tests/*.rs
+for path in ${handle}
+    rm -r ${path}
+end
+'''
+
+
+
+[tasks._generate-wasm-tests]
+private = true
+description = "Generated wasm tests from wast-test and update Cargo.toml if needed"
+workspace = false
+cwd ="tests_generator"
+command="cargo"
+args=["run","--target","${CARGO_MAKE_HOST_TRIPLE}","--","../wasm_json_from_wast","../generated_tests","../Cargo.toml"]
+dependencies = ["clean-generated-wasm-tests"]
+
+[tasks.generate-wasm-tests]
+description = "Generated wasm tests from wast-test and update Cargo.toml if needed"
+workspace = false
+condition = { files_modified = { input = ["${CARGO_MAKE_WORKING_DIRECTORY}/wasm_json_from_wast/*.json", 
+"${CARGO_MAKE_WORKING_DIRECTORY}/wasm_json_from_wast/*.wasm",
+"${CARGO_MAKE_WORKING_DIRECTORY}/wasm_json_from_wast/*.wat"], output = ["${CARGO_MAKE_WORKING_DIRECTORY}/generated_tests/*.rs"] } }
+run_task = "_generate-wasm-tests"
+dependencies = ["generate-json-from-wast"]
+
+
+
+[tasks.generate-mvp-wasm-tests]
+description = "Generated wasm tests from mvp-tests and update Cargo.toml if needed"
+condition = { files_modified = { input = ["${CARGO_MAKE_WORKING_DIRECTORY}/mvp-tests/*.json", 
+"${CARGO_MAKE_WORKING_DIRECTORY}/mvp-tests/*.wasm",
+"${CARGO_MAKE_WORKING_DIRECTORY}/mvp-tests/*.wat"], output = ["${CARGO_MAKE_WORKING_DIRECTORY}/generated_tests/*.rs"] } }
+workspace = false
+cwd ="tests_generator"
+command="cargo"
+args=["run","--release","--target","${CARGO_MAKE_HOST_TRIPLE}","--","../mvp-tests","../generated_tests","../Cargo.toml"]
+dependencies = ["clean-generated-wasm-tests"]
+
+
 
 [tasks.check-tsim]
+description = "Check if tsim16p_e is installed"
 script_runner = "@duckscript"
 install_script = '''
 if not which tsim16p_e
@@ -67,10 +155,12 @@ workspace = false
 env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = "tricore-probe -c 1" }
 command="cargo"
 args=["run","--example","demo","--features=board"]
-dependencies = ["build-demo-code-wasm","check-tricore-probe","install-defmt-print"]
+dependencies = ["check-tricore-probe","install-defmt-print"]
 
 [tasks.run-demo-tsim]
 workspace = false
 command="cargo"
 args=["run","--example","demo","--features=tsim"]
 dependencies = ["build-demo-code-wasm","env-linux-tsim","env-windows-tsim","install-defmt-print","install-rustfilt"]
+
+
