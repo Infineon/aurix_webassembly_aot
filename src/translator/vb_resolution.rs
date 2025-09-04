@@ -259,8 +259,7 @@ macro_rules! gen_i32_shift_op {
                     }
                 },
                 _ => {
-                    let count_register = self.next_available_data_register(scratch_variable_map, &vec![]);
-                    rhs.map_to_data_register(Some(count_register), self, scratch_variable_map, &vec![]); // TODO: may be optimized and compact with the line above by using None as target
+                    let count_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
                     self.push_instruction(Instr::AND { lhs: count_register, rhs: RegisterOrConst::new_const(0x1F), dest: count_register }); // mask to 5 bits
                     if $negate_count {
                         self.push_instruction(Instr::RSUB0 { src: count_register });
@@ -432,17 +431,17 @@ macro_rules! gen_i32_rotate_op {
                     dest_register.map_to_location(potential_target, self, scratch_variable_map)
                 },
                 _ => {
+                    // When rhs (count) is not immediate, we need to use an extended register to hold both width and position and use another aurix instruction to extract
                     let width_pos_register = self.next_available_extended_register(scratch_variable_map, &vec![lhs.clone()]);
                     rhs.map_to_data_register(Some(width_pos_register.upper_half()), self, scratch_variable_map, &vec![lhs.clone()]);
                     self.push_instruction(Instr::AND { lhs: width_pos_register.upper_half(), rhs: RegisterOrConst::new_const(0x1F), dest: width_pos_register.upper_half() });
                     self.push_instruction(Instr::RSUB { lhs: Const9::new(32), rhs: width_pos_register.upper_half(), dest: width_pos_register.lower_half() });
+                    // The width is now in the upper half of width_pos_register and the position is in the lower half
                     let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(width_pos_register)]);
                     let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register), MapperLocation::ExtendedRegister(width_pos_register)]);
-                    self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(intermediate) }); // TODO: Could be removed and extract to width_pos_register.lower_half() directly
-                    self.push_instruction(Instr::EXTRU { src: lhs_register, width_pos: width_pos_register, dest: intermediate });
+                    self.push_instruction(Instr::EXTRU { src: lhs_register, width_pos: width_pos_register, dest: width_pos_register.lower_half() }); // lower half is safe to use as intermediate 
                     self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::DataRegister(width_pos_register.upper_half()), dest: dest_register });
-                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
+                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(width_pos_register.lower_half()), dest: dest_register });
                     dest_register.map_to_location(potential_target, self, scratch_variable_map)
                 }
             }
@@ -470,11 +469,9 @@ macro_rules! gen_i32_rotate_op {
                     self.push_instruction(Instr::AND { lhs: width_pos_register.upper_half(), rhs: RegisterOrConst::new_const(0x1F), dest: width_pos_register.upper_half() });
                     let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(width_pos_register)]);
                     let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register), MapperLocation::ExtendedRegister(width_pos_register)]);
-                    self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(intermediate) });
-                    self.push_instruction(Instr::EXTRU { src: lhs_register, width_pos: width_pos_register, dest: intermediate });
+                    self.push_instruction(Instr::EXTRU { src: lhs_register, width_pos: width_pos_register, dest: width_pos_register.lower_half() }); // lower half is safe to use as intermediate 
                     self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::DataRegister(width_pos_register.upper_half()), dest: dest_register });
-                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
+                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(width_pos_register.lower_half()), dest: dest_register });
                     dest_register.map_to_location(potential_target, self, scratch_variable_map)
                 }
             }
@@ -1117,7 +1114,7 @@ impl<'a,'b> Translator<'a,'b> {
             (MapperLocation::Immediate(imm), operand) => {
                 let operand_register = operand.map_to_data_register(None, self, scratch_variable_map, &vec![]);
                 let immediate = imm.as_i32();
-                if immediate >> 8 == 0 || immediate >> 8 == -1 { // TODO: replace with fits_as_comparison_immediate
+                if immediate >> 8 == 0 || immediate >> 8 == -1 { // TODO: replace with fits_as_comparison_immediate (is it actually better?)
                     self.push_instruction(Instr::RSUB { lhs: Const9::new(immediate as u16), rhs: operand_register, dest: dest_register });
                 } else {
                     // Do -lhs + rhs and then negate the result
