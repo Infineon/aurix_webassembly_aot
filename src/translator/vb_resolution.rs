@@ -520,6 +520,7 @@ macro_rules! gen_i32_comparison_with_imm_opt {
             }
             
             // Try immediate optimization on left side (lhs_imm OP rhs)
+            // TODO: This seems wrong but it looks like it isn't tested.
             if let MapperLocation::Immediate(imm) = lhs {
                 let adjusted_imm = Immediate::Word((imm.as_u32() + $imm_inc) as u32);
                 if adjusted_imm.fits_as_comparison_immediate(sign) {
