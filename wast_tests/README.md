@@ -12,7 +12,7 @@ This means that in wast all directives are ignored except `invoke` and `assert_r
 # Changes
 
  * Added test file `wast_tests/wrap-around-memory.wast` to test the address wrapping for load and store
- * Disabled wast by renaming extensions to .dwast
+ * Disabled wast by renaming extensions to `.dwast`
    * export.wast --> partially supported feature disable for the time being
    * linking.wast --> unsupported feature
    * binary-leb128.wast --> it is only parsing test. Project relay on wasmtime parser and assume it is correct.

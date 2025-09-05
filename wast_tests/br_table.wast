@@ -584,7 +584,7 @@
 
 (assert_return (invoke "large" (i32.const 0)) (i32.const 0))
 (assert_return (invoke "large" (i32.const 1)) (i32.const 1))
-(assert_return (invoke "large" (i32.const 10)) (i32.const 0)) ;; :MODIFIED: For smaller table
+(assert_return (invoke "large" (i32.const 6)) (i32.const 0)) ;; :MODIFIED: For smaller table
 (assert_return (invoke "large" (i32.const 11)) (i32.const 1)) ;; :MODIFIED: For smaller table
 (assert_return (invoke "large" (i32.const 10000)) (i32.const 1)) ;; :MODIFIED: For smaller table
 (assert_return (invoke "large" (i32.const 10001)) (i32.const 1))

@@ -46,7 +46,7 @@
 )
 
 (assert_invalid (module (func (type 42))) "unknown type")
-;;(assert_invalid (module (import "spectest" "print_i32" (func (type 43)))) "unknown type") ;; :DELTA_SPEC: Linking external modules unsupported
+(assert_invalid (module (import "spectest" "print_i32" (func (type 43)))) "unknown type")
 
 (module
   (type $T (func (param) (result i32)))
