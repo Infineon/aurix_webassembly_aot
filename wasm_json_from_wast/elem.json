@@ -1,0 +1,14 @@
+{"source_filename": "elem.wast",
+ "commands": [
+  {"type": "module", "line": 4, "filename": "elem.0.wasm"}, 
+  {"type": "module", "line": 23, "filename": "elem.1.wasm"}, 
+  {"type": "module", "line": 35, "filename": "elem.2.wasm"}, 
+  {"type": "module", "line": 72, "filename": "elem.3.wasm"}, 
+  {"type": "assert_return", "line": 86, "action": {"type": "invoke", "field": "call-7", "args": []}, "expected": [{"type": "i32", "value": "65"}]}, 
+  {"type": "assert_return", "line": 87, "action": {"type": "invoke", "field": "call-9", "args": []}, "expected": [{"type": "i32", "value": "66"}]}, 
+  {"type": "module", "line": 91, "filename": "elem.4.wasm"}, 
+  {"type": "module", "line": 103, "filename": "elem.5.wasm"}, 
+  {"type": "module", "line": 113, "filename": "elem.6.wasm"}, 
+  {"type": "module", "line": 118, "filename": "elem.7.wasm"}, 
+  {"type": "module", "line": 315, "filename": "elem.8.wasm"}, 
+  {"type": "assert_return", "line": 326, "action": {"type": "invoke", "field": "call-overwritten", "args": []}, "expected": [{"type": "i32", "value": "66"}]}]}
