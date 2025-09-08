@@ -155,12 +155,20 @@ workspace = false
 env = { "CARGO_TARGET_TC162_HTC_NONE_RUNNER" = "tricore-probe -c 1" }
 command="cargo"
 args=["run","--example","demo","--features=board"]
-dependencies = ["check-tricore-probe","install-defmt-print"]
+dependencies = ["build-demo-code-wasm","check-tricore-probe","install-defmt-print"]
 
 [tasks.run-demo-tsim]
 workspace = false
 command="cargo"
 args=["run","--example","demo","--features=tsim"]
 dependencies = ["build-demo-code-wasm","env-linux-tsim","env-windows-tsim","install-defmt-print","install-rustfilt"]
+
+[tasks.build-demo-code-wasm]
+workspace = false
+cwd = "demo-code"
+toolchain = "stable"
+command = "cargo"
+args = ["build","--release"]
+
 
 
