@@ -312,7 +312,7 @@ impl<'a,'b> Translator<'a,'b> {
 
     /// Helper to handle block branch case
     fn handle_block_branch(&mut self, index: usize) {
-        let label_state = self.cfg_block_result_stack.get(index).map(|block_result| block_result.label_state).unwrap();
+        let label_state = self.cfg_block_result_stack.get(index).unwrap().label_state;
         let last_vb = self.save_vb_for_branch(label_state.1.is_some());
         
         self.resolve_block_result(label_state);
@@ -361,7 +361,7 @@ impl<'a,'b> Translator<'a,'b> {
 
     /// Helper to load a 32-bit pointer into an address register
     fn load_pointer_to_address_register(&mut self, ptr: u32, dest: AddressRegister) {
-        let ptr_upper = ((ptr + 0x8000) >> 16) as u16;
+        let ptr_upper = (ptr.wrapping_add(0x8000) >> 16) as u16; // From Aurix manual volume 2 1.7 Address arithmetic, solves sign extension for the lower offset
         let ptr_lower = ptr as u16;
         self.push_instruction(Instr::MOVHA { src: Const16::new(ptr_upper), dest });
         self.push_instruction(Instr::LEA { base: dest, offset: Const16::new(ptr_lower), dest });
@@ -389,7 +389,7 @@ impl<'a,'b> Translator<'a,'b> {
     /// Helper to handle function pointer loading for indirect calls
     fn load_function_pointer(&mut self, function_label: u32) {
         let fun_ptr_lower = function_label as u16;
-        let fun_ptr_upper = (function_label.wrapping_add(0x8000) >> 16) as u16;
+        let fun_ptr_upper = (function_label.wrapping_add(0x8000) >> 16) as u16; // From Aurix manual volume 2 1.7 Address arithmetic, solves sign extension for the lower offset
         self.push_instruction(Instr::MOVHA { src: Const16(fun_ptr_upper), dest: ADDRESS_ACCUMULATOR });
         self.push_instruction(Instr::LEA { base: ADDRESS_ACCUMULATOR, offset: Const16(fun_ptr_lower), dest: ADDRESS_ACCUMULATOR });
         self.push_instruction(Instr::CALLI { target: ADDRESS_ACCUMULATOR });

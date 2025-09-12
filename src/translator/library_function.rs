@@ -174,7 +174,7 @@ impl <'a,'b> Translator<'a,'b>{
             LibraryFunction::I64Ctz => WasmRuntime::i64_ctz as u32,
         };
         let fun_ptr_lower =  library_function_ptr as u16;
-        let fun_ptr_upper = (library_function_ptr.wrapping_add(0x8000) >> 16) as u16;
+        let fun_ptr_upper = (library_function_ptr.wrapping_add(0x8000) >> 16) as u16; // From Aurix manual volume 2 1.7 Address arithmetic, solves sign extension for the lower offset 
         self.push_instruction(Instr::MOVHA { src: Const16(fun_ptr_upper), dest: ADDRESS_ACCUMULATOR });
         self.push_instruction(Instr::LEA { base:ADDRESS_ACCUMULATOR,  offset: Const16(fun_ptr_lower), dest: ADDRESS_ACCUMULATOR });
         self.push_instruction(Instr::CALLI { target: ADDRESS_ACCUMULATOR });

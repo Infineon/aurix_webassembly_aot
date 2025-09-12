@@ -206,7 +206,7 @@ impl <'a,'b> Translator<'a,'b>{
     /// the method splits the offset into an upper and lower part. A machine instruction is emitted to add the upper part to the address base (if non-zero).
     /// A 16-bit lower offset with a new address base register are returned. The latter corresponds to the location of (initial base address + upper_offset<<16)
     fn split_offset(&mut self, offset: u32, base: AddressRegister) -> (u16, AddressRegister) {
-        // From Aurix manual volume 2 1.7 Adress arithmetic, solves sign extension for the lower offset 
+        // From Aurix manual volume 2 1.7 Address arithmetic, solves sign extension for the lower offset
         let upper_offset = (offset.wrapping_add(0x8000) >> 16) as u16;
         let lower_offset = offset as u16;
 

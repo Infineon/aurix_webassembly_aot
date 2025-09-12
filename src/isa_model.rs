@@ -200,7 +200,7 @@ fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_m
         None => *offset &= bitmask,
         Some(dynamic_offset) => {
             let mut dynamic_register = dynamic_offset.map_to_data_register(None, translator, scratch_variable_map, used_registers);
-            let higher_offset = (offset.wrapping_add(0x8000)>>16) as u16;
+            let higher_offset = (offset.wrapping_add(0x8000)>>16) as u16; // From Aurix manual volume 2 1.7 Address arithmetic, solves sign extension for the lower offset 
             let lower_offset = (*offset & 0xffff) as u16;
 
             let scratch_register = translator.next_available_data_register(scratch_variable_map, used_registers);
@@ -606,7 +606,7 @@ impl MapperLocation {
                     
                     let immediate_second = (immediate >> 32) as u32;
                     let immediate_second_lower: u16 = immediate_second as u16;
-                    let immediate_second_upper: u16 = (immediate_second.wrapping_add(0x8000) >> 16) as u16;
+                    let immediate_second_upper: u16 = (immediate_second.wrapping_add(0x8000) >> 16) as u16; // From Aurix manual volume 2 1.7 Address arithmetic, solves sign extension for the lower offset 
                     
                     translator.push_instruction(Instr::MOV { src: RegisterOrLargeConst::Const16(Const16::new(immediate_second_lower)), dest: Register::DataRegister(DataRegister(index + 1))});
                     if immediate_second_upper != 0 {
