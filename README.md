@@ -4,6 +4,7 @@
 
 - [Hightec Compiler for Aurix](https://hightec-rt.com/rust) min version 1.77.2-dev2
 - [cargo-make](https://crates.io/crates/cargo-make)
+- [wat2json included in WABT tools 1.36](https://github.com/WebAssembly/wabt/releases/tag/1.0.36) (Optional: Required if it is required to regenerate test cases from wast files store in wast_tests)
 
 
 ### Using instruction simulator
@@ -27,11 +28,21 @@
 
 1.77.2 Rust compiler and related rust-analyzer is not compatible with latest version of VSCode `rust-analyzer` extension. It is recommended to use version `0.3.2011`
 
-## How to run test cases
+## Tests
+
+Beside some unit tests most of test cases are generated from `*.wast` files of [w3c-1.0 core test](https://github.com/WebAssembly/spec/tree/w3c-1.0/test/core) (commit: f750d21dcc4903280b4db80ca81795968c5557f4) using `wast2json` . From json files are generated Rust integration test stored in `generated_tests`.
+
+For your convenience generated files are stored in the repository to simply the enviroment setup.
+
+In case you need to regenerate tests, `wast2json` tool proper version need to be available in the path.(see previous section for required tools.)
+
+`cargo-make` will take care to regenerate required files in case of any change in `.wast` files when `cargo make <test-tsim|test-board>` are invoked 
+
+Which test files are skipped and motivations are described [wast_tests/README.md](./wast_tests/README.md) and in *.wast file comments.
 
 
 
-## How to run regression tests
+### How to run regression tests
 Given the multitude of existing regression tests, it is recommended to run the tests on the instruction simulator rather than on physical hardware, especially if all or many tests are to be run. The regression tests do not test any performance and are used only to test the soundness of the implementation. Given that each test file/module is in a seperate binary, running all the tests involves flashing thousands of binaries to the memory.
 
 To run all the tests:
@@ -79,8 +90,6 @@ Below a list of major limitation and deviation from Webassembly standard
   * ....
 * No time protection. It is not possible to limit the execution time of a Webassembly function.
 * Denormal floating point are not supported. Denormal floating point are not supported by Aurix FPU
-* memory.grow is not supported
-* Only one memory page is supported for each runtime instance.
 * No module linking. 
   * Limited support for calling host function (only for demo purpose)
 

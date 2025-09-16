@@ -1,1 +1,0 @@
-This files are generated out of WASM Test suite using the tool `wast2json` contained in [wabt](https://github.com/WebAssembly/wabt) toolchain
