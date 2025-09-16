@@ -45,7 +45,7 @@ use alloc::boxed::Box;
 use wasmparser::{BlockType, BrTable, Ieee32, Ieee64, MemArg, ValType, VisitOperator};
 
 
-use crate::isa_model::{self, Const10, DataRegister, ExtendedRegister, RegisterOrSmallConst, ADDRESS_ACCUMULATOR, GLOBAL_BASE, STACK_BASE, STACK_POINTER};
+use crate::isa_model::{self, Immediate, Const10, DataRegister, ExtendedRegister, RegisterOrSmallConst, ADDRESS_ACCUMULATOR, GLOBAL_BASE, STACK_BASE, STACK_POINTER};
 use crate::parse_and_translate::WasmRuntime;
 use crate::vb::{Address, AtomicVB, BinaryVB, UnaryVB, VB};
 use crate::translator::{BlockLabel, BlockResult, Translator};
@@ -328,9 +328,9 @@ impl<'a,'b> Translator<'a,'b> {
 
     /// Helper to generate appropriate jump instruction based on label state
     fn generate_jump_instruction(&mut self, target: usize) {
-        match self.cfg_label_map[target] {
+        match self.cfg_label_map[target] { // If the label address is known, it's a backwards jump (a loop) so we use LOOPU
             None => self.push_instruction(Instr::J { target }),
-            Some(..) => self.push_instruction(Instr::LOOPU { target }), //TODO: is LOOPU really useful?
+            Some(..) => self.push_instruction(Instr::LOOPU { target }), // TODO: LOOPU just has a shorter jump offset than J, should we use that?
         }
     }
 
@@ -489,6 +489,24 @@ impl<'a,'b> Translator<'a,'b> {
             rhs: RegisterOrSmallConst::new_const(0) 
         });
     }
+
+    fn generate_br_table_jump(&mut self, index_register: DataRegister) {
+        // calculate the base of the jump table (it is directly after the JI instruction)
+        // +4 to account for the 4 instructions before the actual beginning of the jump table (MOVHA, LEA, ADDSCA, JI)
+        let jump_table_ptr = (self.wasm_runtime.instructions.as_ptr() as u32) + ((self.wasm_runtime.instructions_count as u32 + 4) << 2);
+
+        // inlined load_pointer_to_address_register here to ensure that the jump table pointer is calculated correctly if the function is modified
+        let ptr_upper = (jump_table_ptr.wrapping_add(0x8000) >> 16) as u16; // From Aurix manual volume 2 1.7 Address arithmetic, solves sign extension for the lower offset
+        let ptr_lower = jump_table_ptr as u16;
+        self.push_instruction(Instr::MOVHA { src: Const16::new(ptr_upper), dest: ADDRESS_ACCUMULATOR });
+        self.push_instruction(Instr::LEA { base: ADDRESS_ACCUMULATOR, offset: Const16::new(ptr_lower), dest: ADDRESS_ACCUMULATOR });
+
+        // add the offset to the base of the jump table
+        self.push_instruction(Instr::ADDSCA { lhs: ADDRESS_ACCUMULATOR, rhs: index_register, dest: ADDRESS_ACCUMULATOR, shift: Const4::new(2) });
+        // jump to the address in the address register
+        self.push_instruction(Instr::JI { src: ADDRESS_ACCUMULATOR });
+    }
+    
 
     /// Helper to handle local variable dependency resolution
     fn handle_local_dependency(&mut self, local_index: u32) {
@@ -767,31 +785,36 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         if self.check_dead_code() {
             return;
         }
-        // TODO: replace name offset by index (it's for the BrTable)
         // resolving all VBs prior to the last one (dynamic index) and pushing them to the stack
-        let offset_vb = self.vb_stack.pop().unwrap();
+        let index_vb = self.vb_stack.pop().unwrap();
         self.resolve_all();
-        self.vb_stack.push(offset_vb);
+        self.vb_stack.push(index_vb);
 
         // resolving the dynamic offset to a register 
-        let offset_register = self.resolve_to_data_register();
+        let index_register = self.resolve_to_data_register();
 
-        // for every index of the BrTable, emit a JNE instruction that will compare your target index
-        // TODO: this is not very efficient, but simpler. Could be improved by directly fetching the relative break index in a table in memory
-        // But you would need to allocate memory for that.
-        // TODO: given that each block that would could break from has the same type, (same as the default target), we know what needs to be resolved
-        // this would allow us to not do the resolving inside the loop, but before. It would also reduce code size.
-        targets.targets().enumerate().map(|(offset,target)| (Some(offset), target.unwrap()) ).chain(vec![(None,targets.default())].into_iter()).for_each(|(offset,target)| { 
-            offset.map(|offset| self.push_instruction(Instr::JNE { target: self.get_current_label_index(), lhs: offset_register, rhs: Const4(offset as u8) }));
-            let relative_index = target;
-            let index = self.calculate_branch_target_index(relative_index);
+        
+        let table_len_register = Immediate::Word(targets.targets().count() as u32).map_to_register_or_const(SignValue::Unsigned, self, &mut vec![], &mut vec![]);
+
+        // if the index is larger than the table size, set it to the table size (so that the default target is taken)
+        self.push_instruction(Instr::MINU { lhs: index_register, rhs: table_len_register, dest: index_register });
+
+        self.generate_br_table_jump(index_register);
+
+        let current_label_index = self.get_current_label_index();
+        for i in 0..targets.targets().count()+1 {
+            self.push_instruction(Instr::J { target: current_label_index + i });
+        }
+
+        for target in targets.targets().map(Result::unwrap).chain(core::iter::once(targets.default())) { // for every target + the default
+            self.add_current_position_label();
+            let index = self.calculate_branch_target_index(target);
             if index < 0 {
                 self.handle_function_return_branch();
             } else {
                 self.handle_block_branch(index as usize);
             };
-            self.add_current_position_label();
-        });
+        }
 
         self.set_dead_code_and_truncate_vb_stack();
 
