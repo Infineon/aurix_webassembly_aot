@@ -1,9 +1,9 @@
 ## Variables
-All are attributes of struct Translator
+All are fields of struct Translator
 ### `cfg_label_stack`: 
 - A stack of all control flow blocks (`block`, `if`, `loop`)
-- Each element will be popped once you exit it.
-- The labels are a number that identifies each control flow element in a module
+- Each element will be popped once you exit the block.
+- The labels are numbers that identify each block, in the order they were created (0, 1, 2, ...)
 - Either `Block` (includes loop) or `If`
 - The `If` variant has a label for the end like the other and a label for the else 
 ### `cfg_block_result_stack`: 
