@@ -1,0 +1,2 @@
+/generated_tests/* -text
+/wasm_json_from_wast/*.json -text

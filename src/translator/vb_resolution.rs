@@ -497,20 +497,28 @@ macro_rules! gen_i32_rotate_op {
 /// ## Logic:
 /// For immediate optimization: All operations use `(immediate + 1)` transformation
 /// For register case: Operands are swapped if $reverse_operands is true
-// TODO: What happens when the immediate + 1 overflows
 macro_rules! gen_i32_comparison_with_imm_opt {
-    ($name:ident, $reverse_operands:expr, $imm_instr:ident, $reg_instr:ident, $imm_inc:expr) => {
+    ($name:ident, $imm_instr:ident, $imm_inc:expr, $rev_imm_instr:ident, $rev_imm_inc:expr, $reverse_operands:expr, $reg_instr:ident) => {
+
         fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
             // Auto-derive sign handling from instruction type
-            let sign = if stringify!($reg_instr).ends_with('U') { 
+            let name = stringify!($name);
+            let sign = if name.ends_with('u') {
                 SignValue::Unsigned
-            } else { 
+            } else if name.ends_with('s') { 
                 SignValue::Signed
+            } else {
+                panic!("Instruction name must end with 'u' or 's' to indicate sign handling");
             };
             
             // Try immediate optimization on right side first (lhs OP rhs_imm)
+            'outer_rhs: {
             if let MapperLocation::Immediate(imm) = rhs {
-                let adjusted_imm = Immediate::Word((imm.as_u32() + $imm_inc) as u32);
+                let (adjusted_imm, overflowed) = imm.as_u32().overflowing_add($imm_inc); // it might fit even if it overflows, so we need to check
+                if overflowed {
+                    break 'outer_rhs; // adjusted value can't be used if it overflowed
+                }
+                let adjusted_imm = Immediate::Word(adjusted_imm as u32);
                 if adjusted_imm.fits_as_comparison_immediate(sign) {
                     let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
                     let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
@@ -518,19 +526,26 @@ macro_rules! gen_i32_comparison_with_imm_opt {
                     return dest_register.map_to_location(potential_target, self, scratch_variable_map);
                 }
             }
+            } // end outer_rhs
             
+
             // Try immediate optimization on left side (lhs_imm OP rhs)
-            // TODO: This seems wrong but it looks like it isn't tested.
+            'outer_lhs: {
             if let MapperLocation::Immediate(imm) = lhs {
-                let adjusted_imm = Immediate::Word((imm.as_u32() + $imm_inc) as u32);
+                let (adjusted_imm, overflowed) = imm.as_u32().overflowing_add($rev_imm_inc); // it might fit even if it overflows, so we need to check
+                if overflowed {
+                    break 'outer_lhs; // adjusted value can't be used if it overflowed
+                }
+                let adjusted_imm = Immediate::Word(adjusted_imm as u32);
                 if adjusted_imm.fits_as_comparison_immediate(sign) {
                     let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
                     let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    self.push_instruction(Instr::$imm_instr { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register });
+                    self.push_instruction(Instr::$rev_imm_instr { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register });
                     return dest_register.map_to_location(potential_target, self, scratch_variable_map);
                 }
             }
-            
+            } // end outer_lhs
+
             // Register-register case: apply operand swapping based on semantic intent
             if $reverse_operands {
                 // Swap operands (rhs OP lhs)
@@ -1175,14 +1190,14 @@ impl<'a,'b> Translator<'a,'b> {
     gen_i64_eq_style_op!(gen_i64_ne, ne);
 
     // Generate i32 comparison operations using unified macro with boolean reverse flag
-    gen_i32_comparison_with_imm_opt!(gen_i32_gtu, true, GEU, LTU, 1);
-    gen_i32_comparison_with_imm_opt!(gen_i32_gts, true, GE, LT, 1);
-    gen_i32_comparison_with_imm_opt!(gen_i32_leu, true, LTU, GEU, 1);
-    gen_i32_comparison_with_imm_opt!(gen_i32_les, true, LT, GE, 1);
-    gen_i32_comparison_with_imm_opt!(gen_i32_geu, false, GEU, GEU, 0);
-    gen_i32_comparison_with_imm_opt!(gen_i32_ges, false, GE, GE, 0);
-    gen_i32_comparison_with_imm_opt!(gen_i32_ltu, false, LTU, LTU, 0);
-    gen_i32_comparison_with_imm_opt!(gen_i32_lts, false, LT, LT, 0);
+    gen_i32_comparison_with_imm_opt!(gen_i32_gtu, GEU, 1, LTU, 0, true, LTU);
+    gen_i32_comparison_with_imm_opt!(gen_i32_gts, GE, 1, LT, 0, true, LT);
+    gen_i32_comparison_with_imm_opt!(gen_i32_leu, LTU, 1, GEU, 0, true, GEU);
+    gen_i32_comparison_with_imm_opt!(gen_i32_les, LT, 1, GE, 0, true, GE);
+    gen_i32_comparison_with_imm_opt!(gen_i32_geu, GEU, 0, LTU, 1, false, GEU);
+    gen_i32_comparison_with_imm_opt!(gen_i32_ges, GE, 0, LT, 1, false, GE);
+    gen_i32_comparison_with_imm_opt!(gen_i32_ltu, LTU, 0, GEU, 1, false, LTU);
+    gen_i32_comparison_with_imm_opt!(gen_i32_lts, LT, 0, GE, 1, false, LT);
 
     // Generate 64-bit comparison operations using specialized macros
     gen_i64_comparison_op!(gen_i64_lts, ANDLTU, false, ORLT, false);

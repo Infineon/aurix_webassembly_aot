@@ -326,6 +326,11 @@ path = "generated_tests/break-drop_0.rs"
 harness = false
 
 [[test]]
+name = "break_as_return_0"
+path = "generated_tests/break_as_return_0.rs"
+harness = false
+
+[[test]]
 name = "call_0"
 path = "generated_tests/call_0.rs"
 harness = false
@@ -3298,6 +3303,16 @@ harness = false
 [[test]]
 name = "i32_0_1"
 path = "generated_tests/i32_0_1.rs"
+harness = false
+
+[[test]]
+name = "i32_register_const_comp_0"
+path = "generated_tests/i32_register_const_comp_0.rs"
+harness = false
+
+[[test]]
+name = "i32_register_const_comp_0_1"
+path = "generated_tests/i32_register_const_comp_0_1.rs"
 harness = false
 
 [[test]]
