@@ -237,7 +237,7 @@ impl<'a> WasmRuntime<'a> {
 
                         let val = ConstantExpressionEval::eval_const_expr(global.init_expr);
 
-                        if self.global_space.len() < offset + val_size.as_bytes() as usize {
+                        if self.global_space.len() < offset + val_size.as_bytes() {
                             panic!("Global space overflow");
                         }
                         let byte_vector = match val_size {
@@ -245,12 +245,12 @@ impl<'a> WasmRuntime<'a> {
                             ValueSize::DoubleWord => val.as_u64().to_le_bytes().to_vec(),
                         };
 
-                        self.global_space[offset..offset + val_size.as_bytes() as usize]
+                        self.global_space[offset..offset + val_size.as_bytes()]
                             .copy_from_slice(byte_vector.as_slice());
                         global_translator
                             .globals_map
                             .push((offset as u32, val_size));
-                        offset += val_size.as_bytes() as usize;
+                        offset += val_size.as_bytes();
                     }
                 }
 

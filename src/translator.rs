@@ -18,18 +18,87 @@ use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
 use wasmparser::LocalsReader;
+use core::ops::{Deref, Add};
+use defmt::Format;
+
 
 const MAX_LOCAL_REGISTERS: u8 = 8;
 const MAX_ALL_REGISTERS: u8 = 16;
 
-pub enum BlockLabel {
-    Block(usize),
-    If { else_label: usize, end_label: usize },
+/// Wrapper for label identifiers used in control flow constructs. Values are unique and monotonically increasing.
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, Format, PartialEq)]
+pub struct LabelID (usize);
+
+impl Deref for LabelID {
+    type Target = usize;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
+impl From<usize> for LabelID {
+    fn from(value: usize) -> Self {
+        LabelID(value)
+    }
+}
+
+impl Add<usize> for LabelID {
+    type Output = LabelID;
+    fn add(self, rhs: usize) -> Self::Output {
+        LabelID(self.0 + rhs)
+    }
+}
+
+pub enum BlockLabel {
+    BlockLoop(LabelID),
+    If { else_label: LabelID, end_label: LabelID },
+}
+
+/// Wrapper for stack height values used in control flow constructs. Values are in bytes.
+#[repr(transparent)]
+#[derive(Debug, Format, Copy, PartialEq, Clone)]
+pub struct StackHeight(usize);
+
+impl Deref for StackHeight {
+    type Target = usize;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<usize> for StackHeight {
+    fn from(value: usize) -> Self {
+        StackHeight(value)
+    }
+}
+
+impl Add<usize> for StackHeight {
+    type Output = StackHeight;
+    fn add(self, rhs: usize) -> Self::Output {
+        StackHeight(self.0 + rhs)
+    }
+}
+
+/// Represents the state of the wasm stack after exiting a control flow block.
+/// The first element is the height of the stack in bytes before entering the block.
+/// The second element is the size of the result value of the block, if any.
+/// The stack state after exiting the block is the same as before entering the block plus the result value at the top, if any
+#[derive(Debug, Clone, Copy)]
+pub struct StackState (StackHeight, Option<ValueSize>);
+
+/// Represents a control flow label, which can be a block, a loop or an if-else-end structure. Each label has a unique identifier.
+/// For Block and Loop, there is a single label ID representing the end of the block or the beginning of the loop.
+/// For If, there are two label IDs: one for the else branch and one for the end branch.
+
+
+/// Represents the result of a control flow block.
+/// Includes the stack state when reaching the end of the block naturally and when branching to the block's label position (e.g. with a break instruction).
+/// The two states are usually the same, except for loops where the label state has no result value.
+/// That is because breaking to a loop label means jumping to the beginning of the loop, not the end unlike with blocks and ifs.
 pub struct BlockResult {
-    pub end_state: (usize, Option<ValueSize>), // Stack state when reaching the end of the block naturally
-    pub label_state: (usize, Option<ValueSize>), // Stack state when branching to this block's label position, only different for loops
+    pub end_state: StackState, // Stack state when reaching the end of the block naturally
+    pub label_state: StackState, // Stack state when branching to this block's label position, only different for loops
 }
 
 pub struct Translator<'a, 'b> {
@@ -48,7 +117,8 @@ pub struct Translator<'a, 'b> {
 }
 
 impl<'a, 'b> Translator<'a, 'b> {
-    /// Creates a new Translator instance. Translating a WebAssembly function requires a Translator instance. This function generates the machine code of the prologue for the function as well.
+    /// Creates a new Translator instance. Translating a WebAssembly function requires a Translator instance. 
+    /// This function generates the machine code of the prologue for the function as well.
     ///
     /// # Arguments
     ///
@@ -277,7 +347,7 @@ impl<'a, 'b> Translator<'a, 'b> {
         }
     }
 
-    /// translates a machine instruction to binary format and adds it to the instruction array.
+    /// Translates a machine instruction to binary format and adds it to the instruction array.
     /// Control flow instructions (Jumps and function calls) are marked for later processing, given that the target address is not known at this point.  
     pub fn push_instruction(&mut self, instr: Instr) {
         match instr {

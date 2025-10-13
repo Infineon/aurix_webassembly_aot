@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 use alloc::{boxed::Box,vec::Vec};
 use defmt::Format;
-use crate::isa_model::{MapperLocation, ValueSize};
+use crate::{isa_model::{MapperLocation, ValueSize}, translator::StackHeight};
 
 pub type Address = u32;
 
@@ -13,7 +13,7 @@ pub enum AtomicVB{
     F64Const {imm: u64},
     Local {index:u32},
     Global {index:u32},
-    Resolved {size:ValueSize, offset: usize},
+    Resolved {size:ValueSize, offset: StackHeight},
     MemorySize,
     Unreachable
 }
@@ -448,7 +448,7 @@ impl VB{
     }
 
     /// Returns the offset of the highest value on the runtime stack that the VB depends on. This function is useful e.g. to determine where the stack pointer should be placed for stack unwinding 
-    pub fn get_runtime_stack_offset(&self) -> Option<usize>{
+    pub fn get_runtime_stack_offset(&self) -> Option<StackHeight>{
         match self {
             VB::AtomicVB(AtomicVB::Resolved {offset, ..}) => Some(*offset),
             VB::AtomicVB(..) => None,

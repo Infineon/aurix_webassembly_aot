@@ -822,7 +822,7 @@ pub enum ValueSize {
 }
 
 impl ValueSize {
-    pub fn as_bytes(&self) -> u8 {
+    pub fn as_bytes(&self) -> usize {
         match self {
             ValueSize::Word => 4,
             ValueSize::DoubleWord => 8

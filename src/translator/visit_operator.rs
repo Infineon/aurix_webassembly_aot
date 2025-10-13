@@ -41,6 +41,7 @@
 //!
 /// This module contains methods that match each wasm instruction to the expected behavior. 
 use alloc::vec;
+use alloc::vec::Vec;
 use alloc::boxed::Box;
 use wasmparser::{BlockType, BrTable, Ieee32, Ieee64, MemArg, ValType, VisitOperator};
 
@@ -48,7 +49,7 @@ use wasmparser::{BlockType, BrTable, Ieee32, Ieee64, MemArg, ValType, VisitOpera
 use crate::isa_model::{self, Immediate, Const10, DataRegister, ExtendedRegister, RegisterOrSmallConst, ADDRESS_ACCUMULATOR, GLOBAL_BASE, STACK_BASE, STACK_POINTER};
 use crate::parse_and_translate::WasmRuntime;
 use crate::vb::{Address, AtomicVB, BinaryVB, UnaryVB, VB};
-use crate::translator::{BlockLabel, BlockResult, Translator};
+use crate::translator::{LabelID, StackHeight, StackState, BlockLabel, BlockResult, Translator};
 
 use crate::isa_model::{Const4, Const16, AddressRegister, TABLE_BASE, machine_instructions::Instr, Register, ValueSize, Memsize, SignValue, MapperLocation};
 
@@ -138,12 +139,12 @@ impl<'a,'b> Translator<'a,'b> {
         // For loops: label_state points to loop start (no result), end_state to loop end (with result)
         let block_result = BlockResult {
             // When block ends naturally: stack = original position + result size
-            end_state: (runtime_stack_offset + blockty_value_byte_size as usize, blockty_value_size),
+            end_state: StackState(runtime_stack_offset + blockty_value_byte_size, blockty_value_size),
             label_state: match block_style {
                 // Regular block: branch target same as block end
-                BlockStyle::Block => (runtime_stack_offset + blockty_value_byte_size as usize, blockty_value_size),
+                BlockStyle::Block => StackState(runtime_stack_offset + blockty_value_byte_size, blockty_value_size),
                 // Loop: branch target is loop start (no accumulated result)
-                BlockStyle::Loop => (runtime_stack_offset, None),
+                BlockStyle::Loop => StackState(runtime_stack_offset, None),
             }
         };
 
@@ -159,7 +160,7 @@ impl<'a,'b> Translator<'a,'b> {
         // - Forward jumps (blocks): target unknown, use placeholder until block end
         
         // Get next available label index and push to label stack
-        self.cfg_label_stack.push(BlockLabel::Block(self.get_current_label_index()));
+        self.cfg_label_stack.push(BlockLabel::BlockLoop(self.get_current_label_index()));
 
         // Set label address based on block style
         match block_style {
@@ -184,8 +185,8 @@ impl<'a,'b> Translator<'a,'b> {
     /// Example: Block with i32 result, original stack offset 16, current offset 24
     /// - Result is in some scratch register
     /// - Need to write result to stack\[16\] and set SP to point to stack\[20\]
-    fn resolve_block_result(&mut self, target : (usize, Option<ValueSize>) ) {
-        let (offset, size) = target;
+    fn resolve_block_result(&mut self, target : StackState ) {
+        let StackState(offset, size) = target;
         
         // If block has a result, resolve it to a register first
         let result_register = self.resolve_to_register(size);
@@ -195,13 +196,13 @@ impl<'a,'b> Translator<'a,'b> {
 
         match size {
             // No result: just restore stack pointer if it changed
-            None if current_stack_offset != offset => {
-                self.push_instruction(Instr::LEA { base: STACK_BASE, offset: Const16(-(offset as i16) as u16), dest: STACK_POINTER });
+            None if *current_stack_offset != *offset => {
+                self.push_instruction(Instr::LEA { base: STACK_BASE, offset: Const16(-(*offset as i16) as u16), dest: STACK_POINTER });
             },
             // Has result: store result on the stack and adjust stack pointer
             Some(_) => match result_register {
-                Some(Register::DataRegister(result_register)) => self.push_instruction(Instr::STWPI{ base: STACK_POINTER, offset: Const10(-(offset as i16)+ (current_stack_offset as i16)), src: result_register }),
-                Some(Register::ExtendedRegister(result_register)) => self.push_instruction(Instr::STDPI{ base: STACK_POINTER, offset: Const10(-(offset as i16) + (current_stack_offset as i16)), src: result_register }),
+                Some(Register::DataRegister(result_register)) => self.push_instruction(Instr::STWPI{ base: STACK_POINTER, offset: Const10(-(*offset as i16)+ (*current_stack_offset as i16)), src: result_register }),
+                Some(Register::ExtendedRegister(result_register)) => self.push_instruction(Instr::STDPI{ base: STACK_POINTER, offset: Const10(-(*offset as i16) + (*current_stack_offset as i16)), src: result_register }),
                 None => panic!("Expected result register")
             },
             _ => ()
@@ -319,7 +320,7 @@ impl<'a,'b> Translator<'a,'b> {
         self.restore_vb_after_branch(last_vb);
 
         let target = match self.cfg_label_stack[index] {
-            BlockLabel::Block(index) => index,
+            BlockLabel::BlockLoop(index) => index,
             BlockLabel::If { else_label: _, end_label } => end_label,
         };
 
@@ -327,8 +328,8 @@ impl<'a,'b> Translator<'a,'b> {
     }
 
     /// Helper to generate appropriate jump instruction based on label state
-    fn generate_jump_instruction(&mut self, target: usize) {
-        match self.cfg_label_map[target] { // If the label address is known, it's a backwards jump (a loop) so we use LOOPU
+    fn generate_jump_instruction(&mut self, target: LabelID) {
+        match self.cfg_label_map[*target] { // If the label address is known, it's a backwards jump (a loop) so we use LOOPU
             None => self.push_instruction(Instr::J { target }),
             Some(..) => self.push_instruction(Instr::LOOPU { target }), // TODO: LOOPU just has a shorter jump offset than J, should we use that?
         }
@@ -350,7 +351,7 @@ impl<'a,'b> Translator<'a,'b> {
     fn handle_function_call_result(&mut self, function_type: &wasmparser::FuncType) {
         function_type.results().get(0).map(|ty|{
             let runtime_stack_offset = self.get_runtime_stack_offset_from_last_vb();
-            self.vb_stack.push(VB::AtomicVB(AtomicVB::Resolved{size: val_type_size(ty), offset: runtime_stack_offset + val_type_size(ty).as_bytes() as usize})); 
+            self.vb_stack.push(VB::AtomicVB(AtomicVB::Resolved{size: val_type_size(ty), offset: runtime_stack_offset + val_type_size(ty).as_bytes()})); 
         
             match val_type_size(ty){
                 ValueSize::Word => self.push_instruction(Instr::STWPI { base: STACK_POINTER, offset: Const10(-4), src: DataRegister(0) }),
@@ -376,7 +377,7 @@ impl<'a,'b> Translator<'a,'b> {
     fn update_label_addresses(&mut self, block_label: BlockLabel) {
         let label_indices = match block_label {
             // index is the index of the label in cfg_label_map
-            BlockLabel::Block(index) => vec![index],
+            BlockLabel::BlockLoop(index) => vec![index],
             //encountered in case of an if construct without an else
             BlockLabel::If { else_label, end_label } => vec![else_label, end_label],
         };
@@ -400,8 +401,8 @@ impl<'a,'b> Translator<'a,'b> {
     // ================================================================================
 
     /// Helper to get current runtime stack offset
-    fn get_current_stack_offset(&self) -> usize {
-        let mut stack_offset = 0;
+    fn get_current_stack_offset(&self) -> StackHeight {
+        let mut stack_offset = 0.into();
         for vb in self.vb_stack.iter().rev() {
             let offset = vb.get_runtime_stack_offset();
             if offset.is_some() {
@@ -413,10 +414,10 @@ impl<'a,'b> Translator<'a,'b> {
     }
 
     /// Helper to get runtime stack offset from last VB on stack
-    fn get_runtime_stack_offset_from_last_vb(&self) -> usize {
+    fn get_runtime_stack_offset_from_last_vb(&self) -> StackHeight {
         match self.vb_stack.last() {
             Some(VB::AtomicVB(AtomicVB::Resolved { offset, .. })) => *offset,
-            _ => 0,
+            _ => 0.into(),
         }
     }
 
@@ -534,12 +535,13 @@ impl<'a,'b> Translator<'a,'b> {
     }
     
     /// Get the current length of the cfg_label_map (used for generating new label indices)
-    fn get_current_label_index(&self) -> usize {
-        self.cfg_label_map.len()
+    fn get_current_label_index(&self) -> LabelID {
+        LabelID (self.cfg_label_map.len() )
     }
     
     /// Update a label at the given index with the current instruction position
-    fn update_label_to_current_position(&mut self, index: usize) {
+    fn update_label_to_current_position(&mut self, index: LabelID) {
+        let index = *index;
         if self.cfg_label_map[index].is_some() {
             return; // Label already set, no need to update. This is a backward jump.
         }
@@ -570,7 +572,7 @@ impl<'a,'b> Translator<'a,'b> {
     }
 
 }
-use alloc::vec::Vec;
+
 #[allow(unused_variables)]
 impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
     
@@ -632,7 +634,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         // (created within enter_block)
         self.cfg_label_stack.last_mut().map(|label|{
             let end_label = match label {
-                BlockLabel::Block(index) => index,
+                BlockLabel::BlockLoop(index) => index,
                 _ => panic!("Expected block label")
             };
             *label = BlockLabel::If { else_label, end_label: *end_label };
@@ -680,7 +682,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
 
         // start of the else branch: replace the if label (that was already popped) with a block label
         // else label is irrelevant at this point and the rest can be treated like a block instruction.
-        self.cfg_label_stack.push(BlockLabel::Block(end_label));
+        self.cfg_label_stack.push(BlockLabel::BlockLoop(end_label));
     }
 
     // end instruction matches the end of if/else, block, and loop constructs as well as the end of a function
@@ -723,7 +725,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         // result of a block is returned on the runtime stack
         // and on a virtual level is on top of the operand stack now
         // a VB is pushed on top of the VB stack to update it with the location of new value.
-        end_state.map(|(offset,size)| {
+        end_state.map(|StackState(offset,size)| {
             size.map(|size| {
                 self.add_atomic_vb(AtomicVB::Resolved{size, offset});
             });
@@ -745,7 +747,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
             self.resolve_block_result(label_state);
 
             let target = match self.cfg_label_stack[index as usize] {
-                BlockLabel::Block(index) => index,
+                BlockLabel::BlockLoop(index) => index,
                 BlockLabel::If { else_label: _, end_label } => end_label,
             };
     

@@ -498,9 +498,11 @@ macro_rules! gen_i32_rotate_op {
 /// - **Immediate side detection**: Automatically tries both lhs and rhs for immediate optimization
 /// 
 /// ## Logic:
+/// For register case: Only LT and GE exist in Tricore, so you have to swap operands for GT and LE. eg: x GT y <=> y LT x
 /// For immediate optimization: immediate has to be rhs in Tricore, so you can't swap operands like in register case.
 /// Instead, you have to adjust the immediate value (add +1 or 0) eg: x GT c <=> x GE (c+1)
-/// For register case: Operands are swapped if $reverse_operands is true
+/// The immediate can be at most 9 bits, so if c or c+1 is out of range, we store it in a register and fall back on the register case
+
 macro_rules! gen_i32_comparison_with_imm_opt {
     ($name:ident, $imm_instr:ident, $imm_inc:expr, $rev_imm_instr:ident, $rev_imm_inc:expr, $reverse_operands:expr, $reg_instr:ident) => {
 
@@ -601,7 +603,7 @@ impl<'a,'b> Translator<'a,'b> {
             match vb {
                 VB::AtomicVB(AtomicVB::Resolved { offset, .. }) => {
                     // Already resolved - just update our stack offset tracking
-                    stack_offset = offset;
+                    stack_offset = *offset;
                 },
                 _ => {
                     // Handle NaN canonicalization for floating-point operations
@@ -619,8 +621,8 @@ impl<'a,'b> Translator<'a,'b> {
                     });
                     
                     // Update stack offset and mark as resolved
-                    stack_offset += size.as_bytes() as usize;
-                    self.vb_stack[index] = VB::AtomicVB(AtomicVB::Resolved { size, offset: stack_offset })
+                    stack_offset += size.as_bytes();
+                    self.vb_stack[index] = VB::AtomicVB(AtomicVB::Resolved { size, offset: stack_offset.into() })
                 }
             }
         }
@@ -958,9 +960,9 @@ impl<'a,'b> Translator<'a,'b> {
             ValueSize::DoubleWord => { // TODO: refactor to use SELN for 64-bit
                 let dest_register = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
                 let selector_register = selector.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone(), rhs.clone()]);
-                self.push_instruction(Instr::JEQ { target: self.cfg_label_map.len(), lhs: selector_register, rhs: RegisterOrSmallConst::new_const(0) });
+                self.push_instruction(Instr::JEQ { target: self.cfg_label_map.len().into(), lhs: selector_register, rhs: RegisterOrSmallConst::new_const(0) });
                 lhs.map_to_extended_register(Some(dest_register), self, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::J { target: self.cfg_label_map.len() + 1 });
+                self.push_instruction(Instr::J { target: (self.cfg_label_map.len() + 1).into() });
                 self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));
                 rhs.map_to_extended_register(Some(dest_register), self, scratch_variable_map, &vec![]);
                 self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));
@@ -1018,18 +1020,18 @@ impl<'a,'b> Translator<'a,'b> {
         let cmp_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::DataRegister(lhs_register), MapperLocation::DataRegister(rhs_register)]);
         let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
         self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: cmp_register });
-        self.push_instruction(Instr::JZT { src: cmp_register, n: 3, target: self.cfg_label_map.len() });
+        self.push_instruction(Instr::JZT { src: cmp_register, n: 3, target: self.cfg_label_map.len().into() });
         self.push_instruction(Instr::MOVH { src: Const16(0x7FC0), dest: dest_register });
-        self.push_instruction(Instr::J { target: self.cfg_label_map.len() + 3 });
+        self.push_instruction(Instr::J { target: (self.cfg_label_map.len() + 3).into() });
         self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));
-        self.push_instruction(Instr::JZT { src: cmp_register, n: 2, target: self.cfg_label_map.len() });
+        self.push_instruction(Instr::JZT { src: cmp_register, n: 2, target: self.cfg_label_map.len().into() });
         rhs_register.map_to_location(Some(&MapperLocation::DataRegister(dest_register)), self, scratch_variable_map);
-        self.push_instruction(Instr::J { target: self.cfg_label_map.len() + 2 });
+        self.push_instruction(Instr::J { target: (self.cfg_label_map.len() + 2).into() });
         self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));
-        self.push_instruction(Instr::JZT { src: cmp_register, n: 1, target: self.cfg_label_map.len() });
-        self.push_instruction(Instr::JEQ { target: self.cfg_label_map.len(), lhs: lhs_register, rhs: RegisterOrSmallConst::DataRegister(rhs_register) });
+        self.push_instruction(Instr::JZT { src: cmp_register, n: 1, target: self.cfg_label_map.len().into() });
+        self.push_instruction(Instr::JEQ { target: self.cfg_label_map.len().into(), lhs: lhs_register, rhs: RegisterOrSmallConst::DataRegister(rhs_register) });
         self.push_instruction(Instr::MOVH { src: Const16(0), dest: dest_register });
-        self.push_instruction(Instr::J { target: self.cfg_label_map.len() + 1 });
+        self.push_instruction(Instr::J { target: (self.cfg_label_map.len() + 1).into() });
         self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));
         lhs_register.map_to_location(Some(&MapperLocation::DataRegister(dest_register)), self, scratch_variable_map);
         self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));

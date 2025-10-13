@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 use defmt::Format;
-use crate::isa_model::{AddressRegister, Const10, Const16, Const18, Const4, Const9, DataRegister, ExtendedRegister, Register, RegisterOrConst, RegisterOrLargeConst, RegisterOrSmallConst};
+use crate::{isa_model::{AddressRegister, Const10, Const16, Const18, Const4, Const9, DataRegister, ExtendedRegister, Register, RegisterOrConst, RegisterOrLargeConst, RegisterOrSmallConst}, translator::LabelID};
 
 #[derive(Debug, Clone, Format)]
 pub enum Instr{
@@ -89,15 +89,15 @@ pub enum Instr{
     SELN {selector:DataRegister, lhs:DataRegister, rhs:RegisterOrConst, dest:DataRegister},
     RSUB { lhs : Const9, rhs: DataRegister, dest: DataRegister},
     RSUB0 { src: DataRegister},
-    J {target: usize},
-    JEQ {target: usize, lhs: DataRegister, rhs: RegisterOrSmallConst },
-    JNE {target: usize, lhs: DataRegister, rhs: Const4 },
+    J {target: LabelID},
+    JEQ {target: LabelID, lhs: DataRegister, rhs: RegisterOrSmallConst },
+    JNE {target: LabelID, lhs: DataRegister, rhs: Const4 },
     JI {src: AddressRegister},
     ADDSCA{lhs: AddressRegister, rhs: DataRegister, dest: AddressRegister, shift: Const4},
     EXTRU{src: DataRegister, width_pos: ExtendedRegister, dest: DataRegister},
     EXTRUI{src: DataRegister, width: Const9, pos: Const9, dest: DataRegister},
-    JZT {src: DataRegister, n: u8, target: usize},
-    LOOPU {target: usize},
+    JZT {src: DataRegister, n: u8, target: LabelID},
+    LOOPU {target: LabelID},
     MOVAA {src: AddressRegister, dest: AddressRegister},
     MINU {lhs: DataRegister, rhs: RegisterOrConst, dest: DataRegister},
 }

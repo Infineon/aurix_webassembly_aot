@@ -1,17 +1,50 @@
+## Structs
+### LabelID
+- A unique identifier for each control flow block
+- Just a number that increments for each new block (0, 1, 2, ...)
+- Transparent wrapper around usize
+- Used to identify BlockLabel's that are stored in cfg_label_stack
+
+### BlockLabel
+- Represents a control flow label, which can be for a block, a loop or an if-else-end structure. Each label has a unique identifier.
+- The label will then be used to identify the target of a break instruction (br, br_if, br_table)
+- For Block and Loop, there is a single label ID representing the end of the block or the beginning of the loop.
+- For If, there are two label IDs: one for the else branch and one for the end branch.
+- Used in cfg_label_stack to keep track of nested blocks
+
+### StackHeight
+- The height of the wasm stack at a given point
+- Transparent wrapper around usize
+- Used in StackState
+
+### Stackstate
+- Represents the state of the wasm stack after exiting a control flow block
+- The first element is the height of the stack in bytes before entering the block.
+- The second element is the size of the result value of the block, if any.
+- The stack state after exiting the block is the same as before entering the block plus the result value at the top, if any.
+- Used in BlockResult
+
+### BlockResult
+- Represents the result of a control flow block
+- Includes the stack state when reaching the end of the block naturally and when branching to the block's label position (e.g. with a break instruction)
+- The two states are usually the same, except for loops where the label state has no result value.
+- That is because breaking to a loop label means jumping to the beginning of the loop, not the end unlike with blocks and ifs.
+- Used in cfg_block_result_stack
+
 ## Variables
 All are fields of struct Translator
 ### `cfg_label_stack`: 
 - A stack of all control flow blocks (`block`, `if`, `loop`)
 - Each element will be popped once you exit the block.
 - The labels are numbers that identify each block, in the order they were created (0, 1, 2, ...)
-- Either `Block` (includes loop) or `If`
+- Either `BlockLoop` or `If`
 - The `If` variant has a label for the end like the other and a label for the else 
 ### `cfg_block_result_stack`: 
-- Each control flow block has its type (annotated in wasm)
-- It is converted to a number of bytes for Tricore. 
-- wasm stack after block = wasm stack before + result on top
+- Each control flow block has its type (i32, i64, f32, f64 or empty) 
+- The type is converted to a number of bytes for Tricore (empty = None, i32/f32 = Some(4), i64/f64 = Some(8))
+- wasm stack after block = wasm stack before block + result on top
 - In wasm 1.0, no value is consumed and there is at most 1 result value.
-- A (wasm stack) state is (stack size after block, Option\<block result size in bytes\>)
+- A (wasm stack) state is (stack height after block, Option\<block result size in bytes\>)
 - Each `block_result` stores two state:
     - `end_state`: stack state after you arrive at block end.
     - `label_state`: stack state after you `break` to label, same as `end_state` for normal blocks, but no result for a `loop`
@@ -30,7 +63,7 @@ All are fields of struct Translator
 - If you enter a block that is dead code, all nested blocks are also dead code
 - Some instructions like `br` will set the dead code flag for the current block
 - When exiting a block, we pop the flag from the stack
-- If code is dead, no Tricore code will be generated until we exit the block
+- If code is dead, no Tricore code will be generated until exiting the block
 
 ### `vb_stack_ptr_stack` 
 - Points to the top of the VB stack at the beginning of each cfg block to allow reset
@@ -38,8 +71,8 @@ All are fields of struct Translator
 ## Entering a block
 - Check if the block is dead code (if you were already in a dead code area before). If so, no code will be generated until we exit the block.
 - Get the size of the block result from the blocktype (given by wasmparser).
-- If it has a result you need to resolve all the VBs so that once the block is finished you can safely put the result on the stack.
-- Compute the block result (depends on if it's a `loop` or not)
+- If the block has a result you need to resolve all the VBs so that once the block is finished you can safely put the result on the stack.
+- Compute the block result (depends on if the block is a `loop` or not)
 - Put the block result on the block result stack
 
 ### Label Management
@@ -50,22 +83,19 @@ All are fields of struct Translator
 
 
 ## Entering an `if/else`
-Enter the `if` block like a normal block, but skip it with a `JEQ` if the condition is false.
-Replace the normal block label by an `If` block label so that it includes the else and end label.
-
-The `else_label` will be `end_label` + 1
-You also need to add a placeholder for the `else_label` in `cfg_label_map`
-
-Then once you reach the `else` you replace the `If` block label by a normal block label with only the end label 
-
-Then there are some things with the deadcode flags, because you need one for inside the if block and one for outside that will also include the else block
+- Enter the `if` block like a normal block, but skip it with a `JEQ` if the condition is false.
+- Replace the normal block label by an `If` block label so that it includes the else and end label.
+- The `else_label` will be `end_label` + 1
+- You also need to add a placeholder for the `else_label` in `cfg_label_map`
+- Then once you reach the `else` you replace the `If` block label by a normal block label with only the end label 
+- There are some complications with deadcode flags, because you need one for inside the if block and one for outside that will also include the else block
 
 ## Exiting
 - Pop the dead code flag from the dead code flag stack
 - Get the block result from `cfg_block_result_flag_stack`
 - Pop the label from `cfg_label_stack`
-- Resolve the VB at the top of the VB stack and put it in a register
-- Adjust the stack pointer according to the block result (and its size)
+- Resolve the VB at the top of the VB stack and store the resulting value in a register
+- Adjust the stack pointer according to the size of the block result
 - Update the label map for the popped label with the current instruction position
 - Update the label of the block with the current instruction position
 
@@ -85,7 +115,7 @@ Then there are some things with the deadcode flags, because you need one for ins
 The code will look like this:
 ```
     JEQ skip_resolve
-    resolve VB
+    code to resolve VB and adjust stack
     J break_label
 skip_resolve:
     next instructions
@@ -104,7 +134,7 @@ break_label: (positioned after for a forward jump, could also be backward)
     ...
     J temp_label_n
 temp_label_0:
-    resolve VB
+    code to resolve VB and adjust stack
     J break_label_0
 temp_label_1:
     ...
@@ -117,6 +147,8 @@ break_label_1: (positioned after for a forward jump, could also be backward)
 ```
 - Set the dead code flag for the current block to true
 - Reset the VB stack to the pointer in `vb_stack_ptr_stack`
+
+
 
 ## Replacing placeholder labels
 - At the end of the Code section of the module, we replace all the placeholder labels in the jump instructions with the actual target addresses.
