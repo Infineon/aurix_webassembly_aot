@@ -1,10 +1,10 @@
 {"source_filename": "break_as_return.wast",
  "commands": [
-  {"type": "module", "line": 1, "filename": "break_as_return.0.wasm"}, 
-  {"type": "assert_return", "line": 31, "action": {"type": "invoke", "field": "br_exit_function", "args": []}, "expected": [{"type": "i32", "value": "10"}]}, 
-  {"type": "assert_return", "line": 33, "action": {"type": "invoke", "field": "br_if_exit_function", "args": [{"type": "i32", "value": "0"}]}, "expected": [{"type": "i32", "value": "21"}]}, 
-  {"type": "assert_return", "line": 34, "action": {"type": "invoke", "field": "br_if_exit_function", "args": [{"type": "i32", "value": "1"}]}, "expected": [{"type": "i32", "value": "20"}]}, 
-  {"type": "assert_return", "line": 36, "action": {"type": "invoke", "field": "br_table_exit_function", "args": [{"type": "i32", "value": "0"}]}, "expected": [{"type": "i32", "value": "30"}]}, 
-  {"type": "assert_return", "line": 37, "action": {"type": "invoke", "field": "br_table_exit_function", "args": [{"type": "i32", "value": "1"}]}, "expected": [{"type": "i32", "value": "31"}]}, 
-  {"type": "assert_return", "line": 38, "action": {"type": "invoke", "field": "br_table_exit_function", "args": [{"type": "i32", "value": "2"}]}, "expected": [{"type": "i32", "value": "31"}]}, 
-  {"type": "assert_return", "line": 39, "action": {"type": "invoke", "field": "br_table_exit_function", "args": [{"type": "i32", "value": "4294967295"}]}, "expected": [{"type": "i32", "value": "31"}]}]}
+  {"type": "module", "line": 3, "filename": "break_as_return.0.wasm"}, 
+  {"type": "assert_return", "line": 33, "action": {"type": "invoke", "field": "br_exit_function", "args": []}, "expected": [{"type": "i32", "value": "10"}]}, 
+  {"type": "assert_return", "line": 35, "action": {"type": "invoke", "field": "br_if_exit_function", "args": [{"type": "i32", "value": "0"}]}, "expected": [{"type": "i32", "value": "21"}]}, 
+  {"type": "assert_return", "line": 36, "action": {"type": "invoke", "field": "br_if_exit_function", "args": [{"type": "i32", "value": "1"}]}, "expected": [{"type": "i32", "value": "20"}]}, 
+  {"type": "assert_return", "line": 38, "action": {"type": "invoke", "field": "br_table_exit_function", "args": [{"type": "i32", "value": "0"}]}, "expected": [{"type": "i32", "value": "30"}]}, 
+  {"type": "assert_return", "line": 39, "action": {"type": "invoke", "field": "br_table_exit_function", "args": [{"type": "i32", "value": "1"}]}, "expected": [{"type": "i32", "value": "31"}]}, 
+  {"type": "assert_return", "line": 40, "action": {"type": "invoke", "field": "br_table_exit_function", "args": [{"type": "i32", "value": "2"}]}, "expected": [{"type": "i32", "value": "31"}]}, 
+  {"type": "assert_return", "line": 41, "action": {"type": "invoke", "field": "br_table_exit_function", "args": [{"type": "i32", "value": "4294967295"}]}, "expected": [{"type": "i32", "value": "31"}]}]}

@@ -1,3 +1,5 @@
+;; own tests to verify that a break to the outermost block is equivalent to a return from the function
+;; this is supposed to be valid as per the spec but is not checked by any of the official test files br.wast, br_if.wast, br_table.wast
 (module
   (func (export "br_exit_function") (result i32)
     (block

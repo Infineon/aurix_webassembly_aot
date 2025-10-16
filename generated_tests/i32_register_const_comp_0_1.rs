@@ -27,7 +27,7 @@ mod tests {
     }
 
     
-    // Command line number: 333
+    // Command line number: 336
     #[test]
     fn test_0(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(2147483647 as u32)];
@@ -36,7 +36,7 @@ mod tests {
     }
     
 
-    // Command line number: 334
+    // Command line number: 337
     #[test]
     fn test_1(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(4294967295 as u32)];
@@ -45,7 +45,7 @@ mod tests {
     }
     
 
-    // Command line number: 335
+    // Command line number: 338
     #[test]
     fn test_2(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(1 as u32)];
@@ -54,7 +54,7 @@ mod tests {
     }
     
 
-    // Command line number: 336
+    // Command line number: 339
     #[test]
     fn test_3(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(0 as u32)];
@@ -63,7 +63,7 @@ mod tests {
     }
     
 
-    // Command line number: 337
+    // Command line number: 340
     #[test]
     fn test_4(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(2147483648 as u32)];
@@ -72,7 +72,7 @@ mod tests {
     }
     
 
-    // Command line number: 338
+    // Command line number: 341
     #[test]
     fn test_5(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(0 as u32)];
@@ -81,7 +81,7 @@ mod tests {
     }
     
 
-    // Command line number: 339
+    // Command line number: 342
     #[test]
     fn test_6(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(2147483648 as u32)];
@@ -90,7 +90,7 @@ mod tests {
     }
     
 
-    // Command line number: 340
+    // Command line number: 343
     #[test]
     fn test_7(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(4294967295 as u32)];
@@ -99,7 +99,7 @@ mod tests {
     }
     
 
-    // Command line number: 341
+    // Command line number: 344
     #[test]
     fn test_8(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(2147483648 as u32)];
@@ -108,7 +108,7 @@ mod tests {
     }
     
 
-    // Command line number: 342
+    // Command line number: 345
     #[test]
     fn test_9(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(2147483647 as u32)];
@@ -117,7 +117,7 @@ mod tests {
     }
     
 
-    // Command line number: 344
+    // Command line number: 347
     #[test]
     fn test_10(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(0 as u32)];
@@ -126,7 +126,7 @@ mod tests {
     }
     
 
-    // Command line number: 345
+    // Command line number: 348
     #[test]
     fn test_11(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(1 as u32)];
@@ -135,7 +135,7 @@ mod tests {
     }
     
 
-    // Command line number: 346
+    // Command line number: 349
     #[test]
     fn test_12(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(1 as u32)];
@@ -144,7 +144,7 @@ mod tests {
     }
     
 
-    // Command line number: 347
+    // Command line number: 350
     #[test]
     fn test_13(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(2147483648 as u32)];
@@ -153,7 +153,7 @@ mod tests {
     }
     
 
-    // Command line number: 348
+    // Command line number: 351
     #[test]
     fn test_14(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(2147483647 as u32)];
@@ -162,7 +162,7 @@ mod tests {
     }
     
 
-    // Command line number: 349
+    // Command line number: 352
     #[test]
     fn test_15(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(4294967295 as u32)];
@@ -171,7 +171,7 @@ mod tests {
     }
     
 
-    // Command line number: 350
+    // Command line number: 353
     #[test]
     fn test_16(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(0 as u32)];
@@ -180,7 +180,7 @@ mod tests {
     }
     
 
-    // Command line number: 351
+    // Command line number: 354
     #[test]
     fn test_17(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(1 as u32)];
@@ -189,7 +189,7 @@ mod tests {
     }
     
 
-    // Command line number: 352
+    // Command line number: 355
     #[test]
     fn test_18(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(0 as u32)];
@@ -198,7 +198,7 @@ mod tests {
     }
     
 
-    // Command line number: 353
+    // Command line number: 356
     #[test]
     fn test_19(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(2147483648 as u32)];
@@ -207,7 +207,7 @@ mod tests {
     }
     
 
-    // Command line number: 354
+    // Command line number: 357
     #[test]
     fn test_20(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(4294967295 as u32)];
@@ -216,7 +216,7 @@ mod tests {
     }
     
 
-    // Command line number: 355
+    // Command line number: 358
     #[test]
     fn test_21(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(2147483648 as u32)];
@@ -225,7 +225,7 @@ mod tests {
     }
     
 
-    // Command line number: 356
+    // Command line number: 359
     #[test]
     fn test_22(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(2147483647 as u32)];
@@ -234,7 +234,7 @@ mod tests {
     }
     
 
-    // Command line number: 357
+    // Command line number: 360
     #[test]
     fn test_23(runtime : &mut WasmRuntime<'static>){
         let args = vec![Immediate::Word(2147483648 as u32)];

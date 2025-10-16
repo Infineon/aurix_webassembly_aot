@@ -1,4 +1,7 @@
-;; my own tests for i32 instructions
+;; my own tests for i32 comparisons between a register and an immediate value
+;; our compiler optimizes comparisons with immediate values (constants) by using specialized Tricore instructions
+;; i32.wast only tests comparisons between two registers, this file is added for completeness
+;; it is inspired by i32.wast and uses the same values for testing, it was generated with a python script
 
 (module
   ;; Function definitions for signed less-than (lt_s)
