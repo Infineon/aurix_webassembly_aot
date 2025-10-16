@@ -49,7 +49,7 @@ use wasmparser::{BlockType, BrTable, Ieee32, Ieee64, MemArg, ValType, VisitOpera
 use crate::isa_model::{self, Immediate, Const10, DataRegister, ExtendedRegister, RegisterOrSmallConst, ADDRESS_ACCUMULATOR, GLOBAL_BASE, STACK_BASE, STACK_POINTER};
 use crate::parse_and_translate::WasmRuntime;
 use crate::vb::{Address, AtomicVB, BinaryVB, UnaryVB, VB};
-use crate::translator::{LabelID, StackHeight, StackState, BlockLabel, BlockResult, Translator};
+use crate::translator::{LabelIndex, StackHeight, StackState, BlockLabel, BlockResult, Translator};
 
 use crate::isa_model::{Const4, Const16, AddressRegister, TABLE_BASE, machine_instructions::Instr, Register, ValueSize, Memsize, SignValue, MapperLocation};
 
@@ -139,12 +139,12 @@ impl<'a,'b> Translator<'a,'b> {
         // For loops: label_state points to loop start (no result), end_state to loop end (with result)
         let block_result = BlockResult {
             // When block ends naturally: stack = original position + result size
-            end_state: StackState(runtime_stack_offset + blockty_value_byte_size, blockty_value_size),
+            end_state: StackState { height: runtime_stack_offset.add(blockty_value_byte_size), result_size: blockty_value_size },
             label_state: match block_style {
                 // Regular block: branch target same as block end
-                BlockStyle::Block => StackState(runtime_stack_offset + blockty_value_byte_size, blockty_value_size),
+                BlockStyle::Block => StackState { height: runtime_stack_offset.add(blockty_value_byte_size), result_size: blockty_value_size },
                 // Loop: branch target is loop start (no accumulated result)
-                BlockStyle::Loop => StackState(runtime_stack_offset, None),
+                BlockStyle::Loop => StackState { height: runtime_stack_offset, result_size: None },
             }
         };
 
@@ -186,7 +186,7 @@ impl<'a,'b> Translator<'a,'b> {
     /// - Result is in some scratch register
     /// - Need to write result to stack\[16\] and set SP to point to stack\[20\]
     fn resolve_block_result(&mut self, target : StackState ) {
-        let StackState(offset, size) = target;
+        let StackState { height: offset, result_size: size } = target;
         
         // If block has a result, resolve it to a register first
         let result_register = self.resolve_to_register(size);
@@ -196,13 +196,13 @@ impl<'a,'b> Translator<'a,'b> {
 
         match size {
             // No result: just restore stack pointer if it changed
-            None if *current_stack_offset != *offset => {
-                self.push_instruction(Instr::LEA { base: STACK_BASE, offset: Const16(-(*offset as i16) as u16), dest: STACK_POINTER });
+            None if current_stack_offset != offset => {
+                self.push_instruction(Instr::LEA { base: STACK_BASE, offset: Const16(-(offset.to_i16()) as u16), dest: STACK_POINTER });
             },
             // Has result: store result on the stack and adjust stack pointer
             Some(_) => match result_register {
-                Some(Register::DataRegister(result_register)) => self.push_instruction(Instr::STWPI{ base: STACK_POINTER, offset: Const10(-(*offset as i16)+ (*current_stack_offset as i16)), src: result_register }),
-                Some(Register::ExtendedRegister(result_register)) => self.push_instruction(Instr::STDPI{ base: STACK_POINTER, offset: Const10(-(*offset as i16) + (*current_stack_offset as i16)), src: result_register }),
+                Some(Register::DataRegister(result_register)) => self.push_instruction(Instr::STWPI{ base: STACK_POINTER, offset: Const10(current_stack_offset.to_i16() - offset.to_i16()), src: result_register }),
+                Some(Register::ExtendedRegister(result_register)) => self.push_instruction(Instr::STDPI{ base: STACK_POINTER, offset: Const10(current_stack_offset.to_i16() - offset.to_i16()), src: result_register }),
                 None => panic!("Expected result register")
             },
             _ => ()
@@ -314,7 +314,7 @@ impl<'a,'b> Translator<'a,'b> {
     /// Helper to handle block branch case
     fn handle_block_branch(&mut self, index: usize) {
         let label_state = self.cfg_block_result_stack.get(index).unwrap().label_state;
-        let last_vb = self.save_vb_for_branch(label_state.1.is_some());
+        let last_vb = self.save_vb_for_branch(label_state.result_size.is_some());
         
         self.resolve_block_result(label_state);
         self.restore_vb_after_branch(last_vb);
@@ -328,8 +328,8 @@ impl<'a,'b> Translator<'a,'b> {
     }
 
     /// Helper to generate appropriate jump instruction based on label state
-    fn generate_jump_instruction(&mut self, target: LabelID) {
-        match self.cfg_label_map[*target] { // If the label address is known, it's a backwards jump (a loop) so we use LOOPU
+    fn generate_jump_instruction(&mut self, target: LabelIndex) {
+        match self.cfg_label_map[target.to_usize()] { // If the label address is known, it's a backwards jump (a loop) so we use LOOPU
             None => self.push_instruction(Instr::J { target }),
             Some(..) => self.push_instruction(Instr::LOOPU { target }), // TODO: LOOPU just has a shorter jump offset than J, should we use that?
         }
@@ -351,8 +351,8 @@ impl<'a,'b> Translator<'a,'b> {
     fn handle_function_call_result(&mut self, function_type: &wasmparser::FuncType) {
         function_type.results().get(0).map(|ty|{
             let runtime_stack_offset = self.get_runtime_stack_offset_from_last_vb();
-            self.vb_stack.push(VB::AtomicVB(AtomicVB::Resolved{size: val_type_size(ty), offset: runtime_stack_offset + val_type_size(ty).as_bytes()})); 
-        
+            self.vb_stack.push(VB::AtomicVB(AtomicVB::Resolved{size: val_type_size(ty), offset: runtime_stack_offset.add(val_type_size(ty).as_bytes())})); 
+
             match val_type_size(ty){
                 ValueSize::Word => self.push_instruction(Instr::STWPI { base: STACK_POINTER, offset: Const10(-4), src: DataRegister(0) }),
                 ValueSize::DoubleWord => self.push_instruction(Instr::STDPI { base: STACK_POINTER, offset: Const10(-8), src: ExtendedRegister(0) }),
@@ -402,7 +402,7 @@ impl<'a,'b> Translator<'a,'b> {
 
     /// Helper to get current runtime stack offset
     fn get_current_stack_offset(&self) -> StackHeight {
-        let mut stack_offset = 0.into();
+        let mut stack_offset = StackHeight(0);
         for vb in self.vb_stack.iter().rev() {
             let offset = vb.get_runtime_stack_offset();
             if offset.is_some() {
@@ -417,7 +417,7 @@ impl<'a,'b> Translator<'a,'b> {
     fn get_runtime_stack_offset_from_last_vb(&self) -> StackHeight {
         match self.vb_stack.last() {
             Some(VB::AtomicVB(AtomicVB::Resolved { offset, .. })) => *offset,
-            _ => 0.into(),
+            _ => StackHeight(0),
         }
     }
 
@@ -535,13 +535,13 @@ impl<'a,'b> Translator<'a,'b> {
     }
     
     /// Get the current length of the cfg_label_map (used for generating new label indices)
-    fn get_current_label_index(&self) -> LabelID {
-        LabelID (self.cfg_label_map.len() )
+    fn get_current_label_index(&self) -> LabelIndex {
+        LabelIndex (self.cfg_label_map.len() )
     }
     
     /// Update a label at the given index with the current instruction position
-    fn update_label_to_current_position(&mut self, index: LabelID) {
-        let index = *index;
+    fn update_label_to_current_position(&mut self, index: LabelIndex) {
+        let index = index.to_usize();
         if self.cfg_label_map[index].is_some() {
             return; // Label already set, no need to update. This is a backward jump.
         }
@@ -725,7 +725,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         // result of a block is returned on the runtime stack
         // and on a virtual level is on top of the operand stack now
         // a VB is pushed on top of the VB stack to update it with the location of new value.
-        end_state.map(|StackState(offset,size)| {
+        end_state.map(|StackState { height: offset, result_size: size }| {
             size.map(|size| {
                 self.add_atomic_vb(AtomicVB::Resolved{size, offset});
             });
@@ -805,7 +805,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
 
         let current_label_index = self.get_current_label_index();
         for i in 0..targets.targets().count()+1 {
-            self.push_instruction(Instr::J { target: current_label_index + i });
+            self.push_instruction(Instr::J { target: current_label_index.add(i) });
         }
 
         for target in targets.targets().map(Result::unwrap).chain(core::iter::once(targets.default())) { // for every target + the default
@@ -851,7 +851,8 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
 
     /*
         Here we generate the machine code for an indirect call, which goes as follows:
-        1) resolve all VBs on the stack (TODO: see if this can be refined to resolve only when necessary.
+        1) resolve all VBs on the stack 
+        TODO: see if this can be refined to resolve only when necessary.
             Optimizing resolving should be a task on its own).
             The subroutine panics if any of the checks fails  
         2) Call the indirect call safety subroutine:
@@ -1124,7 +1125,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
 
         // The result (the old size of the memory) will be returned in DataRegister(2), we push it on the stack
         self.push_instruction(Instr::STWPI { src: DataRegister::new(2), base: STACK_POINTER , offset: Const10(-4) });
-        let offset = self.get_runtime_stack_offset_from_last_vb() + 4;
+        let offset = self.get_runtime_stack_offset_from_last_vb().add(4);
         self.add_atomic_vb(AtomicVB::Resolved{size: ValueSize::Word, offset});
 
         self.push_instruction(Instr::RSLCX);

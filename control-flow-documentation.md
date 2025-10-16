@@ -1,25 +1,23 @@
 ## Structs
-### LabelID
+### LabelIndex
 - A unique identifier for each control flow block
 - Just a number that increments for each new block (0, 1, 2, ...)
-- Transparent wrapper around usize
 - Used to identify BlockLabel's that are stored in cfg_label_stack
 
 ### BlockLabel
 - Represents a control flow label, which can be for a block, a loop or an if-else-end structure. Each label has a unique identifier.
 - The label will then be used to identify the target of a break instruction (br, br_if, br_table)
-- For Block and Loop, there is a single label ID representing the end of the block or the beginning of the loop.
-- For If, there are two label IDs: one for the else branch and one for the end branch.
+- For Block and Loop, there is a single LabelIndex representing the end of the block or the beginning of the loop.
+- For If, there are two LabelIndex: one for the else branch and one for the end branch.
 - Used in cfg_label_stack to keep track of nested blocks
 
 ### StackHeight
 - The height of the wasm stack at a given point
-- Transparent wrapper around usize
 - Used in StackState
 
 ### Stackstate
 - Represents the state of the wasm stack after exiting a control flow block
-- The first element is the height of the stack in bytes before entering the block.
+- The first element is the height of the stack in bytes after exiting the block.
 - The second element is the size of the result value of the block, if any.
 - The stack state after exiting the block is the same as before entering the block plus the result value at the top, if any.
 - Used in BlockResult

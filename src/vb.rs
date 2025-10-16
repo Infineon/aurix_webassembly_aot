@@ -6,6 +6,7 @@ use crate::{isa_model::{MapperLocation, ValueSize}, translator::StackHeight};
 pub type Address = u32;
 
 #[derive(Debug, PartialEq, Clone, Format)]
+// TODO: Unreachable should not be a VB because it has a side effect (trap)
 pub enum AtomicVB{
     I32Const {imm: i32},
     I64Const {imm: i64},

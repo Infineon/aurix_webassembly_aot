@@ -41,6 +41,7 @@ use crate::isa_model::machine_instructions::Instr;
 use crate::translator::library_function::LibraryFunction;
 use crate::translator::Translator;
 use crate::vb::{AtomicVB, BinaryVB, UnaryVB, VB};
+use super::StackHeight;
 
 // ================================================================================
 // FLOATING-POINT COMPARISON CONSTANTS
@@ -596,14 +597,14 @@ impl<'a,'b> Translator<'a,'b> {
     /// The runtime stack grows downward with each resolved VB consuming space
     /// based on its value size (4 bytes for Word, 8 bytes for DoubleWord).
     pub fn resolve_all(&mut self) {
-        let mut stack_offset = 0;
+        let mut stack_offset = StackHeight(0);
 
         for index in 0..self.vb_stack.len() {
             let mut vb = self.vb_stack[index].clone();
             match vb {
                 VB::AtomicVB(AtomicVB::Resolved { offset, .. }) => {
                     // Already resolved - just update our stack offset tracking
-                    stack_offset = *offset;
+                    stack_offset = offset;
                 },
                 _ => {
                     // Handle NaN canonicalization for floating-point operations
@@ -621,7 +622,7 @@ impl<'a,'b> Translator<'a,'b> {
                     });
                     
                     // Update stack offset and mark as resolved
-                    stack_offset += size.as_bytes();
+                    stack_offset = stack_offset.add(size.as_bytes());
                     self.vb_stack[index] = VB::AtomicVB(AtomicVB::Resolved { size, offset: stack_offset.into() })
                 }
             }

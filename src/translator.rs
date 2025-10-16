@@ -18,41 +18,44 @@ use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
 use wasmparser::LocalsReader;
-use core::ops::{Deref, Add};
 use defmt::Format;
 
 
 const MAX_LOCAL_REGISTERS: u8 = 8;
 const MAX_ALL_REGISTERS: u8 = 16;
 
-/// Wrapper for label identifiers used in control flow constructs. Values are unique and monotonically increasing.
+/// Wrapper for label indices used in control flow constructs. Values are unique and monotonically increasing.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, Format, PartialEq)]
-pub struct LabelID (usize);
+pub struct LabelIndex (usize);
 
-impl Deref for LabelID {
-    type Target = usize;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
-impl From<usize> for LabelID {
+impl From<usize> for LabelIndex {
     fn from(value: usize) -> Self {
-        LabelID(value)
+        LabelIndex(value)
     }
 }
 
-impl Add<usize> for LabelID {
-    type Output = LabelID;
-    fn add(self, rhs: usize) -> Self::Output {
-        LabelID(self.0 + rhs)
+impl LabelIndex {
+    fn add(self, rhs: usize) -> Self {
+        LabelIndex(self.0 + rhs)
+    }
+
+    pub fn to_usize(self) -> usize {
+        self.0
+    }
+
+    pub fn to_u32(self) -> u32 {
+        self.0 as u32
     }
 }
 
+/// Represents a control flow label, which can be a block, a loop or an if-else-end structure. Each label has a unique identifier.
+/// For Block and Loop, there is a single LabelIndex representing the end of the block or the beginning of the loop.
+/// For If, there are two LabelIndexs: one for the else branch and one for the end branch.
 pub enum BlockLabel {
-    BlockLoop(LabelID),
-    If { else_label: LabelID, end_label: LabelID },
+    BlockLoop(LabelIndex),
+    If { else_label: LabelIndex, end_label: LabelIndex },
 }
 
 /// Wrapper for stack height values used in control flow constructs. Values are in bytes.
@@ -60,37 +63,31 @@ pub enum BlockLabel {
 #[derive(Debug, Format, Copy, PartialEq, Clone)]
 pub struct StackHeight(usize);
 
-impl Deref for StackHeight {
-    type Target = usize;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl From<usize> for StackHeight {
     fn from(value: usize) -> Self {
         StackHeight(value)
     }
 }
 
-impl Add<usize> for StackHeight {
-    type Output = StackHeight;
-    fn add(self, rhs: usize) -> Self::Output {
+impl StackHeight {
+    fn add(self, rhs: usize) -> Self {
         StackHeight(self.0 + rhs)
+    }
+
+    fn to_i16(self) -> i16 {
+        self.0 as i16
     }
 }
 
 /// Represents the state of the wasm stack after exiting a control flow block.
-/// The first element is the height of the stack in bytes before entering the block.
+/// The first element is the height of the stack in bytes after exiting the block.
 /// The second element is the size of the result value of the block, if any.
 /// The stack state after exiting the block is the same as before entering the block plus the result value at the top, if any
 #[derive(Debug, Clone, Copy)]
-pub struct StackState (StackHeight, Option<ValueSize>);
-
-/// Represents a control flow label, which can be a block, a loop or an if-else-end structure. Each label has a unique identifier.
-/// For Block and Loop, there is a single label ID representing the end of the block or the beginning of the loop.
-/// For If, there are two label IDs: one for the else branch and one for the end branch.
-
+pub struct StackState {
+    pub height: StackHeight,
+    pub result_size: Option<ValueSize>,
+}
 
 /// Represents the result of a control flow block.
 /// Includes the stack state when reaching the end of the block naturally and when branching to the block's label position (e.g. with a break instruction).
