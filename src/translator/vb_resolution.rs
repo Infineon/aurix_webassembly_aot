@@ -413,72 +413,6 @@ macro_rules! gen_i64_eq_style_op {
     };
 }
 
-/// Macro for generating i32 rotation operations:
-/// Pattern: immediate vs register handling with EXTRUI + SH + OR for bit rotation
-/// Left rotation and right rotation differ in count calculations and register assignments
-macro_rules! gen_i32_rotate_op {
-    // Left rotation: rotl
-    ($name:ident, rotl) => {
-        fn $name(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            match *rhs {
-                MapperLocation::Immediate(imm) => {
-                    let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register)]);
-                    let count = (imm.as_u32() & 0x1F) as u16;
-                    self.push_instruction(Instr::EXTRUI { src: lhs_register, width: Const9::new(count), pos: Const9(32 - count), dest: intermediate });
-                    self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::new_const(count), dest: dest_register });
-                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
-                    dest_register.map_to_location(potential_target, self, scratch_variable_map)
-                },
-                _ => {
-                    // When rhs (count) is not immediate, we need to use an extended register to hold both width and position and use another aurix instruction to extract
-                    let width_pos_register = self.next_available_extended_register(scratch_variable_map, &vec![lhs.clone()]);
-                    rhs.map_to_data_register(Some(width_pos_register.upper_half()), self, scratch_variable_map, &vec![lhs.clone()]);
-                    self.push_instruction(Instr::AND { lhs: width_pos_register.upper_half(), rhs: RegisterOrConst::new_const(0x1F), dest: width_pos_register.upper_half() });
-                    self.push_instruction(Instr::RSUB { lhs: Const9::new(32), rhs: width_pos_register.upper_half(), dest: width_pos_register.lower_half() });
-                    // The width is now in the upper half of width_pos_register and the position is in the lower half
-                    let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(width_pos_register)]);
-                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    self.push_instruction(Instr::EXTRU { src: lhs_register, width_pos: width_pos_register, dest: width_pos_register.lower_half() }); // lower half is safe to use as intermediate 
-                    self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::DataRegister(width_pos_register.upper_half()), dest: dest_register });
-                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(width_pos_register.lower_half()), dest: dest_register });
-                    dest_register.map_to_location(potential_target, self, scratch_variable_map)
-                }
-            }
-        }
-    };
-    // Right rotation: rotr
-    ($name:ident, rotr) => {
-        fn $name(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            match *rhs {
-                MapperLocation::Immediate(imm) => {
-                    let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register)]);
-                    let count = (imm.as_u32() & 0x1F) as u16;
-                    self.push_instruction(Instr::EXTRUI { src: lhs_register, width: Const9::new((32 - count) % 32), pos: Const9::new(count), dest: intermediate });
-                    self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::new_const(32 - count), dest: dest_register });
-                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
-                    dest_register.map_to_location(potential_target, self, scratch_variable_map)
-                },
-                _ => {
-                    let width_pos_register = self.next_available_extended_register(scratch_variable_map, &vec![lhs.clone()]);
-                    rhs.map_to_data_register(Some(width_pos_register.lower_half()), self, scratch_variable_map, &vec![lhs.clone()]);
-                    self.push_instruction(Instr::AND { lhs: width_pos_register.lower_half(), rhs: RegisterOrConst::new_const(0x1F), dest: width_pos_register.lower_half() });
-                    self.push_instruction(Instr::RSUB { lhs: Const9::new(32), rhs: width_pos_register.lower_half(), dest: width_pos_register.upper_half() });
-                    self.push_instruction(Instr::AND { lhs: width_pos_register.upper_half(), rhs: RegisterOrConst::new_const(0x1F), dest: width_pos_register.upper_half() });
-                    let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![MapperLocation::ExtendedRegister(width_pos_register)]);
-                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    self.push_instruction(Instr::EXTRU { src: lhs_register, width_pos: width_pos_register, dest: width_pos_register.lower_half() }); // lower half is safe to use as intermediate 
-                    self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::DataRegister(width_pos_register.upper_half()), dest: dest_register });
-                    self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(width_pos_register.lower_half()), dest: dest_register });
-                    dest_register.map_to_location(potential_target, self, scratch_variable_map)
-                }
-            }
-        }
-    };
-}
 
 /// Unified macro for all i32 comparison operations with automatic immediate optimization.
 /// Automatically handles immediate optimizations and operand swapping based on semantic intent.
@@ -1085,9 +1019,49 @@ impl<'a,'b> Translator<'a,'b> {
     gen_i32_shift_op!(gen_i32_shr_s, SHA, shr);
     gen_i32_shift_op!(gen_i32_shl, SH, shl);
 
-    // Generate i32 rotation operations using macro
-    gen_i32_rotate_op!(gen_i32_rotl, rotl);
-    gen_i32_rotate_op!(gen_i32_rotr, rotr);
+    fn i32_imm_rotl(&mut self, count: u16, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        if count == 0 { // No rotation needed and can't EXTR with width 0
+            if potential_target.is_some() {
+                return lhs.map_to_location(potential_target.unwrap(), self, scratch_variable_map, &vec![])
+            }
+            else {
+                return lhs.clone();
+            }
+        }
+        let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+        let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register), MapperLocation::DataRegister(lhs_register)]);
+        self.push_instruction(Instr::EXTRUI { src: lhs_register, width: Const9::new(count), pos: Const9(32 - count), dest: intermediate });
+        self.push_instruction(Instr::SH { src: lhs_register, count: RegisterOrConst::new_const(count), dest: dest_register });
+        self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
+
+    fn gen_i32_rotl(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        match *rhs {
+            MapperLocation::Immediate(imm) => {
+                let count = (imm.as_u32() & 0x1F) as u16;
+                self.i32_imm_rotl(count, scratch_variable_map, lhs, potential_target)
+            },
+            _ => {
+                self.call_library_function(potential_target, LibraryFunction::I32Rotl, vec![&lhs, &rhs], ValueSize::Word, ValueSize::Word, scratch_variable_map)
+            }
+        }
+    }
+
+
+    fn gen_i32_rotr(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        match *rhs {
+            MapperLocation::Immediate(imm) => {
+                // rotr by n is equivalent to rotl by (32 - n)
+                let count = ((32 - (imm.as_u32() & 0x1F)) & 0x1F) as u16; // convoluted way to do 32 - n because imm can be > 32 and we can't overflow
+                self.i32_imm_rotl(count, scratch_variable_map, lhs, potential_target)
+            },
+            _ => {
+                self.call_library_function(potential_target, LibraryFunction::I32Rotr, vec![&lhs, &rhs], ValueSize::Word, ValueSize::Word, scratch_variable_map)
+            }
+        }
+    }
 
 
 

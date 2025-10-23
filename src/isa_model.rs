@@ -48,13 +48,13 @@ impl Immediate {
     pub fn as_u32(&self) -> u32 {
         match self {
             Immediate::Word(imm) => *imm,
-            _ => panic!("Expected f32")
+            _ => panic!("Expected u32")
         }
     }
     pub fn as_u64(&self) -> u64 {
         match self {
             Immediate::DoubleWord(imm) => *imm,
-            _ => panic!("Expected f64")
+            _ => panic!("Expected u64")
         }
     } 
 

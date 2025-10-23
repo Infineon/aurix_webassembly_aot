@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 use wasmparser::{ConstExpr, Ieee32, Ieee64};
 
-use crate::{isa_model::Immediate};
+use crate::isa_model::Immediate;
 use alloc::vec::Vec;
 macro_rules! _visit_only_const {
      // delegate the macro invocation to sub-invocations of this macro to

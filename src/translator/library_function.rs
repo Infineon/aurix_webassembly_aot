@@ -44,6 +44,8 @@ pub enum LibraryFunction {
     I64Shl,
     I64ShrS,
     I64ShrU,
+    I32Rotl,
+    I32Rotr,
     I64Rotl,
     I64Rotr,
     I64Clz,
@@ -166,6 +168,8 @@ impl <'a,'b> Translator<'a,'b>{
             LibraryFunction::I64Shl => WasmRuntime::i64_shl as u32,
             LibraryFunction::I64ShrS => WasmRuntime::i64_shr_s as u32,
             LibraryFunction::I64ShrU => WasmRuntime::i64_shr_u as u32,
+            LibraryFunction::I32Rotl => WasmRuntime::i32_rotl as u32,
+            LibraryFunction::I32Rotr => WasmRuntime::i32_rotr as u32,
             LibraryFunction::I64Rotl => WasmRuntime::i64_rotl as u32,
             LibraryFunction::I64Rotr => WasmRuntime::i64_rotr as u32,
             LibraryFunction::F64Ne => WasmRuntime::f64_ne as u32,
@@ -352,6 +356,14 @@ impl <'a> WasmRuntime <'a> {
 
     pub extern "C" fn i64_shr_u(x: u64, y: u64) -> u64 {
         x.wrapping_shr(y as u32)
+    }
+
+    pub extern "C" fn i32_rotl(x: u32, y: u32) -> u32 {
+        x.rotate_left(y as u32)
+    }
+
+    pub extern "C" fn i32_rotr(x: u32, y: u32) -> u32 {
+        x.rotate_right(y as u32)
     }
 
     pub extern "C" fn i64_rotl(x: u64, y: u64) -> u64 {
