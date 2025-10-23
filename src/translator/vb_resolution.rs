@@ -331,6 +331,7 @@ macro_rules! gen_f32_eq_style_op {
 
 /// Unified macro for all i32 comparison operations with automatic immediate optimization.
 /// Automatically handles immediate optimizations and operand swapping based on semantic intent.
+/// For code reuse and binary size reduction, the macro calls a function.
 /// 
 /// ## Parameters:
 /// - `$imm_instr`: Instruction to use when immediate optimization applies on the rhs operand
@@ -353,73 +354,129 @@ macro_rules! gen_f32_eq_style_op {
 /// Instead, you have to adjust the immediate value (add +1 or 0) eg: x GT c <=> x GE (c+1)
 /// The immediate can be at most 9 bits, so if c or c+1 is out of range, we store it in a register and fall back on the register case
 
+enum ImmCompInstr {
+    GEU,
+    GE,
+    LTU,
+    LT
+}
+
 macro_rules! gen_i32_comparison_with_imm_opt {
     ($name:ident, $imm_instr:ident, $imm_inc:expr, $rev_imm_instr:ident, $rev_imm_inc:expr, $reverse_operands:expr, $reg_instr:ident) => {
 
         fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            // Auto-derive sign handling from instruction type
-            let name = stringify!($name);
-            let sign = if name.ends_with('u') {
+            // Deduce sign from function name
+            let sign = if stringify!($name).ends_with('u') {
                 SignValue::Unsigned
-            } else if name.ends_with('s') { 
+            } else if stringify!($name).ends_with('s') {
                 SignValue::Signed
             } else {
-                panic!("Instruction name must end with 'u' or 's' to indicate sign handling");
+                panic!("Function name must end with 'u' or 's' to indicate sign");
             };
-            
-            // Try immediate optimization on right side first (lhs OP rhs_imm)
-            'outer_rhs: {
+
+            self.gen_i32_comparison_with_imm_opt_impl(
+                lhs,
+                rhs,
+                scratch_variable_map,
+                potential_target,
+                $imm_inc,
+                $rev_imm_inc,
+                $reverse_operands,
+                sign,
+                ImmCompInstr::$imm_instr,
+                ImmCompInstr::$rev_imm_instr,
+                ImmCompInstr::$reg_instr,
+            )
+        }
+    };
+}
+
+impl<'a, 'b> Translator<'a, 'b> {
+    #[allow(clippy::too_many_arguments)]
+    fn gen_i32_comparison_with_imm_opt_impl(
+        &mut self,
+        lhs: &MapperLocation,
+        rhs: &MapperLocation,
+        scratch_variable_map: &mut Vec<MapperLocation>,
+        potential_target: Option<&MapperLocation>,
+        imm_inc: u32,
+        rev_imm_inc: u32,
+        reverse_operands: bool,
+        sign: SignValue,
+        imm_instr: ImmCompInstr,
+        rev_imm_instr: ImmCompInstr,
+        reg_instr: ImmCompInstr,
+    ) -> MapperLocation
+    {
+        // Try immediate optimization on right side first (lhs OP rhs_imm)
+        'outer_rhs: {
             if let MapperLocation::Immediate(imm) = rhs {
-                let (adjusted_imm, overflowed) = imm.as_u32().overflowing_add($imm_inc); // it might fit even if it overflows, so we need to check
+                let (adjusted_imm, overflowed) = imm.as_u32().overflowing_add(imm_inc);
                 if overflowed {
-                    break 'outer_rhs; // adjusted value can't be used if it overflowed
+                    break 'outer_rhs;
                 }
                 let adjusted_imm = Immediate::Word(adjusted_imm as u32);
                 if adjusted_imm.fits_as_comparison_immediate(sign) {
                     let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
                     let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    self.push_instruction(Instr::$imm_instr { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register });
+                    match imm_instr {
+                        ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                    }
                     return dest_register.map_to_location(potential_target, self, scratch_variable_map);
                 }
             }
-            } // end outer_rhs
-            
+        }
 
-            // Try immediate optimization on left side (lhs_imm OP rhs)
-            'outer_lhs: {
+        // Try immediate optimization on left side (lhs_imm OP rhs)
+        'outer_lhs: {
             if let MapperLocation::Immediate(imm) = lhs {
-                let (adjusted_imm, overflowed) = imm.as_u32().overflowing_add($rev_imm_inc); // it might fit even if it overflows, so we need to check
+                let (adjusted_imm, overflowed) = imm.as_u32().overflowing_add(rev_imm_inc);
                 if overflowed {
-                    break 'outer_lhs; // adjusted value can't be used if it overflowed
+                    break 'outer_lhs;
                 }
                 let adjusted_imm = Immediate::Word(adjusted_imm as u32);
                 if adjusted_imm.fits_as_comparison_immediate(sign) {
                     let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
                     let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    self.push_instruction(Instr::$rev_imm_instr { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register });
+                    match rev_imm_instr {
+                        ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                    }
                     return dest_register.map_to_location(potential_target, self, scratch_variable_map);
                 }
             }
-            } // end outer_lhs
-
-            // Register-register case: apply operand swapping based on semantic intent
-            if $reverse_operands {
-                // Swap operands (rhs OP lhs)
-                let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone()]);
-                let lhs_register = lhs.map_to_register_or_const(sign, self, scratch_variable_map, &vec![MapperLocation::DataRegister(rhs_register)]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::$reg_instr { lhs: rhs_register, rhs: lhs_register, dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            } else {
-                // Normal order (lhs OP rhs)
-                let rhs_register = rhs.map_to_register_or_const(sign, self, scratch_variable_map, &vec![lhs.clone()]);
-                let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register.to_mapper_location()]);
-                let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                self.push_instruction(Instr::$reg_instr { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-                dest_register.map_to_location(potential_target, self, scratch_variable_map)
-            }
         }
-    };
+
+        // Register-register case: apply operand swapping based on semantic intent
+        if reverse_operands {
+            let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone()]);
+            let lhs_register = lhs.map_to_register_or_const(sign, self, scratch_variable_map, &vec![MapperLocation::DataRegister(rhs_register)]);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            match reg_instr {
+                ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
+                ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
+                ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
+                ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
+            }
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        } else {
+            let rhs_register = rhs.map_to_register_or_const(sign, self, scratch_variable_map, &vec![lhs.clone()]);
+            let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register.to_mapper_location()]);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            match reg_instr {
+                ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+                ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+                ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+                ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+            }
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    }
 }
 
 impl<'a,'b> Translator<'a,'b> {
