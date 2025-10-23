@@ -304,56 +304,6 @@ macro_rules! gen_i64_bitwise_with_zero_opt {
     };
 }
 
-/// Macro for generating floating-point sign manipulation operations: negation and absolute value.
-/// Pattern: f32 operations use single register, f64 operations use extended registers with upper/lower halves
-macro_rules! gen_f32_sign_op { //TODO: refactor to a single macro for each operation
-    // F32 absolute value: clear sign bit via shift left + shift right
-    ($name:ident, abs) => {
-        fn $name(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-            self.push_instruction(Instr::SH { src: child_register, count: RegisterOrConst::new_const(1), dest: dest_register });
-            self.push_instruction(Instr::SH { src: dest_register, count: RegisterOrConst::new_const(-1i16 as u16), dest: dest_register });
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-    // F32 negation: flip sign bit via ADDIH
-    ($name:ident, neg) => {
-        fn $name(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-            self.push_instruction(Instr::ADDIH { lhs: child_register, rhs: Const16::new(0x8000), dest: dest_register });
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-}
-
-/// Macro for generating equal-to-zero operations:
-/// Pattern: compare with zero constant using EQ instruction
-macro_rules! gen_eqz_op {
-    // i32 version: simple EQ with 0
-    ($name:ident, i32) => {
-        fn $name(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-            self.push_instruction(Instr::EQ { lhs: child_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-    // i64 version: OR both halves then EQ with 0
-    ($name:ident, i64) => {
-        fn $name(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let ExtendedRegister(register_index) = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
-            let lower_register = DataRegister::new(register_index);
-            let upper_register = DataRegister::new(register_index + 1);
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-            self.push_instruction(Instr::OR { lhs: lower_register, rhs: RegisterOrConst::DataRegister(upper_register), dest: dest_register });
-            self.push_instruction(Instr::EQ { lhs: dest_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-}
-
 /// Macro for generating f32 equality-style comparison operations:
 /// Pattern: CMPF + AND with 2 + EQ with target value (2 for equality, 0 for inequality)
 macro_rules! gen_f32_eq_style_op {
@@ -373,41 +323,6 @@ macro_rules! gen_f32_eq_style_op {
             self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
             self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::new_const(2), dest: dest_register });
             self.push_instruction(Instr::EQ { lhs: dest_register, rhs: RegisterOrConst::new_const($compare_value), dest: dest_register });
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-}
-
-/// Macro for generating i64 equality/inequality operations:
-/// Pattern: map to large register/const, operate on halves, combine with AND/OR
-macro_rules! gen_i64_eq_style_op {
-    // Equality: both halves must be equal (AND combination)
-    ($name:ident, eq) => {
-        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
-            let lower_lhs = lhs_register.lower_half();
-            let upper_lhs = lhs_register.upper_half();
-            let (lower_rhs, upper_rhs) = rhs_register_const_couple;
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::DataRegister(upper_lhs), upper_rhs.to_mapper_location()]);
-            let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register)]);
-            self.push_instruction(Instr::EQ { lhs: lower_lhs, rhs: lower_rhs, dest: dest_register });
-            self.push_instruction(Instr::EQ { lhs: upper_lhs, rhs: upper_rhs, dest: intermediate });
-            self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-    // Inequality: either half can be different (OR combination)
-    ($name:ident, ne) => {
-        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
-            let lower_lhs = lhs_register.lower_half();
-            let upper_lhs = lhs_register.upper_half();
-            let (lower_rhs, upper_rhs) = rhs_register_const_couple;
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::DataRegister(upper_lhs), upper_rhs.to_mapper_location()]);
-            let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register)]);
-            self.push_instruction(Instr::NE { lhs: lower_lhs, rhs: lower_rhs, dest: dest_register });
-            self.push_instruction(Instr::NE { lhs: upper_lhs, rhs: upper_rhs, dest: intermediate });
-            self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
             dest_register.map_to_location(potential_target, self, scratch_variable_map)
         }
     };
@@ -1166,9 +1081,33 @@ impl<'a,'b> Translator<'a,'b> {
     gen_f32_eq_style_op!(gen_f32_eq, eq);
     gen_f32_eq_style_op!(gen_f32_ne, ne);
 
-    // Generate i64 equality-style operations using macro
-    gen_i64_eq_style_op!(gen_i64_eq, eq);
-    gen_i64_eq_style_op!(gen_i64_ne, ne);
+    // Both halves must be equal for overall equality
+    fn gen_i64_eq(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
+        let lower_lhs = lhs_register.lower_half();
+        let upper_lhs = lhs_register.upper_half();
+        let (lower_rhs, upper_rhs) = rhs_register_const_couple;
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::DataRegister(upper_lhs), upper_rhs.to_mapper_location()]);
+        let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register)]);
+        self.push_instruction(Instr::EQ { lhs: lower_lhs, rhs: lower_rhs, dest: dest_register });
+        self.push_instruction(Instr::EQ { lhs: upper_lhs, rhs: upper_rhs, dest: intermediate });
+        self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
+    
+    // Either half being not equal means overall inequality
+    fn gen_i64_ne(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
+        let lower_lhs = lhs_register.lower_half();
+        let upper_lhs = lhs_register.upper_half();
+        let (lower_rhs, upper_rhs) = rhs_register_const_couple;
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::DataRegister(upper_lhs), upper_rhs.to_mapper_location()]);
+        let intermediate = self.next_available_data_register(scratch_variable_map, &vec![MapperLocation::DataRegister(dest_register)]);
+        self.push_instruction(Instr::NE { lhs: lower_lhs, rhs: lower_rhs, dest: dest_register });
+        self.push_instruction(Instr::NE { lhs: upper_lhs, rhs: upper_rhs, dest: intermediate });
+        self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
 
     // Generate i32 comparison operations using unified macro with boolean reverse flag
     gen_i32_comparison_with_imm_opt!(gen_i32_gtu, GEU, 1, LTU, 0, true, LTU);
@@ -1200,9 +1139,25 @@ impl<'a,'b> Translator<'a,'b> {
     // Generate equality comparison using simple binary operation macro
     gen_simple_binary_op!(gen_i32_eq, EQ, SignValue::Signed);
 
-    // Generate equal-to-zero operations using macro
-    gen_eqz_op!(gen_i32_eqz, i32);
-    gen_eqz_op!(gen_i64_eqz, i64);
+    // i32 version: direct EQ with 0
+    fn gen_i32_eqz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+        self.push_instruction(Instr::EQ { lhs: child_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
+
+    // i64 version: OR both halves then EQ with 0
+    fn gen_i64_eqz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let ExtendedRegister(register_index) = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
+        let lower_register = DataRegister::new(register_index);
+        let upper_register = DataRegister::new(register_index + 1);
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+        self.push_instruction(Instr::OR { lhs: lower_register, rhs: RegisterOrConst::DataRegister(upper_register), dest: dest_register });
+        self.push_instruction(Instr::EQ { lhs: dest_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
+    
 
     fn gen_i64_extend_i32s(&mut self, potential_target: Option<&MapperLocation>, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>) -> MapperLocation {
         let target = match potential_target {
@@ -1252,9 +1207,20 @@ impl<'a,'b> Translator<'a,'b> {
     gen_single_operand_op!(gen_i32_trunc_f32u, FTOUZ);
     gen_single_operand_op!(gen_i32_trunc_f32s, FTOIZ);
 
-    // Generate f32 sign manipulation operations using macro
-    gen_f32_sign_op!(gen_f32_neg, neg);
-    gen_f32_sign_op!(gen_f32_abs, abs);
+    fn gen_f32_neg(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+        self.push_instruction(Instr::ADDIH { lhs: child_register, rhs: Const16::new(0x8000), dest: dest_register });
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
+
+    fn gen_f32_abs(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+        self.push_instruction(Instr::SH { src: child_register, count: RegisterOrConst::new_const(1), dest: dest_register });
+        self.push_instruction(Instr::SH { src: dest_register, count: RegisterOrConst::new_const(-1i16 as u16), dest: dest_register });
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
 
     // Generate simple unary operations using macro
     gen_single_operand_op!(gen_i32_popcnt, POPCNT);
