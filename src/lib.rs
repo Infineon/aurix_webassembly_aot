@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-#![feature(error_in_core)]
 #![feature(naked_functions)]
 extern crate alloc;
 mod constant_expression_eval;

@@ -34,12 +34,11 @@ pub fn wrap_env(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[naked]
         pub unsafe extern "C" fn #fn_name() {
-            core::arch::asm!(
+            core::arch::naked_asm!(
                 #arg_pop
                 concat!("call ", stringify!(#inner_name)),
                 #return_instr
-                "ret",
-                options(noreturn)
+                "ret"
             );
         }
 
