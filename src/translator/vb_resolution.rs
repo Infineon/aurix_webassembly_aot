@@ -75,15 +75,48 @@ impl CmpfBits {
     pub const GE: u16 = Self::GT | Self::EQ;  // 0b0110
 }
 
+
+// ================================================================================
+//  INSTRUCTION ENUM
+// ================================================================================
+// 
+// These enums are made to allow passing instructions as parameters to functions for code reuse
+
+// for gen_i32_comparison_with_imm_opt
+enum ImmCompInstr {
+    GEU,
+    GE,
+    LTU,
+    LT
+}
+
+// for gen_i32_simple_binary_op
+enum SimpleBinaryOpInstr {
+    XOR,
+    OR,
+    AND,
+    MUL,
+    EQ,
+    NE
+}
+
+// for gen_single_operand_op
+enum SingleOperandInstr {
+    CLZ,
+    POPCNT,
+    UTOF,
+    ITOF,
+    FTOUZ,
+    FTOIZ
+}
+
+// TODO: Redo the documentation for this, reorganize everything (new functions for code reuse, the enums created etc)
 // ================================================================================
 // REFACTORING MACROS FOR CODE REUSE REDUCTION
 // ================================================================================
 // 
 // These macros significantly reduce code duplication by abstracting common patterns:
 //
-// 1. gen_simple_binary_op!: Handles 90% of binary operations (XOR, OR, AND, MUL, EQ, NE)
-//    - Reduces ~18 functions to ~3 lines each (saved ~60 lines)
-//    - Standardizes register allocation, instruction emission, and result mapping
 //
 // 2. gen_div_rem_op!: Handles division/remainder operations (DIV, DIVU variants)
 //    - Reduces ~8 functions to ~1 line each (saved ~28 lines)
@@ -104,21 +137,6 @@ impl CmpfBits {
 // Total lines reduced: ~400+ lines while maintaining identical functionality
 // Total lines reduced: ~120+ lines while maintaining identical functionality
 
-/// Macro for generating simple binary operations that follow the standard pattern:
-/// 1. Map operands to register/constant pairs
-/// 2. Get destination register
-/// 3. Push single instruction
-/// 4. Map result to location
-macro_rules! gen_simple_binary_op {
-    ($name:ident, $instr:ident, $sign:expr) => {
-        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let (lhs_register, rhs_register_const) = (lhs, rhs).map_abelian_children_to_register_or_const($sign, self, scratch_variable_map);
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-            self.push_instruction(Instr::$instr { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register });
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-}
 
 /// Macro for generating division/remainder operations that follow the division pattern:
 /// 1. Map operands to data registers
@@ -132,23 +150,6 @@ macro_rules! gen_div_rem_op {
             let ExtendedRegister(index) = self.next_available_extended_register(scratch_variable_map, &vec![]);
             self.push_instruction(Instr::$instr { lhs: lhs_register, rhs: rhs_register, dest: ExtendedRegister(index) });
             DataRegister(index + $result_half).map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-}
-
-/// Macro for generating single-operand operations (unary operations and conversions):
-/// 1. Map operand to data register
-/// 2. Get destination register  
-/// 3. Push single instruction
-/// 4. Map result to location
-/// Used for: arithmetic (CLZ, POPCNT), conversions (UTOF, ITOF, FTOUZ, FTOIZ)
-macro_rules! gen_single_operand_op {
-    ($name:ident, $instr:ident) => {
-        fn $name(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-            self.push_instruction(Instr::$instr { src: child_register, dest: dest_register });
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
         }
     };
 }
@@ -354,12 +355,6 @@ macro_rules! gen_f32_eq_style_op {
 /// Instead, you have to adjust the immediate value (add +1 or 0) eg: x GT c <=> x GE (c+1)
 /// The immediate can be at most 9 bits, so if c or c+1 is out of range, we store it in a register and fall back on the register case
 
-enum ImmCompInstr {
-    GEU,
-    GE,
-    LTU,
-    LT
-}
 
 macro_rules! gen_i32_comparison_with_imm_opt {
     ($name:ident, $imm_instr:ident, $imm_inc:expr, $rev_imm_instr:ident, $rev_imm_inc:expr, $reverse_operands:expr, $reg_instr:ident) => {
@@ -1035,12 +1030,45 @@ impl<'a,'b> Translator<'a,'b> {
         }
     }
 
-
+    fn gen_simple_binary_op(&mut self, instr: SimpleBinaryOpInstr, sign: SignValue,lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let (lhs_register, rhs_register_const) = (lhs, rhs).map_abelian_children_to_register_or_const(sign, self, scratch_variable_map);
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+        match instr {
+            SimpleBinaryOpInstr::XOR => self.push_instruction(Instr::XOR { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register }),
+            SimpleBinaryOpInstr::OR => self.push_instruction(Instr::OR { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register }),
+            SimpleBinaryOpInstr::AND => self.push_instruction(Instr::AND { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register }),
+            SimpleBinaryOpInstr::MUL => self.push_instruction(Instr::MUL { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register }),
+            SimpleBinaryOpInstr::EQ => self.push_instruction(Instr::EQ { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register }),
+            SimpleBinaryOpInstr::NE => self.push_instruction(Instr::NE { lhs: lhs_register, rhs: rhs_register_const, dest: dest_register }),
+        }
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
 
     // Generate simple bitwise operations using macro
-    gen_simple_binary_op!(gen_i32_xor, XOR, SignValue::Unsigned);
-    gen_simple_binary_op!(gen_i32_or, OR, SignValue::Unsigned);
-    gen_simple_binary_op!(gen_i32_and, AND, SignValue::Unsigned);
+
+    fn gen_i32_xor(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_simple_binary_op(SimpleBinaryOpInstr::XOR, SignValue::Unsigned, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    fn gen_i32_or(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_simple_binary_op(SimpleBinaryOpInstr::OR, SignValue::Unsigned, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    fn gen_i32_and(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_simple_binary_op(SimpleBinaryOpInstr::AND, SignValue::Unsigned, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    fn gen_i32_mul(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_simple_binary_op(SimpleBinaryOpInstr::MUL, SignValue::Signed, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    fn gen_i32_eq(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_simple_binary_op(SimpleBinaryOpInstr::EQ, SignValue::Signed, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    fn gen_i32_ne(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_simple_binary_op(SimpleBinaryOpInstr::NE, SignValue::Signed, lhs, rhs, scratch_variable_map, potential_target)
+    }
 
     // ================================================================================
     // INTEGER ARITHMETIC OPERATION GENERATORS  
@@ -1053,7 +1081,7 @@ impl<'a,'b> Translator<'a,'b> {
     gen_div_rem_op!(gen_i32_div_s, DIV, 0);   // quotient is in lower half (index + 0)
 
     // Generate multiplication using simple binary operation macro
-    gen_simple_binary_op!(gen_i32_mul, MUL, SignValue::Signed);
+    
 
     fn gen_i64_mul(&mut self, potential_target: Option<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, rhs: &MapperLocation) -> MapperLocation {
         let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
@@ -1186,15 +1214,10 @@ impl<'a,'b> Translator<'a,'b> {
     gen_i64_comparison_op!(gen_i64_gts, ANDLTU, true, ORLT, true);
     gen_i64_comparison_op!(gen_i64_gtu, ANDLTU, true, ORLTU, true);
 
-    // Generate simple comparison operations using macro
-    gen_simple_binary_op!(gen_i32_ne, NE, SignValue::Signed);
 
     // ================================================================================
     // INTEGER COMPARISON OPERATION GENERATORS
     // ================================================================================
-
-    // Generate equality comparison using simple binary operation macro
-    gen_simple_binary_op!(gen_i32_eq, EQ, SignValue::Signed);
 
     // i32 version: direct EQ with 0
     fn gen_i32_eqz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
@@ -1258,11 +1281,35 @@ impl<'a,'b> Translator<'a,'b> {
         dest.map_to_location(potential_target, self, scratch_variable_map)
     }
 
+    fn gen_single_operand_op(&mut self, instr: SingleOperandInstr, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+        match instr {
+            SingleOperandInstr::CLZ => self.push_instruction(Instr::CLZ { src: child_register, dest: dest_register }),
+            SingleOperandInstr::UTOF => self.push_instruction(Instr::UTOF { src: child_register, dest: dest_register }),
+            SingleOperandInstr::ITOF => self.push_instruction(Instr::ITOF { src: child_register, dest: dest_register }),
+            SingleOperandInstr::FTOUZ => self.push_instruction(Instr::FTOUZ { src: child_register, dest: dest_register }),
+            SingleOperandInstr::FTOIZ => self.push_instruction(Instr::FTOIZ { src: child_register, dest: dest_register }),
+            SingleOperandInstr::POPCNT => self.push_instruction(Instr::POPCNT { src: child_register, dest: dest_register }),
+        }
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
+
     // Generate conversion operations using macro
-    gen_single_operand_op!(gen_f32_convert_i32u, UTOF);
-    gen_single_operand_op!(gen_f32_convert_i32s, ITOF);
-    gen_single_operand_op!(gen_i32_trunc_f32u, FTOUZ);
-    gen_single_operand_op!(gen_i32_trunc_f32s, FTOIZ);
+    fn gen_f32_convert_i32u(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_single_operand_op(SingleOperandInstr::UTOF, child, scratch_variable_map, potential_target)
+    }
+    fn gen_f32_convert_i32s(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_single_operand_op(SingleOperandInstr::ITOF, child, scratch_variable_map, potential_target)
+    }
+    fn gen_i32_trunc_f32u(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_single_operand_op(SingleOperandInstr::FTOUZ, child, scratch_variable_map, potential_target)
+    }
+    fn gen_i32_trunc_f32s(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_single_operand_op(SingleOperandInstr::FTOIZ, child, scratch_variable_map, potential_target)
+    }
+
+    
 
     fn gen_f32_neg(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
@@ -1280,7 +1327,9 @@ impl<'a,'b> Translator<'a,'b> {
     }
 
     // Generate simple unary operations using macro
-    gen_single_operand_op!(gen_i32_popcnt, POPCNT);
+    fn gen_i32_popcnt(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_single_operand_op(SingleOperandInstr::POPCNT, child, scratch_variable_map, potential_target)
+    }
 
     // ====================================================================
     // BIT MANIPULATION AND UTILITY OPERATION GENERATORS
@@ -1297,8 +1346,9 @@ impl<'a,'b> Translator<'a,'b> {
         dest_register.map_to_location(potential_target, self, scratch_variable_map)
     }
 
-    // Generate CLZ using simple unary operation macro
-    gen_single_operand_op!(gen_i32_clz, CLZ);
+    fn gen_i32_clz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_single_operand_op(SingleOperandInstr::CLZ, child, scratch_variable_map, potential_target)
+    }
 
     fn _gen_i64_clz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let src = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
