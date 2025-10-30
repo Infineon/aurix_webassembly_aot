@@ -48,6 +48,7 @@ pub fn init() -> WasmRuntime<'static> {
         const HEAP_SIZE: usize = 10 * 1024;
         static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
 
+        #[allow(static_mut_refs)]
         HEAP.init(HEAP_MEM.as_ptr() as usize, HEAP_SIZE);
         defmt::println!("End init");
         set_exception_handler(exception_handler);
