@@ -2,7 +2,7 @@
 
 //! # VB (Valent Block) Resolution Engine
 //!
-//! This module implements the core VB resolution logic that converts virtual WebAssembly operand 
+//! This module implements the core VB resolution logic that converts virtual WebAssembly operand
 //! stack expressions into concrete machine code for the Aurix processor.
 //!
 //! ## Key Concepts
@@ -48,29 +48,29 @@ use super::StackHeight;
 // ================================================================================
 
 /// Constants for CMPF (floating-point comparison) instruction result bits.
-/// 
+///
 /// The CMPF instruction sets specific bits in the result register based on the comparison:
 /// - Bit 0: Set if LHS < RHS (less than)
-/// - Bit 1: Set if LHS == RHS (equal) 
+/// - Bit 1: Set if LHS == RHS (equal)
 /// - Bit 2: Set if LHS > RHS (greater than)
 /// - Bit 3: Set if either operand is NaN (unordered)
-/// 
+///
 /// These constants can be combined with bitwise OR to create masks for complex comparisons.
 pub struct CmpfBits;
 
 impl CmpfBits {
     /// LHS < RHS (less than)
     pub const LT: u16 = 1 << 0;  // 0b0001
-    
+
     /// LHS == RHS (equal)
     pub const EQ: u16 = 1 << 1;  // 0b0010
-    
-    /// LHS > RHS (greater than) 
+
+    /// LHS > RHS (greater than)
     pub const GT: u16 = 1 << 2;  // 0b0100
-       
+
     /// LHS <= RHS (less than or equal)
     pub const LE: u16 = Self::LT | Self::EQ;  // 0b0011
-    
+
     /// LHS >= RHS (greater than or equal)
     pub const GE: u16 = Self::GT | Self::EQ;  // 0b0110
 }
@@ -79,7 +79,7 @@ impl CmpfBits {
 // ================================================================================
 //  INSTRUCTION ENUM
 // ================================================================================
-// 
+//
 // These enums are made to allow passing instructions as parameters to functions for code reuse
 
 // for gen_i32_comparison_with_imm_opt
@@ -110,11 +110,18 @@ enum SingleOperandInstr {
     FTOIZ
 }
 
+// for gen_div_rem_op
+enum DivRemInstr {
+    DIV,
+    DIVU
+}
+
+
 // TODO: Redo the documentation for this, reorganize everything (new functions for code reuse, the enums created etc)
 // ================================================================================
 // REFACTORING MACROS FOR CODE REUSE REDUCTION
 // ================================================================================
-// 
+//
 // These macros significantly reduce code duplication by abstracting common patterns:
 //
 //
@@ -146,10 +153,7 @@ enum SingleOperandInstr {
 macro_rules! gen_div_rem_op {
     ($name:ident, $instr:ident, $result_half:expr) => {
         fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-            let ExtendedRegister(index) = self.next_available_extended_register(scratch_variable_map, &vec![]);
-            self.push_instruction(Instr::$instr { lhs: lhs_register, rhs: rhs_register, dest: ExtendedRegister(index) });
-            DataRegister(index + $result_half).map_to_location(potential_target, self, scratch_variable_map)
+            self.gen_div_rem_op_impl( lhs, rhs, scratch_variable_map, potential_target, DivRemInstr::$instr, $result_half)
         }
     };
 }
@@ -159,16 +163,16 @@ macro_rules! gen_div_rem_op {
 /// 2. Get destination register
 /// 3. Push three instructions: EQ, accumulating AND + lower half comparison, accumulating OR + upper half comparison
 /// 4. Map result to location
-/// 
-/// Explanation: lhs i64.op rhs ≡ (lhs_upper = rhs_upper && lhs_lower i32.op rhs_lower) || lhs_upper i32.op rhs_upper 
-///  
+///
+/// Explanation: lhs i64.op rhs ≡ (lhs_upper = rhs_upper && lhs_lower i32.op rhs_lower) || lhs_upper i32.op rhs_upper
+///
 /// This macro handles both simple and mixed-swap comparison patterns:
 /// - For simple comparisons: use false, false (no swapping)
 /// - For mixed comparisons: specify which instructions need operand swapping
-/// 
+///
 /// Note: This macro generates "less than" style comparisons. For greater-than operations,
 /// the operands must be manually swapped in the implementation to achieve correct semantics.
-/// 
+///
 /// ⚠️  **CRITICAL WARNING**: NEVER change the order of register mapping!
 /// Always use: `let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(...)`
 /// The register allocation order must remain consistent to avoid breaking the compiler's
@@ -277,7 +281,7 @@ macro_rules! gen_i32_shift_op {
     };
 }
 
-/// Macro for generating 64-bit bitwise operations with zero optimization: you don't need to do the operation if an operand is zero. 
+/// Macro for generating 64-bit bitwise operations with zero optimization: you don't need to do the operation if an operand is zero.
 /// Pattern: handle each half separately with optimization for zero constants
 /// Only used for OR and XOR because the zero optimization is not applicable for AND (it would always return 0)
 macro_rules! gen_i64_bitwise_with_zero_opt {
@@ -333,22 +337,22 @@ macro_rules! gen_f32_eq_style_op {
 /// Unified macro for all i32 comparison operations with automatic immediate optimization.
 /// Automatically handles immediate optimizations and operand swapping based on semantic intent.
 /// For code reuse and binary size reduction, the macro calls a function.
-/// 
+///
 /// ## Parameters:
 /// - `$imm_instr`: Instruction to use when immediate optimization applies on the rhs operand
-/// - `$imm_inc`: Value to add to immediate for `$imm_instr` (+1 or 0) 
+/// - `$imm_inc`: Value to add to immediate for `$imm_instr` (+1 or 0)
 /// - `$rev_imm_instr`: Instruction to use when immediate optimization applies on lhs operand and you need to reverse the operation
 /// - `$rev_imm_inc`: Value to add to immediate for `$rev_imm_instr
 /// - `$reverse_operands`: Boolean indicating if operands should be swapped for register-register case
 /// - `$reg_instr`: Instruction to use for register-register case
-/// 
+///
 /// ## Automatic Inference:
 /// - **Sign handling**: Function name ending with 'u' (geu, ltu) → SignValue::Unsigned, with 's' → SignValue::Signed
-/// - **Immediate conditions**: 
+/// - **Immediate conditions**:
 ///   - Unsigned: `(immediate + increment) >> 9 == 0` (9-bit range check)
 ///   - Signed: `(immediate + increment) >> 8 == 0 || (immediate + increment) >> 8 == -1` (8-bit signed range check)
 /// - **Immediate side detection**: Automatically tries both lhs and rhs for immediate optimization
-/// 
+///
 /// ## Logic:
 /// For register case: Only LT and GE exist in Tricore, so you have to swap operands for GT and LE. eg: x GT y <=> y LT x
 /// For immediate optimization: immediate has to be rhs in Tricore, so you can't swap operands like in register case.
@@ -386,106 +390,20 @@ macro_rules! gen_i32_comparison_with_imm_opt {
     };
 }
 
-impl<'a, 'b> Translator<'a, 'b> {
-    #[allow(clippy::too_many_arguments)]
-    fn gen_i32_comparison_with_imm_opt_impl(
-        &mut self,
-        lhs: &MapperLocation,
-        rhs: &MapperLocation,
-        scratch_variable_map: &mut Vec<MapperLocation>,
-        potential_target: Option<&MapperLocation>,
-        imm_inc: u32,
-        rev_imm_inc: u32,
-        reverse_operands: bool,
-        sign: SignValue,
-        imm_instr: ImmCompInstr,
-        rev_imm_instr: ImmCompInstr,
-        reg_instr: ImmCompInstr,
-    ) -> MapperLocation
-    {
-        // Try immediate optimization on right side first (lhs OP rhs_imm)
-        'outer_rhs: {
-            if let MapperLocation::Immediate(imm) = rhs {
-                let (adjusted_imm, overflowed) = imm.as_u32().overflowing_add(imm_inc);
-                if overflowed {
-                    break 'outer_rhs;
-                }
-                let adjusted_imm = Immediate::Word(adjusted_imm as u32);
-                if adjusted_imm.fits_as_comparison_immediate(sign) {
-                    let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    match imm_instr {
-                        ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
-                        ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
-                        ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
-                        ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
-                    }
-                    return dest_register.map_to_location(potential_target, self, scratch_variable_map);
-                }
-            }
-        }
 
-        // Try immediate optimization on left side (lhs_imm OP rhs)
-        'outer_lhs: {
-            if let MapperLocation::Immediate(imm) = lhs {
-                let (adjusted_imm, overflowed) = imm.as_u32().overflowing_add(rev_imm_inc);
-                if overflowed {
-                    break 'outer_lhs;
-                }
-                let adjusted_imm = Immediate::Word(adjusted_imm as u32);
-                if adjusted_imm.fits_as_comparison_immediate(sign) {
-                    let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-                    match rev_imm_instr {
-                        ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
-                        ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
-                        ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
-                        ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
-                    }
-                    return dest_register.map_to_location(potential_target, self, scratch_variable_map);
-                }
-            }
-        }
-
-        // Register-register case: apply operand swapping based on semantic intent
-        if reverse_operands {
-            let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone()]);
-            let lhs_register = lhs.map_to_register_or_const(sign, self, scratch_variable_map, &vec![MapperLocation::DataRegister(rhs_register)]);
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-            match reg_instr {
-                ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
-                ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
-                ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
-                ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
-            }
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        } else {
-            let rhs_register = rhs.map_to_register_or_const(sign, self, scratch_variable_map, &vec![lhs.clone()]);
-            let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register.to_mapper_location()]);
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-            match reg_instr {
-                ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
-                ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
-                ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
-                ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
-            }
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        }
-    }
-}
 
 impl<'a,'b> Translator<'a,'b> {
-    
+
     // ================================================================================
     // CORE VB RESOLUTION FUNCTIONS
     // ================================================================================
-    
+
     /// Resolves all VB expressions on the stack to concrete stack locations.
-    /// 
+    ///
     /// This function processes the entire VB stack, converting each virtual expression
     /// into machine code and updating stack offsets accordingly. Already-resolved VBs
     /// are skipped to avoid redundant work.
-    /// 
+    ///
     /// ## Process
     /// 1. Iterate through all VBs on the stack
     /// 2. Skip already-resolved VBs (maintain stack offset tracking)
@@ -493,7 +411,7 @@ impl<'a,'b> Translator<'a,'b> {
     ///    - Handle NaN canonicalization if needed
     ///    - Perform post-order DFS traversal for code generation
     ///    - Update stack offset and mark as resolved
-    /// 
+    ///
     /// ## Stack Layout
     /// The runtime stack grows downward with each resolved VB consuming space
     /// based on its value size (4 bytes for Word, 8 bytes for DoubleWord).
@@ -509,19 +427,19 @@ impl<'a,'b> Translator<'a,'b> {
                 },
                 _ => {
                     // Handle NaN canonicalization for floating-point operations
-                    if vb.produces_non_canonical_nan() { 
-                        vb = vb.adjust_for_non_canonical_nan() 
+                    if vb.produces_non_canonical_nan() {
+                        vb = vb.adjust_for_non_canonical_nan()
                     }
-                    
+
                     let size = vb.val_size(&self.locals_map, &self.global_translator.globals_map);
                     let mut scratch_variable_map = Vec::new();
-                    
+
                     // Perform post-order DFS to generate machine code
                     vb.post_order_dfs(|vb, is_top| {
                         let stack_location = MapperLocation::Stack { size };
                         self.resolve_vb(if is_top { Some(&stack_location) } else { None }, vb, &mut scratch_variable_map);
                     });
-                    
+
                     // Update stack offset and mark as resolved
                     stack_offset = stack_offset.add(size.as_bytes());
                     self.vb_stack[index] = VB::AtomicVB(AtomicVB::Resolved { size, offset: stack_offset.into() })
@@ -531,20 +449,20 @@ impl<'a,'b> Translator<'a,'b> {
     }
 
     /// Resolves a single VB expression from the top of the stack with an optional target location.
-    /// 
+    ///
     /// This is the primary function for converting a VB expression into machine code when
     /// you need the result in a specific location (register, memory, etc.) or want to
     /// determine where the result ended up.
-    /// 
+    ///
     /// ## Parameters
     /// - `target`: Optional target location where the result should be placed
     ///   - `Some(location)`: Force result to specific location (register, memory, etc.)
     ///   - `None`: Let the resolution choose the most efficient location
-    /// 
+    ///
     /// ## Returns
     /// The `MapperLocation` where the result was actually placed. This may differ
     /// from the requested target if optimizations were applied.
-    /// 
+    ///
     /// ## Process
     /// 1. Pop the top VB from the stack
     /// 2. Handle NaN canonicalization if needed
@@ -563,15 +481,15 @@ impl<'a,'b> Translator<'a,'b> {
     // ================================================================================
 
     /// Core VB resolution function that dispatches to appropriate handlers based on VB type.
-    /// 
+    ///
     /// This function is called during the post-order DFS traversal and is responsible
     /// for generating the appropriate machine code for each VB node.
-    /// 
+    ///
     /// ## Parameters
     /// - `potential_target`: Where the result should be placed (if specified)
     /// - `vb`: The VB expression to resolve
     /// - `scratch_variable_map`: Stack of intermediate result locations
-    /// 
+    ///
     /// ## VB Type Dispatch
     /// - **AtomicVB**: Constants, locals, globals, resolved values
     /// - **UnaryVB**: Single-operand operations (loads, conversions, arithmetic)
@@ -592,17 +510,17 @@ impl<'a,'b> Translator<'a,'b> {
     // ================================================================================
 
     /// Resolves atomic VB expressions (leaf nodes in the expression tree).
-    /// 
+    ///
     /// Atomic VBs represent the simplest form of values that don't require computation:
     /// - **Constants**: Immediate values (i32, i64, f32, f64)
     /// - **Local variables**: Function parameters and local variables
     /// - **Global variables**: Module-level variables
     /// - **Resolved values**: Previously computed results on the stack
     /// - **Special values**: Memory size, unreachable markers
-    /// 
+    ///
     /// ## Target Handling
     /// If a target location is specified, the atomic value is moved/copied to that location.
-    /// Otherwise, the most efficient representation is used (immediate values stay as 
+    /// Otherwise, the most efficient representation is used (immediate values stay as
     /// immediates, variables reference their storage locations, etc.).
     fn dispatch_atomic_vb(&mut self, atomic_vb: &AtomicVB, potential_target: Option<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>) -> MapperLocation {
         let result = match atomic_vb {
@@ -630,7 +548,7 @@ impl<'a,'b> Translator<'a,'b> {
     // ================================================================================
 
     /// Resolves unary VB expressions (operations with a single operand).
-    /// 
+    ///
     /// Unary operations include:
     /// - **Arithmetic**: Negation, absolute value, square root
     /// - **Bitwise**: Count leading/trailing zeros, population count
@@ -638,7 +556,7 @@ impl<'a,'b> Translator<'a,'b> {
     /// - **Comparisons**: Zero comparisons (eqz)
     /// - **Memory loads**: All load operations with different sizes and signedness
     /// - **Math functions**: Ceiling, floor, truncate, nearest (often library calls)
-    /// 
+    ///
     /// ## Process
     /// 1. Pop the child operand from the scratch variable stack
     /// 2. Dispatch to the appropriate generator function based on operation type
@@ -715,20 +633,20 @@ impl<'a,'b> Translator<'a,'b> {
     // ================================================================================
 
     /// Resolves binary VB expressions (operations with two operands).
-    /// 
+    ///
     /// Binary operations include:
     /// - **Arithmetic**: Addition, subtraction, multiplication, division, remainder
     /// - **Comparisons**: Equality, inequality, less than, greater than, etc.
     /// - **Bitwise**: AND, OR, XOR, shifts, rotations
     /// - **Floating-point**: All floating-point arithmetic and comparisons
-    /// 
+    ///
     /// ## Process
     /// 1. Pop the right-hand operand (RHS) from scratch variable stack
     /// 2. Pop the left-hand operand (LHS) from scratch variable stack
     /// 3. Dispatch to appropriate generator based on operation type
     /// 4. Complex operations (64-bit, floating-point) often use library calls
     /// 5. Simple operations generate direct machine instructions
-    /// 
+    ///
     /// ## Operand Order
     /// Note that operands are popped in reverse order (RHS first, then LHS) due to
     /// stack-based evaluation order in the post-order traversal.
@@ -820,20 +738,20 @@ impl<'a,'b> Translator<'a,'b> {
     // ================================================================================
 
     /// Generates machine code for the WebAssembly `select` instruction.
-    /// 
+    ///
     /// The select instruction chooses between two values based on a condition:
     /// `select(lhs, rhs, selector) = selector ? lhs : rhs`
-    /// 
+    ///
     /// ## Implementation Strategy
-    /// 
+    ///
     /// ### For 32-bit values (Word):
     /// - **Optimization**: Use `SELN` instruction when LHS is a small immediate
     /// - **General case**: Use `SEL` instruction with three registers
-    /// 
+    ///
     /// ### For 64-bit values (DoubleWord):
     /// - Use conditional branches due to lack of 64-bit select instruction
     /// - Generate: `if (selector == 0) use RHS else use LHS`
-    /// 
+    ///
     /// ## Parameters
     /// - Values are popped from scratch stack in order: selector, rhs, lhs
     /// - `size`: Value size (Word or DoubleWord) determines implementation
@@ -878,9 +796,9 @@ impl<'a,'b> Translator<'a,'b> {
     // ================================================================================
 
     // Generate f32 comparison operations using macro
-    gen_f32_comparison_op!(gen_f32_gt, CmpfBits::GT, ne);     
+    gen_f32_comparison_op!(gen_f32_gt, CmpfBits::GT, ne);
     gen_f32_comparison_op!(gen_f32_ge, CmpfBits::GE, ne);
-    gen_f32_comparison_op!(gen_f32_lt, CmpfBits::LT); 
+    gen_f32_comparison_op!(gen_f32_lt, CmpfBits::LT);
     gen_f32_comparison_op!(gen_f32_le, CmpfBits::LE, ne);
 
     fn gen_f64_copysign(&mut self, potential_target: Option<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, rhs: &MapperLocation) -> MapperLocation {
@@ -1071,8 +989,18 @@ impl<'a,'b> Translator<'a,'b> {
     }
 
     // ================================================================================
-    // INTEGER ARITHMETIC OPERATION GENERATORS  
+    // INTEGER ARITHMETIC OPERATION GENERATORS
     // ================================================================================
+
+    fn gen_div_rem_op_impl(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>, instr: DivRemInstr, result_half: u8) -> MapperLocation {
+        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
+        let ExtendedRegister(index) = self.next_available_extended_register(scratch_variable_map, &vec![]);
+        match instr {
+            DivRemInstr::DIV => self.push_instruction(Instr::DIV { lhs: lhs_register, rhs: rhs_register, dest: ExtendedRegister(index) }),
+            DivRemInstr::DIVU => self.push_instruction(Instr::DIVU { lhs: lhs_register, rhs: rhs_register, dest: ExtendedRegister(index) }),
+        }
+        DataRegister(index + result_half).map_to_location(potential_target, self, scratch_variable_map)
+    }
 
     // Generate division and remainder operations using macro
     gen_div_rem_op!(gen_i32_rem_u, DIVU, 1);  // remainder is in upper half (index + 1)
@@ -1081,7 +1009,7 @@ impl<'a,'b> Translator<'a,'b> {
     gen_div_rem_op!(gen_i32_div_s, DIV, 0);   // quotient is in lower half (index + 0)
 
     // Generate multiplication using simple binary operation macro
-    
+
 
     fn gen_i64_mul(&mut self, potential_target: Option<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, rhs: &MapperLocation) -> MapperLocation {
         let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
@@ -1179,7 +1107,7 @@ impl<'a,'b> Translator<'a,'b> {
         self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
         dest_register.map_to_location(potential_target, self, scratch_variable_map)
     }
-    
+
     // Either half being not equal means overall inequality
     fn gen_i64_ne(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Signed, self, scratch_variable_map);
@@ -1193,6 +1121,92 @@ impl<'a,'b> Translator<'a,'b> {
         self.push_instruction(Instr::OR { lhs: dest_register, rhs: RegisterOrConst::DataRegister(intermediate), dest: dest_register });
         dest_register.map_to_location(potential_target, self, scratch_variable_map)
     }
+
+    fn gen_i32_comparison_with_imm_opt_impl(
+        &mut self,
+        lhs: &MapperLocation,
+        rhs: &MapperLocation,
+        scratch_variable_map: &mut Vec<MapperLocation>,
+        potential_target: Option<&MapperLocation>,
+        imm_inc: u32,
+        rev_imm_inc: u32,
+        reverse_operands: bool,
+        sign: SignValue,
+        imm_instr: ImmCompInstr,
+        rev_imm_instr: ImmCompInstr,
+        reg_instr: ImmCompInstr,
+    ) -> MapperLocation
+    {
+        // Try immediate optimization on right side first (lhs OP rhs_imm)
+        'outer_rhs: {
+            if let MapperLocation::Immediate(imm) = rhs {
+                let (adjusted_imm, overflowed) = imm.as_u32().overflowing_add(imm_inc);
+                if overflowed {
+                    break 'outer_rhs;
+                }
+                let adjusted_imm = Immediate::Word(adjusted_imm as u32);
+                if adjusted_imm.fits_as_comparison_immediate(sign) {
+                    let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+                    match imm_instr {
+                        ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: lhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                    }
+                    return dest_register.map_to_location(potential_target, self, scratch_variable_map);
+                }
+            }
+        }
+
+        // Try immediate optimization on left side (lhs_imm OP rhs)
+        'outer_lhs: {
+            if let MapperLocation::Immediate(imm) = lhs {
+                let (adjusted_imm, overflowed) = imm.as_u32().overflowing_add(rev_imm_inc);
+                if overflowed {
+                    break 'outer_lhs;
+                }
+                let adjusted_imm = Immediate::Word(adjusted_imm as u32);
+                if adjusted_imm.fits_as_comparison_immediate(sign) {
+                    let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+                    let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+                    match rev_imm_instr {
+                        ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                        ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: rhs_register, rhs: RegisterOrConst::new_const(adjusted_imm.as_u32() as u16), dest: dest_register }),
+                    }
+                    return dest_register.map_to_location(potential_target, self, scratch_variable_map);
+                }
+            }
+        }
+
+        // Register-register case: apply operand swapping based on semantic intent
+        if reverse_operands {
+            let rhs_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![lhs.clone()]);
+            let lhs_register = lhs.map_to_register_or_const(sign, self, scratch_variable_map, &vec![MapperLocation::DataRegister(rhs_register)]);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            match reg_instr {
+                ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
+                ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
+                ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
+                ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: rhs_register, rhs: lhs_register, dest: dest_register }),
+            }
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        } else {
+            let rhs_register = rhs.map_to_register_or_const(sign, self, scratch_variable_map, &vec![lhs.clone()]);
+            let lhs_register = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register.to_mapper_location()]);
+            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+            match reg_instr {
+                ImmCompInstr::GEU => self.push_instruction(Instr::GEU { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+                ImmCompInstr::GE => self.push_instruction(Instr::GE { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+                ImmCompInstr::LTU => self.push_instruction(Instr::LTU { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+                ImmCompInstr::LT => self.push_instruction(Instr::LT { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+            }
+            dest_register.map_to_location(potential_target, self, scratch_variable_map)
+        }
+    }
+
 
     // Generate i32 comparison operations using unified macro with boolean reverse flag
     gen_i32_comparison_with_imm_opt!(gen_i32_gtu, GEU, 1, LTU, 0, true, LTU);
@@ -1237,7 +1251,7 @@ impl<'a,'b> Translator<'a,'b> {
         self.push_instruction(Instr::EQ { lhs: dest_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
         dest_register.map_to_location(potential_target, self, scratch_variable_map)
     }
-    
+
 
     fn gen_i64_extend_i32s(&mut self, potential_target: Option<&MapperLocation>, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>) -> MapperLocation {
         let target = match potential_target {
@@ -1309,7 +1323,7 @@ impl<'a,'b> Translator<'a,'b> {
         self.gen_single_operand_op(SingleOperandInstr::FTOIZ, child, scratch_variable_map, potential_target)
     }
 
-    
+
 
     fn gen_f32_neg(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let child_register = child.map_to_data_register(None, self, scratch_variable_map, &vec![]);
