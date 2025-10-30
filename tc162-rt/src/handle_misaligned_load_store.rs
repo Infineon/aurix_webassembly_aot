@@ -545,6 +545,7 @@ pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
         _ => {}
     }
 
+    #[allow(static_mut_refs, reason = "only references to the variable, in asm block")] 
     match context_to_be_saved {
         RegisterContext::LowerContext => unsafe {
             asm!(
