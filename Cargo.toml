@@ -51,6 +51,8 @@ tc162-rt = { path = "tc162-rt", features = ["support-misaligned-access"] }
 
 [profile.release]
 opt-level = "z"
+codegen-units=1
+
 
 [profile.dev.package."*"]
 opt-level = "z"

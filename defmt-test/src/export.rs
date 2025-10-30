@@ -2,8 +2,8 @@ use crate::TestOutcome;
 pub use defmt::info;
 // #[cfg(feature="tsim")]
 use tc162_rt;
-#[cfg(feature="board")]
-use core::arch::tricore::intrinsics;
+// #[cfg(feature="board")]
+// use core::arch::tricore::intrinsics;
 
 /// Terminates the application and makes a semihosting-capable debug tool exit
 /// with status code 0.

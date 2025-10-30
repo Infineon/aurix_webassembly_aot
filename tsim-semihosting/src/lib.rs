@@ -14,6 +14,7 @@
 #![no_std]
 #![no_main]
 
+
 use crate::vio_write::write;
 use core::fmt::{self, Write};
 use tc162_rt::exit;
@@ -33,10 +34,12 @@ pub extern "C" fn _exit() -> ! {
 }
 
 #[defmt::global_logger]
-pub struct Logger;
+struct Logger;
 use core::sync::atomic::{AtomicU32, Ordering};
 static TAKEN: AtomicU32 = AtomicU32::new(0);
 static mut ENCODER: defmt::Encoder = defmt::Encoder::new();
+
+#[allow(static_mut_refs)]
 unsafe impl defmt::Logger for Logger {
     fn acquire() {
         if TAKEN
@@ -45,7 +48,9 @@ unsafe impl defmt::Logger for Logger {
         {
             panic!("defmt logger taken reentrantly")
         };
-        unsafe { ENCODER.start_frame(hstdout_write_all) }
+        unsafe { 
+            ENCODER.start_frame(hstdout_write_all)
+         }
     }
 
     unsafe fn flush() {}
@@ -94,6 +99,7 @@ impl fmt::Write for HostStream {
     }
 }
 
+#[allow(static_mut_refs)]
 pub fn hstdout_str(s: &str) {
     let _result = unsafe {
         if HSTDOUT.is_none() {
@@ -104,6 +110,7 @@ pub fn hstdout_str(s: &str) {
     };
 }
 
+#[allow(static_mut_refs)]
 pub fn hstdout_write_all(s: &[u8]) {
     let _result = unsafe {
         if HSTDOUT.is_none() {
@@ -114,6 +121,7 @@ pub fn hstdout_write_all(s: &[u8]) {
     };
 }
 
+#[allow(static_mut_refs)]
 pub fn hstdout_fmt(args: fmt::Arguments) {
     let _result = unsafe {
         if HSTDOUT.is_none() {
