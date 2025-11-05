@@ -77,7 +77,7 @@ impl CmpfBits {
 
 
 // ================================================================================
-//  INSTRUCTION ENUM
+//  INSTRUCTION ENUMS
 // ================================================================================
 //
 // These enums are made to allow passing instructions as parameters to functions for code reuse
@@ -116,169 +116,45 @@ enum DivRemInstr {
     DIVU
 }
 
+// for gen_i64_comparison_op
 enum AndCompInstr {
     ANDLTU,
     ANDGEU
 }
 
+// for gen_i64_comparison_op
 enum OrCompInstr {
     ORLTU,
     ORLT
 }
 
+// for gen_f32_binary_op
+enum F32BinInstr {
+    ADDF,
+    SUBF,
+    MULF,
+    DIVF
+}
+
+// for gen_i64_bitwise_with_zero_opt
+enum BitwiseZeroOptInstr {
+    OR,
+    XOR
+}
+
+// for gen_i32_shift_op
+enum ShiftOpInstr {
+    SH,
+    SHA
+}
+
 // TODO: Redo the documentation for this, reorganize everything (new functions for code reuse, the enums created etc)
-// ================================================================================
-// REFACTORING MACROS FOR CODE REUSE REDUCTION
-// ================================================================================
-//
-// These macros significantly reduce code duplication by abstracting common patterns:
-//
-// 3. gen_single_operand_op!: Handles single-operand operations (POPCNT, CLZ, conversions)
-//    - Reduces repetitive single-instruction unary patterns
-//
-// 4. gen_i64_comparison_op!: Handles all 64-bit comparison patterns (LTS, LTU, GES, GEU, LES, LEU, GTS, GTU)
-//    - Reduces ~8 functions to ~1 line each (saved ~32 lines)
-//    - Abstracts complex 64-bit comparison logic with upper/lower half handling
-//
-// 5. gen_i32_comparison_with_imm_opt!: Unified macro for all i32 comparisons with immediate optimizations
-//    - Consolidates 4 previously separate macros into one comprehensive macro
-//    - Handles all comparison patterns (>, >=, <, <=) with immediate on either side
-//    - Reduces complexity and eliminates subtle differences between similar macros
-//
-// Total lines reduced: ~400+ lines while maintaining identical functionality
-// Total lines reduced: ~120+ lines while maintaining identical functionality
 
-
-/// Macro for generating 64-bit comparison operations with configurable operand swapping:
-/// 1. Map operands to extended registers
-/// 2. Get destination register
-/// 3. Push three instructions: EQ, accumulating AND + lower half comparison, accumulating OR + upper half comparison
-/// 4. Map result to location
-///
-/// Explanation: lhs i64.op rhs ≡ (lhs_upper = rhs_upper && lhs_lower i32.op rhs_lower) || lhs_upper i32.op rhs_upper
-///
-/// This macro handles both simple and mixed-swap comparison patterns:
-/// - For simple comparisons: use false, false (no swapping)
-/// - For mixed comparisons: specify which instructions need operand swapping
-///
-/// Note: This macro generates "less than" style comparisons. For greater-than operations,
-/// the operands must be manually swapped in the implementation to achieve correct semantics.
-///
-/// ⚠️  **CRITICAL WARNING**: NEVER change the order of register mapping!
-/// Always use: `let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(...)`
-/// The register allocation order must remain consistent to avoid breaking the compiler's
-/// register allocation algorithms. Operand swapping should ONLY be done in instruction
-/// parameters, NOT in the mapping phase.
-
-/// Macro for generating f32 binary arithmetic operations:
-/// 1. Map operands to data registers
-/// 2. Get destination register
-/// 3. Push single floating-point instruction
-/// 4. Map result to location
-macro_rules! gen_f32_binary_op {
-    ($name:ident, $instr:ident) => {
-        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-            self.push_instruction(Instr::$instr { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-}
-
-/// Macro for generating f32 comparison operations:
-/// Pattern: CMPF + AND/bit manipulation + optional NE for boolean conversion
-macro_rules! gen_f32_comparison_op {
-    // Simple AND pattern - returns raw bit value (0 or mask value)
-    ($name:ident, $mask:expr) => {
-        gen_f32_comparison_op!($name, $mask, false);
-    };
-    // AND + NE pattern - converts result to proper boolean (0 or 1)
-    ($name:ident, $mask:expr, ne) => {
-        gen_f32_comparison_op!($name, $mask, true);
-    };
-    // Internal implementation with boolean flag for NE instruction
-    ($name:ident, $mask:expr, $add_ne:expr) => {
-        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-            self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
-            self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::new_const($mask), dest: dest_register });
-            if $add_ne {
-                self.push_instruction(Instr::NE { lhs: dest_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
-            }
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-}
-
-/// Macro for generating i32 shift operations:
-/// Pattern: handle immediate vs register cases, mask with 0x1F (5 lower bits), conditionally negate count
-macro_rules! gen_i32_shift_op {
-    // For left shift (no negation)
-    ($name:ident, $instr:ident, shl) => {
-        gen_i32_shift_op!($name, $instr, false);
-    };
-    // For right shifts (negate count)
-    ($name:ident, $instr:ident, shr) => {
-        gen_i32_shift_op!($name, $instr, true);
-    };
-    // Internal implementation with negate flag
-    ($name:ident, $instr:ident, $negate_count:expr) => {
-        fn $name(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let rhs_register_const = match *rhs {
-                MapperLocation::Immediate(imm) => {
-                    let masked_count = (imm.as_u32() & 0x1F) as u16;
-                    if $negate_count {
-                        RegisterOrConst::new_const((-(masked_count as i16)) as u16)
-                    } else {
-                        RegisterOrConst::new_const(masked_count)
-                    }
-                },
-                _ => {
-                    let count_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
-                    self.push_instruction(Instr::AND { lhs: count_register, rhs: RegisterOrConst::new_const(0x1F), dest: count_register }); // mask to 5 bits
-                    if $negate_count {
-                        self.push_instruction(Instr::RSUB0 { src: count_register });
-                    }
-                    RegisterOrConst::DataRegister(count_register)
-                }
-            };
-            let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register_const.to_mapper_location()]);
-            let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-            self.push_instruction(Instr::$instr { src: lhs_register, count: rhs_register_const, dest: dest_register });
-            dest_register.map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-}
-
-/// Macro for generating 64-bit bitwise operations with zero optimization: you don't need to do the operation if an operand is zero.
-/// Pattern: handle each half separately with optimization for zero constants
-/// Only used for OR and XOR because the zero optimization is not applicable for AND (it would always return 0)
-macro_rules! gen_i64_bitwise_with_zero_opt {
-    ($name:ident, $instr:ident) => {
-        fn $name(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-            let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map);
-            let lower_lhs = lhs_register.lower_half();
-            let upper_lhs = lhs_register.upper_half();
-            let (lower_rhs, upper_rhs) = rhs_register_const_couple;
-            let ExtendedRegister(index_dest) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
-            match lower_rhs {
-                RegisterOrConst::Const9(Const9(0)) => {
-                    lower_lhs.map_to_location(Some(&MapperLocation::new_data_register(index_dest)), self, scratch_variable_map);
-                },
-                _ => self.push_instruction(Instr::$instr { lhs: lower_lhs, rhs: lower_rhs, dest: DataRegister(index_dest) })
-            };
-            match upper_rhs {
-                RegisterOrConst::Const9(Const9(0)) => {
-                    upper_lhs.map_to_location(Some(&MapperLocation::new_data_register(index_dest + 1)), self, scratch_variable_map);
-                },
-                _ => self.push_instruction(Instr::$instr { lhs: upper_lhs, rhs: upper_rhs, dest: DataRegister(index_dest + 1) })
-            };
-            ExtendedRegister(index_dest).map_to_location(potential_target, self, scratch_variable_map)
-        }
-    };
-}
+// ⚠️  **CRITICAL WARNING**: NEVER change the order of register mapping!
+// Always use: `let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(...)`
+// The register allocation order must remain consistent to avoid breaking the compiler's
+// register allocation algorithms. Operand swapping should ONLY be done in instruction
+// parameters, NOT in the mapping phase.
 
 
 
@@ -685,11 +561,32 @@ impl<'a,'b> Translator<'a,'b> {
     // FLOATING-POINT OPERATION GENERATORS
     // ================================================================================
 
-    // Generate f32 comparison operations using macro
-    gen_f32_comparison_op!(gen_f32_gt, CmpfBits::GT, ne);
-    gen_f32_comparison_op!(gen_f32_ge, CmpfBits::GE, ne);
-    gen_f32_comparison_op!(gen_f32_lt, CmpfBits::LT);
-    gen_f32_comparison_op!(gen_f32_le, CmpfBits::LE, ne);
+    fn gen_f32_comparison_op(&mut self, mask: u16, add_ne:bool, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+        self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: dest_register });
+        self.push_instruction(Instr::AND { lhs: dest_register, rhs: RegisterOrConst::new_const(mask), dest: dest_register });
+        if add_ne {
+            self.push_instruction(Instr::NE { lhs: dest_register, rhs: RegisterOrConst::new_const(0), dest: dest_register });
+        }
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
+
+    fn gen_f32_gt(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_f32_comparison_op(CmpfBits::GT, true, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    fn gen_f32_ge(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_f32_comparison_op(CmpfBits::GE, true, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    fn gen_f32_lt(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_f32_comparison_op(CmpfBits::LT, false, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    fn gen_f32_le(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_f32_comparison_op(CmpfBits::LE, true, lhs, rhs, scratch_variable_map, potential_target)
+    }
 
     fn gen_f64_copysign(&mut self, potential_target: Option<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, rhs: &MapperLocation) -> MapperLocation {
         let (ExtendedRegister(index_lhs), ExtendedRegister(index_rhs)) = (lhs, rhs).map_to_extended_registers(self, scratch_variable_map);
@@ -719,12 +616,35 @@ impl<'a,'b> Translator<'a,'b> {
         dest_register.map_to_location(potential_target, self, scratch_variable_map)
     }
 
-    // Generate f32 binary arithmetic operations using macro
-    gen_f32_binary_op!(gen_f32_div, DIVF);
-    gen_f32_binary_op!(gen_f32_mul, MULF);
-    gen_f32_binary_op!(gen_f32_sub, SUBF);
-    gen_f32_binary_op!(gen_f32_add, ADDF);
+    fn gen_f32_binary_op(&mut self, instr: F32BinInstr, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+        match instr {
+            F32BinInstr::ADDF => self.push_instruction(Instr::ADDF { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+            F32BinInstr::SUBF => self.push_instruction(Instr::SUBF { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+            F32BinInstr::MULF => self.push_instruction(Instr::MULF { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+            F32BinInstr::DIVF => self.push_instruction(Instr::DIVF { lhs: lhs_register, rhs: rhs_register, dest: dest_register }),
+        }
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
+    
+    fn gen_f32_div(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_f32_binary_op(F32BinInstr::DIVF, lhs, rhs, scratch_variable_map, potential_target)
+    }
 
+    fn gen_f32_mul(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_f32_binary_op(F32BinInstr::MULF, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    fn gen_f32_sub(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_f32_binary_op(F32BinInstr::SUBF, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    fn gen_f32_add(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_f32_binary_op(F32BinInstr::ADDF, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    // This is no longer used, we make an external call instead
     fn _gen_f32_min(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
         let cmp_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::DataRegister(lhs_register), MapperLocation::DataRegister(rhs_register)]);
@@ -752,9 +672,47 @@ impl<'a,'b> Translator<'a,'b> {
     // INTEGER BITWISE OPERATION GENERATORS
     // ================================================================================
 
-    // Generate 64-bit bitwise operations with zero optimization using macro
-    gen_i64_bitwise_with_zero_opt!(gen_i64_xor, XOR);
-    gen_i64_bitwise_with_zero_opt!(gen_i64_or, OR);
+    /// Function to generate 64-bit bitwise operations with optimization for zero constants.
+    /// You don't need to generate code for OR and XOR if one of the operands is zero,
+    /// as the result will be the other operand.
+    fn gen_i64_bitwise_with_zero_opt(&mut self, instr: BitwiseZeroOptInstr, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map);
+        let lower_lhs = lhs_register.lower_half();
+        let upper_lhs = lhs_register.upper_half();
+        let (lower_rhs, upper_rhs) = rhs_register_const_couple;
+        let ExtendedRegister(index_dest) = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
+        match lower_rhs {
+            RegisterOrConst::Const9(Const9(0)) => {
+                lower_lhs.map_to_location(Some(&MapperLocation::new_data_register(index_dest)), self, scratch_variable_map);
+            },
+            _ => {
+                match instr {
+                    BitwiseZeroOptInstr::XOR => self.push_instruction(Instr::XOR { lhs: lower_lhs, rhs: lower_rhs, dest: DataRegister(index_dest) }),
+                    BitwiseZeroOptInstr::OR => self.push_instruction(Instr::OR { lhs: lower_lhs, rhs: lower_rhs, dest: DataRegister(index_dest) }),
+                }
+            }
+        };
+        match upper_rhs {
+            RegisterOrConst::Const9(Const9(0)) => {
+                upper_lhs.map_to_location(Some(&MapperLocation::new_data_register(index_dest + 1)), self, scratch_variable_map);
+            },
+            _ => {
+                match instr {
+                    BitwiseZeroOptInstr::XOR => self.push_instruction(Instr::XOR { lhs: upper_lhs, rhs: upper_rhs, dest: DataRegister(index_dest + 1) }),
+                    BitwiseZeroOptInstr::OR => self.push_instruction(Instr::OR { lhs: upper_lhs, rhs: upper_rhs, dest: DataRegister(index_dest + 1) }),
+                }
+            }
+        };
+        ExtendedRegister(index_dest).map_to_location(potential_target, self, scratch_variable_map)
+    }
+
+    fn gen_i64_xor(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_i64_bitwise_with_zero_opt(BitwiseZeroOptInstr::XOR, lhs, rhs, scratch_variable_map, potential_target)
+    }
+
+    fn gen_i64_or(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_i64_bitwise_with_zero_opt(BitwiseZeroOptInstr::OR, lhs, rhs, scratch_variable_map, potential_target)
+    }
 
     fn gen_i64_and(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
         let (lhs_register, rhs_register_const_couple) = (lhs, rhs).map_abelian_large_children_to_register_or_const(SignValue::Unsigned, self, scratch_variable_map);
@@ -789,10 +747,45 @@ impl<'a,'b> Translator<'a,'b> {
     // INTEGER SHIFT AND ROTATE OPERATION GENERATORS
     // ================================================================================
 
-    // Generate i32 shift operations using macro
-    gen_i32_shift_op!(gen_i32_shr_u, SH, shr);
-    gen_i32_shift_op!(gen_i32_shr_s, SHA, shr);
-    gen_i32_shift_op!(gen_i32_shl, SH, shl);
+    fn gen_i32_shift_op(&mut self, negate_count: bool, instr: ShiftOpInstr, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        let rhs_register_const = match *rhs {
+            MapperLocation::Immediate(imm) => {
+                let masked_count = (imm.as_u32() & 0x1F) as u16;
+                if negate_count {
+                    RegisterOrConst::new_const((-(masked_count as i16)) as u16)
+                } else {
+                    RegisterOrConst::new_const(masked_count)
+                }
+            },
+            _ => {
+                let count_register = rhs.map_to_data_register(None, self, scratch_variable_map, &vec![]);
+                self.push_instruction(Instr::AND { lhs: count_register, rhs: RegisterOrConst::new_const(0x1F), dest: count_register }); // mask to 5 bits
+                if negate_count {
+                    self.push_instruction(Instr::RSUB0 { src: count_register });
+                }
+                RegisterOrConst::DataRegister(count_register)
+            }
+        };
+        let lhs_register: DataRegister = lhs.map_to_data_register(None, self, scratch_variable_map, &vec![rhs_register_const.to_mapper_location()]);
+        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
+        match instr {
+            ShiftOpInstr::SH => self.push_instruction(Instr::SH { src: lhs_register, count: rhs_register_const, dest: dest_register }),
+            ShiftOpInstr::SHA => self.push_instruction(Instr::SHA { src: lhs_register, count: rhs_register_const, dest: dest_register }),
+        }
+        dest_register.map_to_location(potential_target, self, scratch_variable_map)
+    }
+
+    fn gen_i32_shr_u(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_i32_shift_op(true, ShiftOpInstr::SH, rhs, scratch_variable_map, lhs, potential_target)
+    }
+
+    fn gen_i32_shr_s(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_i32_shift_op(true, ShiftOpInstr::SHA, rhs, scratch_variable_map, lhs, potential_target)
+    }
+
+    fn gen_i32_shl(&mut self, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
+        self.gen_i32_shift_op(false, ShiftOpInstr::SH, rhs, scratch_variable_map, lhs, potential_target)
+    }
 
     fn i32_imm_rotl(&mut self, count: u16, scratch_variable_map: &mut Vec<MapperLocation>, lhs: &MapperLocation, potential_target: Option<&MapperLocation>) -> MapperLocation {
         if count == 0 { // No rotation needed and can't EXTR with width 0
