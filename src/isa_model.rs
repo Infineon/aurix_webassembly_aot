@@ -158,7 +158,6 @@ impl DataRegister {
                 translator.store_word_to_global( *offset, *self);
                 MapperLocation::Global { offset: *offset, size: *size }
             },
-            Some(MapperLocation::Unreachable) => MapperLocation::Unreachable
         }
     }
 
@@ -270,7 +269,6 @@ impl ExtendedRegister {
                 translator.store_double_word_to_global(*offset, *self);
                 MapperLocation::Global { offset: *offset, size: *size }
             },
-            Some(MapperLocation::Unreachable) => MapperLocation::Unreachable
         }
     }
 
@@ -450,7 +448,6 @@ pub enum MapperLocation {
     LinearMemory{static_offset:usize, src_size:Memsize, dynamic_offset:Option<Box<MapperLocation>>, align:u8 , ext_sign:SignValue},
     Immediate(Immediate),
     Global{offset:u32, size:ValueSize},
-    Unreachable,
 }
 #[derive(Clone, Copy, PartialEq)]
 pub enum SignValue {
@@ -484,7 +481,6 @@ impl MapperLocation {
             MapperLocation::Immediate(immediate) => MapperLocation::Immediate(Immediate::Word(immediate.lower_half())),
             MapperLocation::Stack { .. } => MapperLocation::Stack { size: ValueSize::Word},
             MapperLocation::Global { offset, ..} => MapperLocation::Global { offset: *offset, size: ValueSize::Word},
-            MapperLocation::Unreachable => MapperLocation::Unreachable
         }
     }
 
@@ -545,12 +541,8 @@ impl MapperLocation {
                 translator.load_word_from_global(register, *offset);
                 register
             },
-            MapperLocation::Unreachable => {
-                translator.push_instruction(Instr::Trap);
-                DataRegister(15)
         }
     }
-}
 
 
     pub fn map_to_extended_register(&self, target: Option<ExtendedRegister>, translator: &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>) -> ExtendedRegister {
@@ -645,11 +637,7 @@ impl MapperLocation {
                 }
                 register
             },
-            MapperLocation::Unreachable => {
-                translator.push_instruction(Instr::Trap);
-                ExtendedRegister(14)
         }
-    }
     }
 
     pub fn get_size(&self) -> ValueSize {
@@ -666,7 +654,6 @@ impl MapperLocation {
                 Immediate::DoubleWord(_) => ValueSize::DoubleWord,
             },
             MapperLocation::Global { size, .. } => *size,
-            MapperLocation::Unreachable => panic!("Unreachable"),
         }
     }
 
@@ -708,13 +695,10 @@ impl MapperLocation {
                 ValueSize::Word =>  self.map_to_data_register( target_data_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map),
                 ValueSize::DoubleWord => self.map_to_extended_register(target_extended_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map),
             },
-            MapperLocation::Unreachable => {
-                translator.push_instruction(Instr::Trap);
-                MapperLocation::Unreachable
-            }
+
         }
             
-}
+    }
 
     pub fn map_to_register_or_const(&self, immediate_sign: SignValue, translator: &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>) -> RegisterOrConst {
         match self {

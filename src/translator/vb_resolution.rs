@@ -267,6 +267,7 @@ impl<'a,'b> Translator<'a,'b> {
             VB::UnaryVB { vb, .. } => self.dispatch_unary_vb(scratch_variable_map, vb, potential_target),
             VB::BinaryVB { vb, .. } => self.dispatch_binary_vb(scratch_variable_map, vb, potential_target),
             VB::Select { size, .. } => self.gen_select(scratch_variable_map, potential_target, *size),
+            VB::Placeholder => unreachable!()
         };
         scratch_variable_map.push(result);
     }
@@ -300,7 +301,6 @@ impl<'a,'b> Translator<'a,'b> {
                 MapperLocation::Global { offset, size }
             },
             AtomicVB::Resolved { size, .. } => MapperLocation::Stack { size: *size },
-            AtomicVB::Unreachable => MapperLocation::Unreachable,
             AtomicVB::MemorySize => MapperLocation::Global { offset: 0, size: ValueSize::Word }, // Memory size is stored in global space at offset 0
         };
         match potential_target {
