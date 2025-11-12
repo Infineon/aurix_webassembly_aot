@@ -3,7 +3,7 @@ use env_wrapper::wrap_env;
 use alloc::vec;
 use alloc::vec::Vec;
 use defmt::Format;
-use crate::isa_model::{Const10, Const16, DataRegister, ExtendedRegister, MapperLocation, Register, RegisterOrLargeConst, ValueSize, ADDRESS_ACCUMULATOR, STACK_POINTER};
+use crate::isa_model::{Const10, Const16, DataRegister, ExtendedRegister, MapperLocation, ValueSize, ADDRESS_ACCUMULATOR, STACK_POINTER};
 use crate::isa_model::machine_instructions::Instr;
 use crate::parse_and_translate::WasmRuntime;
 use crate::translator::Translator;
@@ -79,7 +79,8 @@ impl <'a,'b> Translator<'a,'b>{
     /// 
     /// ### Return value:
     ///  location of the result value
-    pub fn call_library_function(&mut self, target: Option<&MapperLocation>, function:LibraryFunction, ops: Vec<&MapperLocation>, op_size: ValueSize, result_size: ValueSize, scratch_variable_map : &mut Vec<MapperLocation>) -> MapperLocation {
+    /// TODO: limit the number of ops to 1 or 2
+    pub(crate) fn call_library_function(&mut self, target: Option<&MapperLocation>, function:LibraryFunction, ops: Vec<&MapperLocation>, op_size: ValueSize, result_size: ValueSize, scratch_variable_map : &mut Vec<MapperLocation>) -> MapperLocation {
         self.setup_ops(op_size, ops, scratch_variable_map);
         self.perform_external_call(function);
         self.process_external_result(target, result_size, scratch_variable_map)
@@ -189,46 +190,38 @@ impl <'a,'b> Translator<'a,'b>{
     /// Otherwise if the arguments are 64-bit wide. The first is placed in E[4], while the second if existent will be in E[6].
     /// 
     /// Note that we need to account for the scenario where we have multiple arguments and one exists already in the target of the other one.
-    /// In this implementation, the arguments are filled backward and the first argument is saved in another register first if it is located at the target of the second one.
-    // TODO: this might need to be rewritten, this function is only called for library functions that take at most 2 arguments, 
-    // so it might be better to just use a match statement.
-    // Also using D[0] as a temporary register for swapping the arguments is not a good idea as it is used for the bitmask
-    fn setup_ops(&mut self, arg_size: ValueSize, mut args: Vec<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>) {
+    fn setup_ops(&mut self, arg_size: ValueSize, args: Vec<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>) {
         self.push_instruction(Instr::SVLCX);
-        let start_index = 4;
-        let increment = match arg_size {
-            ValueSize::Word => 1,
-            ValueSize::DoubleWord => 2
-        };
-        //start register index for filling the arguments backwards 
-        // TODO: you don't need to fill backwards
-        let mut index = start_index + increment * args.len() as u8;
-        //checks if first argument is located in the target of the second one
-        if args.len() == 2 {
-            match args[0]{
-                MapperLocation::DataRegister(DataRegister(i)) if *i == index-increment => {
-                    self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::DataRegister(DataRegister(*i)), dest: Register::DataRegister(DataRegister(0)) });
-                    args[0] = &MapperLocation::DataRegister(DataRegister(0));
-                },
-                MapperLocation::ExtendedRegister(ExtendedRegister(i)) if *i == index-increment => {
-                    self.push_instruction(Instr::MOV { src: RegisterOrLargeConst::RegisterCouple {lower: DataRegister(*i), upper: DataRegister(*i+1)}, dest: Register::ExtendedRegister(ExtendedRegister(0)) });
-                    args[0] = &MapperLocation::ExtendedRegister(ExtendedRegister(0));
-                },
-                _ => ()
-            }
-            //swap arguments to iterate over them in reverse order.
-            args.swap(0, 1);
-        }
-        for op in args {
-            index -= increment;
+        if args.len() == 1 {
             match arg_size {
-                ValueSize::Word => {
-                    op.map_to_data_register(Some(DataRegister::new(index)), self, scratch_variable_map, &vec![]);
-                },
-                ValueSize::DoubleWord =>{
-                    op.map_to_extended_register(Some(ExtendedRegister::new(index)), self, scratch_variable_map, &vec![]);
-                }
+                ValueSize::Word => {args[0].map_to_data_register(Some(DataRegister(4)), self, scratch_variable_map, &vec![]);},
+                ValueSize::DoubleWord => {args[0].map_to_extended_register(Some(ExtendedRegister(4)), self, scratch_variable_map, &vec![]);},
+            }
+        }
+        else if args.len() == 2 {
+            let (target_0, target_1) = match arg_size {
+                ValueSize::Word => (MapperLocation::DataRegister(DataRegister(4)), MapperLocation::DataRegister(DataRegister(5))),
+                ValueSize::DoubleWord => (MapperLocation::ExtendedRegister(ExtendedRegister(4)), MapperLocation::ExtendedRegister(ExtendedRegister(6))),
             };
+
+            if args[0] == &target_1 && args[1] == &target_0 {
+                // need to swap the two arguments using a temporary register
+                let temp = match arg_size { // Using D[2] or E[2] as temporary register because it will be used for the result anyway
+                    ValueSize::Word => MapperLocation::DataRegister(DataRegister(2)),
+                    ValueSize::DoubleWord => MapperLocation::ExtendedRegister(ExtendedRegister(2)),
+                };
+                args[0].map_to_location(&temp, self, scratch_variable_map, &vec![]);
+                args[1].map_to_location(&target_1, self, scratch_variable_map, &vec![]);
+                temp.map_to_location(&target_0, self, scratch_variable_map, &vec![]);
+            } else if args[1] == &target_0 {
+                // map args[1] to target_1 first
+                args[1].map_to_location(&target_1, self, scratch_variable_map, &vec![]);
+                args[0].map_to_location(&target_0, self, scratch_variable_map, &vec![]);
+            } else {
+                // no conflicts, can load directly
+                args[0].map_to_location(&target_0, self, scratch_variable_map, &vec![]);
+                args[1].map_to_location(&target_1, self, scratch_variable_map, &vec![]);
+            }
         }
     }
 }

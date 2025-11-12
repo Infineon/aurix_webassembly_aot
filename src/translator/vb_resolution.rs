@@ -148,15 +148,6 @@ enum ShiftOpInstr {
     SHA
 }
 
-// TODO: Redo the documentation for this, reorganize everything (new functions for code reuse, the enums created etc)
-
-// ⚠️  **CRITICAL WARNING**: NEVER change the order of register mapping!
-// Always use: `let (lhs_register, rhs_register) = (lhs, rhs).map_to_extended_registers(...)`
-// The register allocation order must remain consistent to avoid breaking the compiler's
-// register allocation algorithms. Operand swapping should ONLY be done in instruction
-// parameters, NOT in the mapping phase.
-
-
 
 impl<'a,'b> Translator<'a,'b> {
 
