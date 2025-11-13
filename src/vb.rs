@@ -2,11 +2,9 @@
 use alloc::{boxed::Box,vec::Vec};
 use defmt::Format;
 use crate::{isa_model::{MapperLocation, ValueSize}, translator::StackHeight};
-
 pub type Address = u32;
 
 #[derive(Debug, PartialEq, Clone, Format)]
-// TODO: Unreachable should not be a VB because it has a side effect (trap)
 pub enum AtomicVB{
     I32Const {imm: i32},
     I64Const {imm: i64},
@@ -16,7 +14,6 @@ pub enum AtomicVB{
     Global {index:u32},
     Resolved {size:ValueSize, offset: StackHeight},
     MemorySize,
-    Unreachable
 }
 
 #[derive(Debug, PartialEq, Clone, Format)]
@@ -165,12 +162,12 @@ pub enum VB{
     AtomicVB(AtomicVB),
     UnaryVB {vb:UnaryVB, child: Box<VB> },
     BinaryVB{vb: BinaryVB, lhs: Box<VB>, rhs:Box<VB>},
-    Select{selector:Box<VB>, lhs:Box<VB>, rhs:Box<VB>, size:ValueSize}
+    Select{selector:Box<VB>, lhs:Box<VB>, rhs:Box<VB>, size:ValueSize},
 }
 
 /// ContextVB is used to keep track of the position of a VB in a tree using Zippers
 #[derive(Debug, PartialEq, Clone)]
-pub enum ContextVB{
+enum ContextVB{
     Top,
     ContextUnaryVB{vb:UnaryVB, context: Box<ContextVB>},
     ContextBinaryVBLhs{vb:BinaryVB, rhs:Box<VB>, context: Box<ContextVB>},
@@ -182,26 +179,26 @@ pub enum ContextVB{
 
 /// VBTreeLocation is used to keep track of the position of a VB in a tree using Zippers
 #[derive(Debug, PartialEq, Clone)]
-pub struct VBTreeLocation (pub VB, pub ContextVB);
+struct VBTreeLocation (VB, ContextVB);
 
 impl VBTreeLocation{
     
     /// Move the cursor to the parent of the current node. The current subtree is replaced by a placeholder node 
-    pub fn move_up(self) -> Option<Self>{
+    fn move_up(self) -> Option<Self>{
         match self {
             VBTreeLocation(_ , ContextVB::Top) => None,
             VBTreeLocation(_, ContextVB::ContextUnaryVB{vb:unary_vb, context}) 
-                => Some(VBTreeLocation(VB::UnaryVB {vb: unary_vb, child: Box::new(VB::AtomicVB(AtomicVB::Unreachable))}, *context)),
+                => Some(VBTreeLocation(VB::UnaryVB {vb: unary_vb, child: Box::new(self.0)}, *context)),
             VBTreeLocation(_, ContextVB::ContextBinaryVBLhs{vb: binary_vb, rhs, context})
-            => Some(VBTreeLocation(VB::BinaryVB {vb: binary_vb, lhs: Box::new(VB::AtomicVB(AtomicVB::Unreachable)), rhs}, *context)),
+            => Some(VBTreeLocation(VB::BinaryVB {vb: binary_vb, lhs: Box::new(self.0), rhs}, *context)),
             VBTreeLocation(_, ContextVB::ContextBinaryVBRhs{vb: binary_vb, lhs, context})
-            => Some(VBTreeLocation(VB::BinaryVB {vb: binary_vb, lhs, rhs: Box::new(VB::AtomicVB(AtomicVB::Unreachable))}, *context)),
+            => Some(VBTreeLocation(VB::BinaryVB {vb: binary_vb, lhs, rhs: Box::new(self.0)}, *context)),
             VBTreeLocation(_, ContextVB::ContextSelectSelector{lhs, rhs, size, context})
-            => Some(VBTreeLocation(VB::Select {selector: Box::new(VB::AtomicVB(AtomicVB::Unreachable)), lhs, rhs, size}, *context)),
+            => Some(VBTreeLocation(VB::Select {selector: Box::new(self.0), lhs, rhs, size}, *context)),
             VBTreeLocation(_, ContextVB::ContextSelectLhs{selector, rhs, size, context})
-            => Some(VBTreeLocation(VB::Select {selector, lhs: Box::new(VB::AtomicVB(AtomicVB::Unreachable)), rhs, size}, *context)),
+            => Some(VBTreeLocation(VB::Select {selector, lhs: Box::new(self.0), rhs, size}, *context)),
             VBTreeLocation(_, ContextVB::ContextSelectRhs{selector, lhs, size, context})
-            => Some(VBTreeLocation(VB::Select {selector, lhs, rhs: Box::new(VB::AtomicVB(AtomicVB::Unreachable)), size}, *context)),
+            => Some(VBTreeLocation(VB::Select {selector, lhs, rhs: Box::new(self.0), size}, *context)),
         }
     }
     
@@ -231,13 +228,13 @@ impl VBTreeLocation{
             VBTreeLocation(_, ContextVB::ContextUnaryVB{..}) 
                 => None,
             VBTreeLocation(_, ContextVB::ContextBinaryVBLhs{vb: binary_vb, rhs, context})
-            => Some(VBTreeLocation(*rhs, ContextVB::ContextBinaryVBRhs{vb: binary_vb, lhs: Box::new(VB::AtomicVB(AtomicVB::Unreachable)), context})),
+            => Some(VBTreeLocation(*rhs, ContextVB::ContextBinaryVBRhs{vb: binary_vb, lhs: Box::new(self.0), context})),
             VBTreeLocation(_, ContextVB::ContextBinaryVBRhs{..})
             => None,
             VBTreeLocation(_, ContextVB::ContextSelectLhs{selector, rhs, size, context})
-            => Some(VBTreeLocation(*rhs, ContextVB::ContextSelectRhs{selector, lhs: Box::new(VB::AtomicVB(AtomicVB::Unreachable)), size, context: Box::new(*context)})),
+            => Some(VBTreeLocation(*rhs, ContextVB::ContextSelectRhs{selector, lhs: Box::new(self.0), size, context: Box::new(*context)})),
             VBTreeLocation(_, ContextVB::ContextSelectRhs{selector, lhs, size, context})
-            => Some(VBTreeLocation(*selector, ContextVB::ContextSelectSelector{lhs, rhs: Box::new(VB::AtomicVB(AtomicVB::Unreachable)), size, context: Box::new(*context)})),
+            => Some(VBTreeLocation(*selector, ContextVB::ContextSelectSelector{lhs, rhs: Box::new(self.0), size, context: Box::new(*context)})),
             VBTreeLocation(_, ContextVB::ContextSelectSelector{..})
             => None,
         }
@@ -277,7 +274,6 @@ impl VB{
             VB::AtomicVB(AtomicVB::Local{ index}) => locals_map[*index as usize].get_size(),
             VB::AtomicVB(AtomicVB::Global{ index}) => global_variable_map[*index as usize].1,
             VB::AtomicVB(AtomicVB::Resolved{size, ..}) => *size,
-            VB::AtomicVB(AtomicVB::Unreachable) => ValueSize::Word,
             VB::AtomicVB(AtomicVB::MemorySize) => ValueSize::Word,
             VB::UnaryVB{vb, ..} => match vb {
                     UnaryVB::I32EqZ => ValueSize::Word,
@@ -416,7 +412,7 @@ impl VB{
                     BinaryVB::F64Max => ValueSize::DoubleWord,
                     BinaryVB::F64CopySign => ValueSize::DoubleWord,
                 },
-                VB::Select{size, ..} => *size
+                VB::Select{size, ..} => *size,
             }
     }
     
@@ -455,7 +451,7 @@ impl VB{
             VB::AtomicVB(..) => None,
             VB::UnaryVB{child, ..} => child.get_runtime_stack_offset(),
             VB::BinaryVB{lhs, rhs, ..} => rhs.get_runtime_stack_offset().or_else(|| lhs.get_runtime_stack_offset()),
-            VB::Select {selector, lhs , rhs, ..} => selector.get_runtime_stack_offset().or_else(|| rhs.get_runtime_stack_offset().or_else(|| lhs.get_runtime_stack_offset()))
+            VB::Select {selector, lhs , rhs, ..} => selector.get_runtime_stack_offset().or_else(|| rhs.get_runtime_stack_offset().or_else(|| lhs.get_runtime_stack_offset())),
         }
     }
 
