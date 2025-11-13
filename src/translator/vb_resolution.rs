@@ -38,7 +38,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use crate::isa_model::{Const16, Const9, DataRegister, ExtendedRegister, Immediate, LocationCouple, MapperLocation, Memsize, Register, RegisterOrConst, RegisterOrLargeConst, RegisterOrSmallConst, SignValue, ValueSize};
 use crate::isa_model::machine_instructions::Instr;
-use crate::translator::library_function::LibraryFunction;
+use crate::translator::library_function::{LibraryFunction, Operands};
 use crate::translator::Translator;
 use crate::vb::{AtomicVB, BinaryVB, UnaryVB, VB};
 use super::StackHeight;
@@ -326,11 +326,11 @@ impl<'a,'b> Translator<'a,'b> {
             UnaryVB::I32PopCnt => self.gen_i32_popcnt(&child, scratch_variable_map, potential_target),
             UnaryVB::F32Abs => self.gen_f32_abs(&child, scratch_variable_map, potential_target),
             UnaryVB::F32Neg => self.gen_f32_neg(&child, scratch_variable_map, potential_target),
-            UnaryVB::F32Sqrt => self.call_library_function(potential_target, LibraryFunction::F32Sqrt, vec![&child], ValueSize::Word, ValueSize::Word, scratch_variable_map),
-            UnaryVB::F32Ceil => self.call_library_function(potential_target, LibraryFunction::F32Ceil, vec![&child], ValueSize::Word, ValueSize::Word, scratch_variable_map),
-            UnaryVB::F32Floor => self.call_library_function(potential_target, LibraryFunction::F32Floor, vec![&child], ValueSize::Word, ValueSize::Word, scratch_variable_map),
-            UnaryVB::F32Trunc => self.call_library_function(potential_target, LibraryFunction::F32Trunc, vec![&child], ValueSize::Word, ValueSize::Word, scratch_variable_map),
-            UnaryVB::F32Nearest => self.call_library_function(potential_target, LibraryFunction::F32Nearest, vec![&child], ValueSize::Word, ValueSize::Word, scratch_variable_map),
+            UnaryVB::F32Sqrt => self.call_library_function(potential_target, LibraryFunction::F32Sqrt, Operands::new_single(&child), ValueSize::Word, ValueSize::Word, scratch_variable_map),
+            UnaryVB::F32Ceil => self.call_library_function(potential_target, LibraryFunction::F32Ceil, Operands::new_single(&child), ValueSize::Word, ValueSize::Word, scratch_variable_map),
+            UnaryVB::F32Floor => self.call_library_function(potential_target, LibraryFunction::F32Floor, Operands::new_single(&child), ValueSize::Word, ValueSize::Word, scratch_variable_map),
+            UnaryVB::F32Trunc => self.call_library_function(potential_target, LibraryFunction::F32Trunc, Operands::new_single(&child), ValueSize::Word, ValueSize::Word, scratch_variable_map),
+            UnaryVB::F32Nearest => self.call_library_function(potential_target, LibraryFunction::F32Nearest, Operands::new_single(&child), ValueSize::Word, ValueSize::Word, scratch_variable_map),
             UnaryVB::I32EqZ => self.gen_i32_eqz(&child, scratch_variable_map, potential_target),
             UnaryVB::I32WrapI64 => match potential_target {
                 None => child.lower_half(),
@@ -338,34 +338,34 @@ impl<'a,'b> Translator<'a,'b> {
             }
             UnaryVB::I32TruncF32S => self.gen_i32_trunc_f32s(&child, scratch_variable_map, potential_target),
             UnaryVB::I32TruncF32U => self.gen_i32_trunc_f32u(&child, scratch_variable_map, potential_target),
-            UnaryVB::I32TruncF64S => self.call_library_function(potential_target, LibraryFunction::I32TruncF64S, vec![&child], ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
-            UnaryVB::I32TruncF64U => self.call_library_function(potential_target, LibraryFunction::I32TruncF64U, vec![&child], ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
-            UnaryVB::F32DemoteF64 => self.call_library_function(potential_target, LibraryFunction::F32DemoteF64, vec![&child], ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
+            UnaryVB::I32TruncF64S => self.call_library_function(potential_target, LibraryFunction::I32TruncF64S, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
+            UnaryVB::I32TruncF64U => self.call_library_function(potential_target, LibraryFunction::I32TruncF64U, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
+            UnaryVB::F32DemoteF64 => self.call_library_function(potential_target, LibraryFunction::F32DemoteF64, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
             UnaryVB::F32ConvertI32S => self.gen_f32_convert_i32s(&child, scratch_variable_map, potential_target),
             UnaryVB::F32ConvertI32U => self.gen_f32_convert_i32u(&child, scratch_variable_map, potential_target),
-            UnaryVB::F32ConvertI64S => self.call_library_function(potential_target, LibraryFunction::F32ConvertI64S, vec![&child], ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
-            UnaryVB::F32ConvertI64U => self.call_library_function(potential_target, LibraryFunction::F32ConvertI64U, vec![&child], ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
-            UnaryVB::I64Clz => self.call_library_function(potential_target, LibraryFunction::I64Clz, vec![&child], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::I64Ctz => self.call_library_function(potential_target, LibraryFunction::I64Ctz, vec![&child], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::F32ConvertI64S => self.call_library_function(potential_target, LibraryFunction::F32ConvertI64S, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
+            UnaryVB::F32ConvertI64U => self.call_library_function(potential_target, LibraryFunction::F32ConvertI64U, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
+            UnaryVB::I64Clz => self.call_library_function(potential_target, LibraryFunction::I64Clz, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::I64Ctz => self.call_library_function(potential_target, LibraryFunction::I64Ctz, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
             UnaryVB::I64PopCnt => self.gen_i64_popcnt(&child, scratch_variable_map, potential_target),
             UnaryVB::F64Abs => self.gen_f64_abs(&child, scratch_variable_map, potential_target),
             UnaryVB::F64Neg => self.gen_f64_neg(&child, scratch_variable_map, potential_target),
-            UnaryVB::F64Sqrt => self.call_library_function(potential_target, LibraryFunction::F64Sqrt, vec![&child], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::F64Ceil => self.call_library_function(potential_target, LibraryFunction::F64Ceil, vec![&child], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::F64Floor => self.call_library_function(potential_target, LibraryFunction::F64Floor, vec![&child], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::F64Trunc => self.call_library_function(potential_target, LibraryFunction::F64Trunc, vec![&child], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::F64Nearest => self.call_library_function(potential_target, LibraryFunction::F64Nearest, vec![&child], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::F64Sqrt => self.call_library_function(potential_target, LibraryFunction::F64Sqrt, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::F64Ceil => self.call_library_function(potential_target, LibraryFunction::F64Ceil, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::F64Floor => self.call_library_function(potential_target, LibraryFunction::F64Floor, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::F64Trunc => self.call_library_function(potential_target, LibraryFunction::F64Trunc, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::F64Nearest => self.call_library_function(potential_target, LibraryFunction::F64Nearest, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
             UnaryVB::I64ExtendI32U => self.gen_i64_extend_i32u(potential_target, scratch_variable_map, &child),
             UnaryVB::I64ExtendI32S => self.gen_i64_extend_i32s(potential_target, &child, scratch_variable_map),
-            UnaryVB::I64TruncF32S => self.call_library_function(potential_target, LibraryFunction::I64TruncF32S, vec![&child], ValueSize::Word, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::I64TruncF32U => self.call_library_function(potential_target, LibraryFunction::I64TruncF32U, vec![&child], ValueSize::Word, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::I64TruncF64S => self.call_library_function(potential_target, LibraryFunction::I64TruncF64S, vec![&child], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::I64TruncF64U => self.call_library_function(potential_target, LibraryFunction::I64TruncF64U, vec![&child], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::F64ConvertI32S => self.call_library_function(potential_target, LibraryFunction::F64ConvertI32S, vec![&child], ValueSize::Word, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::F64ConvertI32U => self.call_library_function(potential_target, LibraryFunction::F64ConvertI32U, vec![&child], ValueSize::Word, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::F64ConvertI64S => self.call_library_function(potential_target, LibraryFunction::F64ConvertI64S, vec![&child], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::F64ConvertI64U => self.call_library_function(potential_target, LibraryFunction::F64ConvertI64U, vec![&child], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            UnaryVB::F64PromoteF32 => self.call_library_function(potential_target, LibraryFunction::F64PromoteF32, vec![&child], ValueSize::Word, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::I64TruncF32S => self.call_library_function(potential_target, LibraryFunction::I64TruncF32S, Operands::new_single(&child), ValueSize::Word, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::I64TruncF32U => self.call_library_function(potential_target, LibraryFunction::I64TruncF32U, Operands::new_single(&child), ValueSize::Word, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::I64TruncF64S => self.call_library_function(potential_target, LibraryFunction::I64TruncF64S, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::I64TruncF64U => self.call_library_function(potential_target, LibraryFunction::I64TruncF64U, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::F64ConvertI32S => self.call_library_function(potential_target, LibraryFunction::F64ConvertI32S, Operands::new_single(&child), ValueSize::Word, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::F64ConvertI32U => self.call_library_function(potential_target, LibraryFunction::F64ConvertI32U, Operands::new_single(&child), ValueSize::Word, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::F64ConvertI64S => self.call_library_function(potential_target, LibraryFunction::F64ConvertI64S, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::F64ConvertI64U => self.call_library_function(potential_target, LibraryFunction::F64ConvertI64U, Operands::new_single(&child), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            UnaryVB::F64PromoteF32 => self.call_library_function(potential_target, LibraryFunction::F64PromoteF32, Operands::new_single(&child), ValueSize::Word, ValueSize::DoubleWord, scratch_variable_map),
             UnaryVB::I64EqZ => self.gen_i64_eqz(&child, scratch_variable_map, potential_target),
             UnaryVB::I32Load { offset, align } => self.gen_load(&child, *offset, *align, Memsize::Word, SignValue::Signed, potential_target, scratch_variable_map),
             UnaryVB::I64Load { offset, align } => self.gen_load(&child, *offset, *align, Memsize::DoubleWord, SignValue::Signed, potential_target, scratch_variable_map),
@@ -434,10 +434,10 @@ impl<'a,'b> Translator<'a,'b> {
             BinaryVB::F32Ne => self.gen_f32_ne(&lhs, &rhs, scratch_variable_map, potential_target),
             BinaryVB::F32Lt => self.gen_f32_lt(&lhs, &rhs, scratch_variable_map, potential_target),
             BinaryVB::F32Ge => self.gen_f32_ge(&lhs, &rhs, scratch_variable_map, potential_target),
-            BinaryVB::F64Eq => self.call_library_function(potential_target, LibraryFunction::F64Eq, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
-            BinaryVB::F64Ne => self.call_library_function(potential_target, LibraryFunction::F64Ne, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
-            BinaryVB::F64Lt => self.call_library_function(potential_target, LibraryFunction::F64Lt, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
-            BinaryVB::F64Ge => self.call_library_function(potential_target, LibraryFunction::F64Ge, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
+            BinaryVB::F64Eq => self.call_library_function(potential_target, LibraryFunction::F64Eq, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
+            BinaryVB::F64Ne => self.call_library_function(potential_target, LibraryFunction::F64Ne, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
+            BinaryVB::F64Lt => self.call_library_function(potential_target, LibraryFunction::F64Lt, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
+            BinaryVB::F64Ge => self.call_library_function(potential_target, LibraryFunction::F64Ge, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
             BinaryVB::I32Add => self.gen_i32_add(potential_target, scratch_variable_map, &lhs, &rhs),
             BinaryVB::I32Sub => self.gen_i32_sub(potential_target, scratch_variable_map, &lhs, &rhs),
             BinaryVB::I32Mul => self.gen_i32_mul(&lhs, &rhs, scratch_variable_map, potential_target),
@@ -456,36 +456,36 @@ impl<'a,'b> Translator<'a,'b> {
             BinaryVB::I64Add => self.gen_i64_add(potential_target, scratch_variable_map, &lhs, &rhs),
             BinaryVB::I64Sub => self.gen_i64_sub(potential_target, scratch_variable_map, &lhs, &rhs),
             BinaryVB::I64Mul => self.gen_i64_mul(potential_target, scratch_variable_map, &lhs, &rhs),
-            BinaryVB::I64DivS => self.call_library_function(potential_target, LibraryFunction::I64DivS, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::I64DivU => self.call_library_function(potential_target, LibraryFunction::I64DivU, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::I64RemS => self.call_library_function(potential_target, LibraryFunction::I64RemS, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::I64RemU => self.call_library_function(potential_target, LibraryFunction::I64RemU, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::I64DivS => self.call_library_function(potential_target, LibraryFunction::I64DivS, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::I64DivU => self.call_library_function(potential_target, LibraryFunction::I64DivU, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::I64RemS => self.call_library_function(potential_target, LibraryFunction::I64RemS, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::I64RemU => self.call_library_function(potential_target, LibraryFunction::I64RemU, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
             BinaryVB::I64And => self.gen_i64_and(&lhs, &rhs, scratch_variable_map, potential_target),
             BinaryVB::I64Or => self.gen_i64_or(&lhs, &rhs, scratch_variable_map, potential_target),
             BinaryVB::I64Xor => self.gen_i64_xor(&lhs, &rhs, scratch_variable_map, potential_target),
-            BinaryVB::I64Shl => self.call_library_function(potential_target, LibraryFunction::I64Shl, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::I64ShrS => self.call_library_function(potential_target, LibraryFunction::I64ShrS, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::I64ShrU => self.call_library_function(potential_target, LibraryFunction::I64ShrU, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::I64Rotl => self.call_library_function(potential_target, LibraryFunction::I64Rotl, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::I64Rotr => self.call_library_function(potential_target, LibraryFunction::I64Rotr, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::I64Shl => self.call_library_function(potential_target, LibraryFunction::I64Shl, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::I64ShrS => self.call_library_function(potential_target, LibraryFunction::I64ShrS, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::I64ShrU => self.call_library_function(potential_target, LibraryFunction::I64ShrU, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::I64Rotl => self.call_library_function(potential_target, LibraryFunction::I64Rotl, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::I64Rotr => self.call_library_function(potential_target, LibraryFunction::I64Rotr, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
             BinaryVB::F32Add => self.gen_f32_add(&lhs, &rhs, scratch_variable_map, potential_target),
             BinaryVB::F32Sub => self.gen_f32_sub(&lhs, &rhs, scratch_variable_map, potential_target),
             BinaryVB::F32Mul => self.gen_f32_mul(&lhs, &rhs, scratch_variable_map, potential_target),
             BinaryVB::F32Div => self.gen_f32_div(&lhs, &rhs, scratch_variable_map, potential_target),
-            BinaryVB::F32Min => self.call_library_function(potential_target, LibraryFunction::F32Min, vec![&lhs, &rhs], ValueSize::Word, ValueSize::Word, scratch_variable_map),
-            BinaryVB::F32Max => self.call_library_function(potential_target, LibraryFunction::F32Max, vec![&lhs, &rhs], ValueSize::Word, ValueSize::Word, scratch_variable_map),
+            BinaryVB::F32Min => self.call_library_function(potential_target, LibraryFunction::F32Min, Operands::new_double(&lhs, &rhs), ValueSize::Word, ValueSize::Word, scratch_variable_map),
+            BinaryVB::F32Max => self.call_library_function(potential_target, LibraryFunction::F32Max, Operands::new_double(&lhs, &rhs), ValueSize::Word, ValueSize::Word, scratch_variable_map),
             BinaryVB::F32CopySign => self.gen_f32_copysign(&lhs, &rhs, scratch_variable_map, potential_target),
-            BinaryVB::F64Add => self.call_library_function(potential_target, LibraryFunction::F64Add, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::F64Sub => self.call_library_function(potential_target, LibraryFunction::F64Sub, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::F64Mul => self.call_library_function(potential_target, LibraryFunction::F64Mul, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::F64Div => self.call_library_function(potential_target, LibraryFunction::F64Div, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::F64Min => self.call_library_function(potential_target, LibraryFunction::F64Min, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
-            BinaryVB::F64Max => self.call_library_function(potential_target, LibraryFunction::F64Max, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::F64Add => self.call_library_function(potential_target, LibraryFunction::F64Add, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::F64Sub => self.call_library_function(potential_target, LibraryFunction::F64Sub, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::F64Mul => self.call_library_function(potential_target, LibraryFunction::F64Mul, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::F64Div => self.call_library_function(potential_target, LibraryFunction::F64Div, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::F64Min => self.call_library_function(potential_target, LibraryFunction::F64Min, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
+            BinaryVB::F64Max => self.call_library_function(potential_target, LibraryFunction::F64Max, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::DoubleWord, scratch_variable_map),
             BinaryVB::F64CopySign => self.gen_f64_copysign(potential_target, scratch_variable_map, &lhs, &rhs),
             BinaryVB::F32Gt => self.gen_f32_gt(&lhs, &rhs, scratch_variable_map, potential_target),
             BinaryVB::F32Le => self.gen_f32_le(&lhs, &rhs, scratch_variable_map, potential_target),
-            BinaryVB::F64Gt => self.call_library_function(potential_target, LibraryFunction::F64Gt, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
-            BinaryVB::F64Le => self.call_library_function(potential_target, LibraryFunction::F64Le, vec![&lhs, &rhs], ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
+            BinaryVB::F64Gt => self.call_library_function(potential_target, LibraryFunction::F64Gt, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
+            BinaryVB::F64Le => self.call_library_function(potential_target, LibraryFunction::F64Le, Operands::new_double(&lhs, &rhs), ValueSize::DoubleWord, ValueSize::Word, scratch_variable_map),
         }
     }
 
@@ -802,7 +802,7 @@ impl<'a,'b> Translator<'a,'b> {
                 self.i32_imm_rotl(count, scratch_variable_map, lhs, potential_target)
             },
             _ => {
-                self.call_library_function(potential_target, LibraryFunction::I32Rotl, vec![&lhs, &rhs], ValueSize::Word, ValueSize::Word, scratch_variable_map)
+                self.call_library_function(potential_target, LibraryFunction::I32Rotl, Operands::new_double(&lhs, &rhs), ValueSize::Word, ValueSize::Word, scratch_variable_map)
             }
         }
     }
@@ -816,7 +816,7 @@ impl<'a,'b> Translator<'a,'b> {
                 self.i32_imm_rotl(count, scratch_variable_map, lhs, potential_target)
             },
             _ => {
-                self.call_library_function(potential_target, LibraryFunction::I32Rotr, vec![&lhs, &rhs], ValueSize::Word, ValueSize::Word, scratch_variable_map)
+                self.call_library_function(potential_target, LibraryFunction::I32Rotr, Operands::new_double(&lhs, &rhs), ValueSize::Word, ValueSize::Word, scratch_variable_map)
             }
         }
     }

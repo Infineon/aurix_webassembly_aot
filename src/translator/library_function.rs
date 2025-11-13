@@ -64,6 +64,27 @@ pub enum LibraryFunction {
     F64Gt,
 }
 
+pub(crate) struct Operands<'a> {
+    pub first: &'a MapperLocation,
+    pub second: Option<&'a MapperLocation>,
+}
+
+impl<'a> Operands<'a> {
+    pub fn new_single(first: &MapperLocation) -> Operands<'_> {
+        Operands {
+            first,
+            second: None,
+        }
+    }
+
+    pub fn new_double(first: &'a MapperLocation, second: &'a MapperLocation) -> Operands<'a> {
+        Operands {
+            first,
+            second: Some(second),
+        }
+    }
+}
+
 impl <'a,'b> Translator<'a,'b>{
 
     /// generates machine code for calling a runtime function from the translated wasm functions. This is to be used in code generation for subroutines that are not supported through a short sequence of machine instructions.
@@ -72,15 +93,14 @@ impl <'a,'b> Translator<'a,'b>{
     /// ### Parameters:
     /// - **target**: the result is moved to the target location if available, otherwise placed in a scratch register
     /// - **function**: runtime function to be called
-    /// - **ops**: vector containing the location of the operands
+    /// - **ops**: Operands struct containing one or two operands
     /// - **op_size**: size of the operand(s)
     /// - **result_size**: size of the result
     /// - **scratch_variable_map**: needs to be passed down in order to allocate a free register for the result, in case no target location is specified.
     /// 
     /// ### Return value:
     ///  location of the result value
-    /// TODO: limit the number of ops to 1 or 2
-    pub(crate) fn call_library_function(&mut self, target: Option<&MapperLocation>, function:LibraryFunction, ops: Vec<&MapperLocation>, op_size: ValueSize, result_size: ValueSize, scratch_variable_map : &mut Vec<MapperLocation>) -> MapperLocation {
+    pub(crate) fn call_library_function(&mut self, target: Option<&MapperLocation>, function:LibraryFunction, ops: Operands, op_size: ValueSize, result_size: ValueSize, scratch_variable_map : &mut Vec<MapperLocation>) -> MapperLocation {
         self.setup_ops(op_size, ops, scratch_variable_map);
         self.perform_external_call(function);
         self.process_external_result(target, result_size, scratch_variable_map)
@@ -190,37 +210,37 @@ impl <'a,'b> Translator<'a,'b>{
     /// Otherwise if the arguments are 64-bit wide. The first is placed in E[4], while the second if existent will be in E[6].
     /// 
     /// Note that we need to account for the scenario where we have multiple arguments and one exists already in the target of the other one.
-    fn setup_ops(&mut self, arg_size: ValueSize, args: Vec<&MapperLocation>, scratch_variable_map: &mut Vec<MapperLocation>) {
+    fn setup_ops(&mut self, arg_size: ValueSize, args: Operands, scratch_variable_map: &mut Vec<MapperLocation>) {
         self.push_instruction(Instr::SVLCX);
-        if args.len() == 1 {
+        if args.second.is_none() {
             match arg_size {
-                ValueSize::Word => {args[0].map_to_data_register(Some(DataRegister(4)), self, scratch_variable_map, &vec![]);},
-                ValueSize::DoubleWord => {args[0].map_to_extended_register(Some(ExtendedRegister(4)), self, scratch_variable_map, &vec![]);},
+                ValueSize::Word => {args.first.map_to_data_register(Some(DataRegister(4)), self, scratch_variable_map, &vec![]);},
+                ValueSize::DoubleWord => {args.first.map_to_extended_register(Some(ExtendedRegister(4)), self, scratch_variable_map, &vec![]);},
             }
         }
-        else if args.len() == 2 {
+        else {
             let (target_0, target_1) = match arg_size {
                 ValueSize::Word => (MapperLocation::DataRegister(DataRegister(4)), MapperLocation::DataRegister(DataRegister(5))),
                 ValueSize::DoubleWord => (MapperLocation::ExtendedRegister(ExtendedRegister(4)), MapperLocation::ExtendedRegister(ExtendedRegister(6))),
             };
 
-            if args[0] == &target_1 && args[1] == &target_0 {
+            if args.first == &target_1 && args.second.unwrap() == &target_0 {
                 // need to swap the two arguments using a temporary register
                 let temp = match arg_size { // Using D[2] or E[2] as temporary register because it will be used for the result anyway
                     ValueSize::Word => MapperLocation::DataRegister(DataRegister(2)),
                     ValueSize::DoubleWord => MapperLocation::ExtendedRegister(ExtendedRegister(2)),
                 };
-                args[0].map_to_location(&temp, self, scratch_variable_map, &vec![]);
-                args[1].map_to_location(&target_1, self, scratch_variable_map, &vec![]);
+                args.first.map_to_location(&temp, self, scratch_variable_map, &vec![]);
+                args.second.unwrap().map_to_location(&target_1, self, scratch_variable_map, &vec![]);
                 temp.map_to_location(&target_0, self, scratch_variable_map, &vec![]);
-            } else if args[1] == &target_0 {
+            } else if args.second.unwrap() == &target_0 {
                 // map args[1] to target_1 first
-                args[1].map_to_location(&target_1, self, scratch_variable_map, &vec![]);
-                args[0].map_to_location(&target_0, self, scratch_variable_map, &vec![]);
+                args.second.unwrap().map_to_location(&target_1, self, scratch_variable_map, &vec![]);
+                args.first.map_to_location(&target_0, self, scratch_variable_map, &vec![]);
             } else {
                 // no conflicts, can load directly
-                args[0].map_to_location(&target_0, self, scratch_variable_map, &vec![]);
-                args[1].map_to_location(&target_1, self, scratch_variable_map, &vec![]);
+                args.first.map_to_location(&target_0, self, scratch_variable_map, &vec![]);
+                args.second.unwrap().map_to_location(&target_1, self, scratch_variable_map, &vec![]);
             }
         }
     }
