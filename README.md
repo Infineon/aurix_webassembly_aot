@@ -92,6 +92,7 @@ Below a list of major limitation and deviation from Webassembly standard
 * Denormal floating point are not supported. Denormal floating point are not supported by Aurix FPU
 * No module linking. 
   * Limited support for calling host function (only for demo purpose)
+* Presently the generated code calls functions in libm and the core library.
 
 
 # License 

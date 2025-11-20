@@ -590,7 +590,7 @@ impl <'a,'b> VisitOperator <'a> for Translator<'a,'b>{
         }
         // TODO: We should not generate a trap instruction, instead have the result of the original function be an error
         // We should store the stack state before the original function call
-        self.push_instruction(Instr::Trap);
+        // self.push_instruction(Instr::Trap);
         self.set_dead_code_and_truncate_vb_stack();
     }
 

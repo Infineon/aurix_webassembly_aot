@@ -65,7 +65,7 @@ impl Immediate {
         }
     }
 
-    pub fn map_to_register_or_const(&self, is_immediate_signed: SignValue, translator : &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation> ) -> RegisterOrConst {
+    pub(crate) fn map_to_register_or_const(&self, is_immediate_signed: SignValue, translator : &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation> ) -> RegisterOrConst {
         let imm = self.as_u32();
         if immediate_fits(imm, is_immediate_signed) {
             return RegisterOrConst::Const9(Const9::new(imm as u16));
@@ -80,7 +80,7 @@ impl Immediate {
         RegisterOrConst::DataRegister(register)
     }
 
-    pub fn map_to_register_or_const_couple(&self, is_immediate_signed: SignValue, translator : &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>) -> (RegisterOrConst, RegisterOrConst){
+    pub(crate) fn map_to_register_or_const_couple(&self, is_immediate_signed: SignValue, translator : &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>) -> (RegisterOrConst, RegisterOrConst){
         let imm = self.as_u64();
         let immediate_lower: u32 = imm  as u32;
         let immediate_upper: u32 = (imm >> 32) as u32;
@@ -101,7 +101,7 @@ impl Immediate {
     /// Returns true if the immediate fits in 9 bits based on signedness.
     /// - For unsigned: fits in 9 bits unsigned
     /// - For signed: fits in 9 bits signed (upper bits must be sign extension of bit 8)
-    pub fn fits_as_comparison_immediate(&self, sign: SignValue) -> bool {
+    pub(crate) fn fits_as_comparison_immediate(&self, sign: SignValue) -> bool {
         match sign {
             SignValue::Unsigned => self.as_u32() >> 9 == 0,
             SignValue::Signed => {
@@ -114,7 +114,7 @@ impl Immediate {
 
 
 #[derive(Copy,Clone, PartialEq, Debug, Format)]
-pub struct DataRegister(pub u8);
+pub(crate) struct DataRegister(pub u8);
 
 impl DataRegister {
     pub fn new(register:u8) -> Self {
@@ -224,7 +224,7 @@ fn compute_offset<'a,'b>(translator: &mut Translator<'a, 'b>, scratch_variable_m
 }
 
 #[derive(Copy,Clone, PartialEq, Debug, Format)]
-pub struct ExtendedRegister(pub u8);
+pub(crate) struct ExtendedRegister(pub u8);
 
 impl ExtendedRegister {
     pub fn new(register:u8) -> Self {
@@ -336,26 +336,26 @@ impl Const18 {
 }
 
 #[derive(Clone, PartialEq, Debug, Format)]
-pub enum RegisterOrConst {
+pub(crate) enum RegisterOrConst {
     DataRegister(DataRegister),
     Const9(Const9),
 }
 
 #[derive(Clone, PartialEq, Debug, Format)]
-pub enum RegisterOrSmallConst {
-    DataRegister(DataRegister),
+pub(crate) enum RegisterOrSmallConst {
+    // DataRegister(DataRegister),
     Const4(Const4),
 }
 
 #[derive(Debug, Clone, Format)]
-pub enum RegisterOrLargeConst {
+pub(crate) enum RegisterOrLargeConst {
     DataRegister(DataRegister),
     Const16(Const16),
     RegisterCouple{lower:DataRegister, upper:DataRegister},
 }
 
 #[derive(Debug, Clone, Format)]
-pub enum Register {
+pub(crate) enum Register {
     DataRegister(DataRegister),
     ExtendedRegister(ExtendedRegister),
 }
@@ -386,22 +386,12 @@ impl RegisterOrLargeConst {
 }
 
 impl RegisterOrSmallConst{
-    pub fn new_register(register:u8) -> Self {
-        RegisterOrSmallConst::DataRegister(DataRegister::new(register))
-    }
     pub fn new_const(constant:u8) -> Self {
         RegisterOrSmallConst::Const4(Const4::new(constant))
     }
 }
 
 impl Register {
-    pub fn new_data_register(register:u8) -> Self {
-        Register::DataRegister(DataRegister::new(register))
-    }
-    pub fn new_extended_register(register:u8) -> Self {
-        Register::ExtendedRegister(ExtendedRegister::new(register))
-    }
-
     pub fn as_location(&self) -> MapperLocation {
         match self {
             Register::DataRegister(register) => MapperLocation::DataRegister(*register),
@@ -440,7 +430,7 @@ pub enum Memsize {
 }
 
 #[derive(Clone, PartialEq)]
-pub enum MapperLocation {
+pub(crate) enum MapperLocation {
     DataRegister(DataRegister),
     ExtendedRegister(ExtendedRegister),
     Frame{offset:i16, size:ValueSize},
@@ -450,20 +440,12 @@ pub enum MapperLocation {
     Global{offset:u32, size:ValueSize},
 }
 #[derive(Clone, Copy, PartialEq)]
-pub enum SignValue {
+pub(crate) enum SignValue {
     Signed,
     Unsigned,
 } 
 
 impl MapperLocation {
-    pub fn as_register(&self) -> Register {
-        match self {
-            MapperLocation::DataRegister(register) => Register::DataRegister(*register),
-            MapperLocation::ExtendedRegister(register) => Register::ExtendedRegister(*register),
-            _ => panic!("Expected register")
-        }
-    }
-
     pub fn new_data_register(register:u8) -> Self {
         MapperLocation::DataRegister(DataRegister::new(register))
     }
@@ -743,7 +725,7 @@ impl MapperLocation {
 
 }
 
-pub trait LocationCouple {
+pub(crate) trait LocationCouple {
     fn map_to_data_registers(self, translator: &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>) -> (DataRegister, DataRegister);
     fn map_abelian_children_to_register_or_const(self, is_signed_immediate:SignValue, translator: &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>) -> (DataRegister, RegisterOrConst);
     fn map_to_extended_registers(self, translator: &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>) -> (ExtendedRegister, ExtendedRegister);

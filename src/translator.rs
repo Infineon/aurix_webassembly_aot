@@ -98,7 +98,7 @@ pub struct BlockResult {
     pub label_state: StackState, // Stack state when branching to this block's label position, only different for loops
 }
 
-pub struct Translator<'a, 'b> {
+pub(crate) struct Translator<'a, 'b> {
     pub vb_stack: Vec<VB>, // valent blocks
     pub locals_map: Vec<MapperLocation>, // location of local variables
     pub locked_register: Option<Register>,
@@ -354,8 +354,7 @@ impl<'a, 'b> Translator<'a, 'b> {
                 .push(self.wasm_runtime.instructions_count),
             Instr::J { .. }
             | Instr::JEQ { .. }
-            | Instr::JNE { .. }
-            | Instr::JZT { .. }
+            // | Instr::JZT { .. }
             | Instr::LOOPU { .. } => self.cfg_jobs.push(self.wasm_runtime.instructions_count),
             _ => (),
         }

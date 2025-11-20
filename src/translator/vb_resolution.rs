@@ -634,30 +634,6 @@ impl<'a,'b> Translator<'a,'b> {
         self.gen_f32_binary_op(F32BinInstr::ADDF, lhs, rhs, scratch_variable_map, potential_target)
     }
 
-    // This is no longer used, we make an external call instead
-    fn _gen_f32_min(&mut self, lhs: &MapperLocation, rhs: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let (lhs_register, rhs_register) = (lhs, rhs).map_to_data_registers(self, scratch_variable_map);
-        let cmp_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![MapperLocation::DataRegister(lhs_register), MapperLocation::DataRegister(rhs_register)]);
-        let dest_register = self.get_dest_data_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::CMPF { lhs: lhs_register, rhs: rhs_register, dest: cmp_register });
-        self.push_instruction(Instr::JZT { src: cmp_register, n: 3, target: self.cfg_label_map.len().into() });
-        self.push_instruction(Instr::MOVH { src: Const16(0x7FC0), dest: dest_register });
-        self.push_instruction(Instr::J { target: (self.cfg_label_map.len() + 3).into() });
-        self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));
-        self.push_instruction(Instr::JZT { src: cmp_register, n: 2, target: self.cfg_label_map.len().into() });
-        rhs_register.map_to_location(Some(&MapperLocation::DataRegister(dest_register)), self, scratch_variable_map);
-        self.push_instruction(Instr::J { target: (self.cfg_label_map.len() + 2).into() });
-        self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));
-        self.push_instruction(Instr::JZT { src: cmp_register, n: 1, target: self.cfg_label_map.len().into() });
-        self.push_instruction(Instr::JEQ { target: self.cfg_label_map.len().into(), lhs: lhs_register, rhs: RegisterOrSmallConst::DataRegister(rhs_register) });
-        self.push_instruction(Instr::MOVH { src: Const16(0), dest: dest_register });
-        self.push_instruction(Instr::J { target: (self.cfg_label_map.len() + 1).into() });
-        self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));
-        lhs_register.map_to_location(Some(&MapperLocation::DataRegister(dest_register)), self, scratch_variable_map);
-        self.cfg_label_map.push(Some(self.wasm_runtime.instructions_count));
-        dest_register.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
     // ================================================================================
     // INTEGER BITWISE OPERATION GENERATORS
     // ================================================================================
@@ -1358,35 +1334,6 @@ impl<'a,'b> Translator<'a,'b> {
 
     fn gen_i32_clz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
         self.gen_single_operand_op(SingleOperandInstr::CLZ, child, scratch_variable_map, potential_target)
-    }
-
-    fn _gen_i64_clz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let src = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
-        let dest = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::CLZ {src: src.lower_half(), dest: dest.lower_half()});
-        self.push_instruction(Instr::CLZ {src: src.upper_half(), dest: dest.upper_half()});
-        self.push_instruction(Instr::ADDI {lhs: dest.upper_half() , rhs: Const16(-32i16 as u16), dest: dest.upper_half()});
-        self.push_instruction(Instr::CADDN { lhs: dest.lower_half() , rhs: RegisterOrConst::DataRegister(dest.upper_half()), cond: dest.upper_half(), dest: dest.upper_half() });
-        self.push_instruction(Instr::ADDI {lhs: dest.upper_half() , rhs: Const16(32i16 as u16), dest: dest.upper_half()});
-        self.push_instruction(Instr::MOV {src: RegisterOrLargeConst::DataRegister(dest.upper_half()), dest: Register::DataRegister(dest.lower_half())});
-        self.push_instruction(Instr::MOV {src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(dest.upper_half())});
-        dest.lower_half().map_to_location(Some(&MapperLocation::ExtendedRegister(dest)), self, scratch_variable_map);
-        dest.map_to_location(potential_target, self, scratch_variable_map)
-    }
-
-    fn _gen_i64_ctz(&mut self, child: &MapperLocation, scratch_variable_map: &mut Vec<MapperLocation>, potential_target: Option<&MapperLocation>) -> MapperLocation {
-        let src = child.map_to_extended_register(None, self, scratch_variable_map, &vec![]);
-        let dest = self.get_dest_extended_register(potential_target, scratch_variable_map, &vec![]);
-        self.push_instruction(Instr::SHUFFLE { src: src.lower_half(), dest: dest.lower_half(), mask: Const9::new(0x11B)});
-        self.push_instruction(Instr::CLZ {src: dest.lower_half(), dest: dest.lower_half()});
-        self.push_instruction(Instr::SHUFFLE { src: src.upper_half(), dest: dest.upper_half(), mask: Const9::new(0x11B)});
-        self.push_instruction(Instr::CLZ {src: dest.upper_half(), dest: dest.upper_half()});
-        self.push_instruction(Instr::ADDI {lhs: dest.lower_half() , rhs: Const16(-32i16 as u16), dest: dest.lower_half()});
-        self.push_instruction(Instr::CADDN { lhs: dest.upper_half() , rhs: RegisterOrConst::DataRegister(dest.lower_half()), cond: dest.lower_half(), dest: dest.lower_half() });
-        self.push_instruction(Instr::ADDI {lhs: dest.lower_half() , rhs: Const16(32i16 as u16), dest: dest.lower_half()});
-        self.push_instruction(Instr::MOV {src: RegisterOrLargeConst::new_const(0), dest: Register::DataRegister(dest.upper_half())});
-        dest.lower_half().map_to_location(Some(&MapperLocation::DataRegister(dest.upper_half())), self, scratch_variable_map);
-        dest.map_to_location(potential_target, self, scratch_variable_map)
     }
 
     fn gen_load(&mut self, child: &MapperLocation, offset:u32, align:u8, src_size: Memsize, ext_sign: SignValue, potential_target: Option<&MapperLocation>, scratch_variable_map : &mut Vec<MapperLocation> ) -> MapperLocation{

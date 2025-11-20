@@ -2,7 +2,9 @@
 use alloc::vec::Vec;
 use alloc::vec;
 
-use super::{AddressRegister, Const10, Const16, Const18, Const4, Const9, DataRegister, ExtendedRegister, Instr};
+use super::{AddressRegister, Const10, Const16, Const4, Const9, DataRegister, ExtendedRegister, Instr};
+#[cfg(feature = "full_instructions")]
+use super::Const18;
 
 struct BinaryField {
     field: u32,
@@ -34,11 +36,37 @@ macro_rules! binary_fields {
         ]).to_binary()
     };
 }
+
+macro_rules! map_instr_to_binary {
+    (
+        $value:expr;
+        $(
+            $core_pattern:pat => $core_expr:expr
+        ),* $(,)?
+        $(;
+        // Semi-colon to separate core instructions from full instructions that are not currently used by the translator
+        $(
+            $full_pattern:pat => $full_expr:expr
+        ),* $(,)?)?
+
+    ) => {
+        match $value {
+            $(
+                $core_pattern => $core_expr,
+            )*
+            $(
+                $(
+                    #[cfg(feature = "full_instructions")]
+                    $full_pattern => $full_expr,
+                )*
+            )?
+        }
+    };
+}
 impl Instr {
-    pub fn map_to_binary (self) -> u32 {
-        match self {
-            Instr::Trap => 0xffffffff,
-            Instr::NOP => binary_fields!(),
+    pub fn map_to_binary(self) -> u32 {
+        map_instr_to_binary!{
+            self;
             Instr::RET => binary_fields!((0x6,22),(0xd,0)),
             Instr::MOV { src, dest} => match (dest,src)
             {
@@ -50,7 +78,6 @@ impl Instr {
                 (super::Register::ExtendedRegister(ExtendedRegister(c)), super::RegisterOrLargeConst::RegisterCouple { lower: DataRegister(b), upper : DataRegister(a)}) => binary_fields!((c as u32,28), (0x81,20),(b as u32,12), (a as u32,8), (0xb,0)),
             },
             Instr::MOVU { src: Const16(const16), dest: DataRegister(c)} => binary_fields!((c as u32, 28), (const16 as u32, 12), (0xbb, 0)),
-            Instr::MOVA { src: DataRegister(b), dest: AddressRegister(c) } => binary_fields!((c as u32, 28), (0x63, 20),(b as u32, 12), (0x1, 0)),
             Instr::MOVHA { src: Const16(const16), dest: AddressRegister(c) } => binary_fields!( (c as u32, 28), (const16 as u32, 12), (0x91, 0)),
             Instr::LEA { base: AddressRegister(b), offset: Const16(const16), dest: AddressRegister(a) } => {
                 let offset_lower = const16 & 0x3f;
@@ -63,11 +90,6 @@ impl Instr {
                 let offset_mid = (const16 >> 6) & 0xf;
                 let offset_upper = const16 >> 10;
                 binary_fields!((offset_mid as u32, 28), (offset_upper as u32,22), (offset_lower as u32, 16), (b as u32, 12), (a as u32, 8), (0x99, 0))
-            },
-            Instr::LDAPI { base: AddressRegister(b), offset: Const10(const10), dest: AddressRegister(a) } => {
-                let offset_lower = const10 & 0x3f;
-                let offset_upper = const10 >> 6;
-                binary_fields!((offset_upper as u32, 28), (0x6,22), (offset_lower as u32, 16), (b as u32, 12), (a as u32, 8), (0x9d, 0))
             },
             Instr::LDB { base: AddressRegister(b), offset: Const16(const16), dest: DataRegister(a) } =>{
                 let offset_lower = const16 & 0x3f;
@@ -147,7 +169,6 @@ impl Instr {
                 let offset_upper = const10 >> 6;
                 binary_fields!((offset_upper as u32, 28), (0x14,22), (offset_lower as u32, 16), (b as u32, 12), (a as u32, 8), (0x89, 0))
             },
-            Instr::MOVH { src: Const16(const16), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (const16 as u32, 12), (0x7b, 0)),
             Instr::CLZ { src: DataRegister(a), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (0x1b,20), (a as u32, 8), (0xf, 0)),
             Instr::SHUFFLE { src: DataRegister(a), dest: DataRegister(c), mask: Const9(const9) } => binary_fields!((c as u32, 28), (0x7,21), (const9 as u32, 12), (a as u32, 8), (0x8f, 0)),
             Instr::POPCNT { src: DataRegister(a), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (0x22, 20), (0,16), (a as u32, 8), (0x4b, 0)),
@@ -187,11 +208,6 @@ impl Instr {
             Instr::ADDI { lhs: DataRegister(a), rhs: Const16(const16), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (const16 as u32, 12), (a as u32,8), (0x1b, 0)),
             Instr::ADDIH { lhs: DataRegister(a), rhs: Const16(const16), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (const16 as u32, 12), (a as u32, 8), (0x9b, 0)),
             Instr::ADDIHA { lhs: AddressRegister(a), rhs: Const16(const16), dest: AddressRegister(c) } => binary_fields!((c as u32, 28), (const16 as u32, 12), (a as u32, 8), (0x11, 0)),
-            Instr::ADDA { lhs: AddressRegister(a), rhs: AddressRegister(b), dest: AddressRegister(c) } => binary_fields!((c as u32, 28), (0x1,20), (b as u32, 12), (a as u32, 8), (0x1, 0)),
-            Instr::CADDN { lhs: DataRegister(a), rhs, cond: DataRegister(d), dest: DataRegister(c) } => match rhs {
-                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (d as u32, 24), (0x1,20), (b as u32, 12), (a as u32, 8), (0x2b, 0)),
-                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (d as u32, 24), (0x1,21), (const9 as u32, 12), (a as u32, 8), (0xab, 0)),         
-            }
             Instr::SUB { lhs: DataRegister(a), rhs: DataRegister(b), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (0x8,20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
             Instr::SUBF { lhs: DataRegister(d), rhs: DataRegister(a), dest: DataRegister(c)} => binary_fields!((c as u32, 28), (d as u32, 24), (0x3,20), (0x1,16), (a as u32, 8), (0x6b, 0)),
             Instr::SUBX { lhs: DataRegister(a), rhs: DataRegister(b), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (0xc,20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
@@ -257,13 +273,46 @@ impl Instr {
             Instr::JEQ { target, lhs: DataRegister(a), rhs } => {
                 let target = target.to_u32() & 0x7fff;
                 match rhs{
-                    super::RegisterOrSmallConst::DataRegister(DataRegister(b)) => binary_fields!((0, 31),(target , 16), (b as u32, 12), (a as u32,8), (0x5f, 0)),
+                    // super::RegisterOrSmallConst::DataRegister(DataRegister(b)) => binary_fields!((0, 31),(target , 16), (b as u32, 12), (a as u32,8), (0x5f, 0)),
                     super::RegisterOrSmallConst::Const4(Const4(const4)) => binary_fields!( (0, 31),(target, 16), (const4 as u32, 12), (a as u32,8), (0xdf, 0))
                 }
             },
-            Instr::JNE { target, lhs: DataRegister(a), rhs: Const4(const4) } => binary_fields!( (1, 31),(target.to_u32() & 0x7fff, 16), (const4 as u32, 12), (a as u32,8), (0xdf, 0)),
             Instr::JI { src: AddressRegister(a) } => binary_fields!((3,20), (a as u32,8), (0x2d, 0)),
             Instr::ADDSCA { lhs: AddressRegister(b), rhs: DataRegister(a), dest: AddressRegister(c), shift: Const4(n) } => binary_fields!((c as u32, 28), (0x60,20), (n as u32, 16), (b as u32,12), (a as u32, 8), (0x1, 0)),
+
+            Instr::ANDLTU { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
+                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x23, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
+                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x23,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
+            },
+            Instr::ORLT { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
+                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x29, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
+                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x29,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
+            },
+            Instr::ORLTU { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
+                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x2a, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
+                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x2a,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
+            },
+            Instr::ANDGEU { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
+                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x25, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
+                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x25,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
+            },
+            Instr::EXTRUI { src: DataRegister(a), width:Const9(width), pos:Const9(pos) , dest: DataRegister(c)} => binary_fields!((c as u32, 28), (pos as u32, 23), (0x3,21), (width as u32, 16), (a as u32, 8), (0x37, 0)),
+            Instr::MOVAA { src: AddressRegister(b), dest:AddressRegister(a) } => binary_fields!((b as u32,12), (a as u32,8), (0x40,0)),
+            Instr::MINU { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
+                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x19, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
+                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x19,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
+            },
+
+            ; // Semi colon used by macro to separate additional variants included with "full_instructions" feature
+            // These variants are not curently used by the translator but are kept "just in case"
+
+            Instr::NOP => binary_fields!(),
+            Instr::MOVA { src: DataRegister(b), dest: AddressRegister(c) } => binary_fields!((c as u32, 28), (0x63, 20),(b as u32, 12), (0x1, 0)),
+            Instr::LDAPI { base: AddressRegister(b), offset: Const10(const10), dest: AddressRegister(a) } => {
+                let offset_lower = const10 & 0x3f;
+                let offset_upper = const10 >> 6;
+                binary_fields!((offset_upper as u32, 28), (0x6,22), (offset_lower as u32, 16), (b as u32, 12), (a as u32, 8), (0x9d, 0))
+            },
             Instr::LDAABS { address:Const18(off18), dest: AddressRegister(a)} =>{
                 let offset_lower = off18 & 0x3f;
                 let offset_mid_low = (off18 >> 6) & 0xf;
@@ -303,25 +352,16 @@ impl Instr {
                 super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x22, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
                 super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x22,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
             },
-            Instr::ANDLTU { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
-                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x23, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
-                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x23,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
+            Instr::MOVH { src: Const16(const16), dest: DataRegister(c) } => binary_fields!((c as u32, 28), (const16 as u32, 12), (0x7b, 0)),
+            Instr::ADDA { lhs: AddressRegister(a), rhs: AddressRegister(b), dest: AddressRegister(c) } => binary_fields!((c as u32, 28), (0x1,20), (b as u32, 12), (a as u32, 8), (0x1, 0)),
+            Instr::CADDN { lhs: DataRegister(a), rhs, cond: DataRegister(d), dest: DataRegister(c) } => match rhs {
+                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (d as u32, 24), (0x1,20), (b as u32, 12), (a as u32, 8), (0x2b, 0)),
+                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (d as u32, 24), (0x1,21), (const9 as u32, 12), (a as u32, 8), (0xab, 0)),         
             },
-            Instr::ORLT { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
-                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x29, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
-                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x29,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
-            },
-            Instr::ORLTU { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
-                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x2a, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
-                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x2a,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
-            },
+            Instr::JNE { target, lhs: DataRegister(a), rhs: Const4(const4) } => binary_fields!( (1, 31),(target.to_u32() & 0x7fff, 16), (const4 as u32, 12), (a as u32,8), (0xdf, 0)),
             Instr::ANDGE { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
                 super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x24, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
                 super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x24,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
-            },
-            Instr::ANDGEU { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
-                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x25, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
-                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x25,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
             },
             Instr::ORGE { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
                 super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x2b, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
@@ -332,13 +372,7 @@ impl Instr {
                 super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x2c,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
             },
             Instr::EXTRU { src: DataRegister(a), width_pos:ExtendedRegister(d), dest: DataRegister(c)} => binary_fields!((c as u32, 28), (d as u32, 24), (0x3,21), (a as u32, 8), (0x17, 0)),
-            Instr::EXTRUI { src: DataRegister(a), width:Const9(width), pos:Const9(pos) , dest: DataRegister(c)} => binary_fields!((c as u32, 28), (pos as u32, 23), (0x3,21), (width as u32, 16), (a as u32, 8), (0x37, 0)),
             Instr::JZT { src: DataRegister(a), n, target } =>binary_fields!((0,31),(target.to_u32() & 0x7fff, 16), ( (n &0xf) as u32, 12), (a as u32,8), ((n >>4 & 0x1) as u32 ,7), (0x6f, 0)),
-            Instr::MOVAA { src: AddressRegister(b), dest:AddressRegister(a) } => binary_fields!((b as u32,12), (a as u32,8), (0x40,0)),
-            Instr::MINU { lhs: DataRegister(a), rhs, dest: DataRegister(c) } => match rhs {
-                super::RegisterOrConst::DataRegister(DataRegister(b)) => binary_fields!((c as u32, 28), (0x19, 20), (b as u32, 12), (a as u32, 8), (0xb, 0)),
-                super::RegisterOrConst::Const9(Const9(const9)) => binary_fields!((c as u32, 28), (0x19,21), (const9 as u32, 12), (a as u32, 8), (0x8b, 0)),
-            }
         }
     }
-}          
+}

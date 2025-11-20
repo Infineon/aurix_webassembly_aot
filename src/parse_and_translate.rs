@@ -187,7 +187,7 @@ impl<'a> WasmRuntime<'a> {
         self.instructions[index] = 0x6d | (disp_upper << 8) | (disp_lower << 16);
     }
 
-    pub fn add_instruction(&mut self, instr: Instr) {
+    pub(crate) fn add_instruction(&mut self, instr: Instr) {
         self.instructions[self.instructions_count] = instr.map_to_binary();
         self.instructions_count += 1;
     }
