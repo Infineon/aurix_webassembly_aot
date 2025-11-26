@@ -27,7 +27,7 @@ const MAX_ALL_REGISTERS: u8 = 16;
 /// Wrapper for label indices used in control flow constructs. Values are unique and monotonically increasing.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, Format, PartialEq)]
-pub struct LabelIndex (usize);
+pub(crate) struct LabelIndex (usize);
 
 
 impl From<usize> for LabelIndex {
@@ -53,7 +53,7 @@ impl LabelIndex {
 /// Represents a control flow label, which can be a block, a loop or an if-else-end structure. Each label has a unique identifier.
 /// For Block and Loop, there is a single LabelIndex representing the end of the block or the beginning of the loop.
 /// For If, there are two LabelIndexs: one for the else branch and one for the end branch.
-pub enum BlockLabel {
+pub(crate) enum BlockLabel {
     BlockLoop(LabelIndex),
     If { else_label: LabelIndex, end_label: LabelIndex },
 }
@@ -61,7 +61,7 @@ pub enum BlockLabel {
 /// Wrapper for stack height values used in control flow constructs. Values are in bytes.
 #[repr(transparent)]
 #[derive(Debug, Format, Copy, PartialEq, Clone)]
-pub struct StackHeight(usize);
+pub(crate) struct StackHeight(usize);
 
 impl From<usize> for StackHeight {
     fn from(value: usize) -> Self {
@@ -84,7 +84,7 @@ impl StackHeight {
 /// The second element is the size of the result value of the block, if any.
 /// The stack state after exiting the block is the same as before entering the block plus the result value at the top, if any
 #[derive(Debug, Clone, Copy)]
-pub struct StackState {
+pub(crate) struct StackState {
     pub height: StackHeight,
     pub result_size: Option<ValueSize>,
 }
@@ -93,7 +93,7 @@ pub struct StackState {
 /// Includes the stack state when reaching the end of the block naturally and when branching to the block's label position (e.g. with a break instruction).
 /// The two states are usually the same, except for loops where the label state has no result value.
 /// That is because breaking to a loop label means jumping to the beginning of the loop, not the end unlike with blocks and ifs.
-pub struct BlockResult {
+pub(crate) struct BlockResult {
     pub end_state: StackState, // Stack state when reaching the end of the block naturally
     pub label_state: StackState, // Stack state when branching to this block's label position, only different for loops
 }

@@ -5,7 +5,7 @@ use crate::{isa_model::{MapperLocation, ValueSize}, translator::StackHeight};
 pub type Address = u32;
 
 #[derive(Debug, PartialEq, Clone, Format)]
-pub enum AtomicVB{
+pub(crate) enum AtomicVB{
     I32Const {imm: i32},
     I64Const {imm: i64},
     F32Const {imm: u32},
@@ -17,7 +17,7 @@ pub enum AtomicVB{
 }
 
 #[derive(Debug, PartialEq, Clone, Format)]
-pub enum UnaryVB{
+pub(crate) enum UnaryVB{
     I32Load {offset:Address, align:u8},
     I64Load {offset:Address, align:u8},
     F32Load {offset:Address, align:u8},
@@ -79,7 +79,7 @@ pub enum UnaryVB{
 
 
 #[derive(Debug, PartialEq, Clone, Format)]
-pub enum BinaryVB{
+pub(crate) enum BinaryVB{
     I32Eq,
     I32Ne,
     I32LtS,
@@ -158,7 +158,7 @@ pub enum BinaryVB{
     F64CopySign
 }
 #[derive(Debug, PartialEq, Clone)]
-pub enum VB{
+pub(crate) enum VB{
     AtomicVB(AtomicVB),
     UnaryVB {vb:UnaryVB, child: Box<VB> },
     BinaryVB{vb: BinaryVB, lhs: Box<VB>, rhs:Box<VB>},

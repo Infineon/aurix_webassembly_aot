@@ -282,7 +282,7 @@ impl ExtendedRegister {
 }
 
 #[derive(Copy,Clone, PartialEq, Debug, Format)]
-pub struct AddressRegister(pub u8);
+pub(crate) struct AddressRegister(pub u8);
 
 impl AddressRegister {
     pub fn new(register:u8) -> Self {
@@ -291,19 +291,20 @@ impl AddressRegister {
 }
 
 #[derive(Clone, PartialEq, Debug, Format)]
-pub struct Const9(pub u16);
+pub(crate) struct Const9(pub u16);
 
 #[derive(Debug, Clone, Format)]
-pub struct Const10(pub i16);
+pub(crate) struct Const10(pub i16);
 
 #[derive(Debug, Clone, Format)]
-pub struct Const16(pub u16);
+pub(crate) struct Const16(pub u16);
 
+#[cfg(feature="full_instructions")]
 #[derive(Debug, Clone, Format)]
-pub struct Const18(pub u32);
+pub(crate) struct Const18(pub u32);
 
 #[derive(Clone, PartialEq, Debug, Format)]
-pub struct Const4(pub u8);
+pub(crate) struct Const4(pub u8);
 
 impl Const9 {
     pub fn new(constant:u16) -> Self {
@@ -329,6 +330,7 @@ impl Const4 {
     }
 }
 
+#[cfg(feature="full_instructions")]
 impl Const18 {
     pub fn new(constant:u32) -> Self {
         Const18(constant & 0x3FFFF)
@@ -422,7 +424,7 @@ impl Register {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum Memsize {
+pub(crate) enum Memsize {
     Byte,
     HalfWord,
     Word,

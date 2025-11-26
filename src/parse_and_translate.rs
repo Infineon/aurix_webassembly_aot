@@ -81,7 +81,7 @@ pub struct WasmRuntime<'a> {
     pub instructions_count: usize,    // only needed for translation, put here for benchmarking
 }
 
-pub struct GlobalTranslator {
+pub(crate) struct GlobalTranslator {
     pub function_type_map: Vec<u32>, // match each function to its index in runtime::types
     pub globals_map: Vec<(u32, ValueSize)>, // gives the address offset in runtime:: global_space and size of each global
     pub memory_size_limit: u32, // effective max between the max value given in the wasm and the allocated linear memory
@@ -142,7 +142,7 @@ impl<'a> WasmRuntime<'a> {
     ///
     /// * `index` - The index of the instruction to modify in the instructions array.
     /// * `cfg_label_map` - The CFG label map that maps each label index to the corresponding instruction index.
-    pub fn swap_target_with_disp_jump(&mut self, index: usize, cfg_label_map: &Vec<Option<usize>>) {
+    pub(crate) fn swap_target_with_disp_jump(&mut self, index: usize, cfg_label_map: &Vec<Option<usize>>) {
         let instruction = self.instructions[index];
         let opcode = instruction & 0xff;
         match opcode {
@@ -163,12 +163,14 @@ impl<'a> WasmRuntime<'a> {
             }
         }
     }
-    /// Swaps the function index with a displacement in the call instructions. This is used to replace the function index, placed as a placeholder, with the actual target after the end of the translation of all WebAssembly functions.
+    /// Replace the function index with a displacement in the call instructions.
+    /// When translating a function call, the target function might not have been translated yet, so a placeholder is used.
+    /// This is used to replace the function index, used as a placeholder, with the actual target after the end of the translation of all WebAssembly functions.
     ///
     /// # Arguments
     ///
     /// * `index` - The index of the instruction to modify in the instructions array.
-    pub fn swap_target_with_disp_call(&mut self, index: usize) {
+    pub(crate) fn replace_target_with_disp_call(&mut self, index: usize) {
         let instruction = self.instructions[index];
         let target = instruction >> 8;
         let disp = (self.function_labels[target as usize] as u32)
@@ -192,7 +194,7 @@ impl<'a> WasmRuntime<'a> {
         self.instructions_count += 1;
     }
 
-    /// instantiates a new WebAssembly module into the runtime. This parses a WebAssembly binary and initializes the table, global space and linear memory. It also translates the WebAssembly functions into machine code.
+    /// Instantiates a new WebAssembly module into the runtime. This parses a WebAssembly binary and initializes the table, global space and linear memory. It also translates the WebAssembly functions into machine code.
     ///
     /// # Arguments
     ///
@@ -461,7 +463,7 @@ impl<'a> WasmRuntime<'a> {
         
         // swap placeholders for function calls by real function adresses
         for index in global_translator.function_call_jobs.into_iter() {
-            self.swap_target_with_disp_call(index);
+            self.replace_target_with_disp_call(index);
         }
 
         // table is first filled with function indices, we then swap them with real addresses
