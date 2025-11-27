@@ -16,13 +16,12 @@ pub enum Immediate {
     DoubleWord(u64),
 }
 const LINEAR_MEMORY_BASE : AddressRegister = AddressRegister(6);
-pub const GLOBAL_BASE : AddressRegister = AddressRegister(5);
-pub const STACK_POINTER : AddressRegister = AddressRegister(10);
-pub const FRAME_POINTER : AddressRegister = AddressRegister(12);
-pub const STACK_BASE : AddressRegister = AddressRegister(13); // stack pointer at the beginning of the function
-pub const TABLE_BASE : AddressRegister = AddressRegister(4);
-
-pub const ADDRESS_ACCUMULATOR: AddressRegister = AddressRegister(2);
+pub(crate) const GLOBAL_BASE : AddressRegister = AddressRegister(5);
+pub(crate) const STACK_POINTER : AddressRegister = AddressRegister(10);
+pub(crate) const FRAME_POINTER : AddressRegister = AddressRegister(12);
+pub(crate) const STACK_BASE : AddressRegister = AddressRegister(13); // stack pointer at the beginning of the function
+pub(crate) const TABLE_BASE : AddressRegister = AddressRegister(4);
+pub(crate) const ADDRESS_ACCUMULATOR: AddressRegister = AddressRegister(2);
 
 fn immediate_fits (imm:u32, is_signed:SignValue) -> bool {
     match is_signed {
