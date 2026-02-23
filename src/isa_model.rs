@@ -23,19 +23,6 @@ pub(crate) const STACK_BASE : AddressRegister = AddressRegister(13); // stack po
 pub(crate) const TABLE_BASE : AddressRegister = AddressRegister(4);
 pub(crate) const ADDRESS_ACCUMULATOR: AddressRegister = AddressRegister(2);
 
-fn immediate_fits (imm:u32, is_signed:SignValue) -> bool {
-    match is_signed {
-        SignValue::Signed => {
-            let shifted_imm = imm as i32 >> 8;
-            shifted_imm == 0 || shifted_imm == -1
-        },
-        SignValue::Unsigned => {
-            let shifted_imm = imm >> 9;
-            shifted_imm == 0
-        }
-    }
-}
-
 impl Immediate {
     pub fn as_i32(&self) -> i32 {
         match self {
@@ -66,7 +53,7 @@ impl Immediate {
 
     pub(crate) fn map_to_register_or_const(&self, is_immediate_signed: SignValue, translator : &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation> ) -> RegisterOrConst {
         let imm = self.as_u32();
-        if immediate_fits(imm, is_immediate_signed) {
+        if self.fits_as_comparison_immediate(is_immediate_signed) {
             return RegisterOrConst::Const9(Const9::new(imm as u16));
         }
         let register = translator.next_available_data_register(scratch_variable_map, used_registers);
