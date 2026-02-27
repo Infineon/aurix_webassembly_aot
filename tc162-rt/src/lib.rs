@@ -98,8 +98,6 @@
 //!
 #![no_std]
 #![feature(stdsimd)]
-#[cfg(feature = "support-misaligned-access")]
-mod handle_misaligned_load_store;
 
 use core::arch::{asm, global_asm};
 

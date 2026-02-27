@@ -249,7 +249,10 @@ fn _push_transition(
     }
 }
 
-/// It shall be called from Data Address Aligment trap
+
+/// The function will emulate the instruction and return to the next instruction. 
+/// This allows to support misaligned accesses without crashing the program, at the cost of performance.
+/// Safety: This function shall only be called from the trap handler `Data Address Aligment` when a misaligned load/store access is trapped.
 #[no_mangle]
 pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
     unsafe { asm!("SVLCX") };

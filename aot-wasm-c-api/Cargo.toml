@@ -1,0 +1,21 @@
+[package]
+name = "aot-wasm-c-api"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "C FFI bindings for the aot_wasm WebAssembly Ahead-of-Time compiler runtime on Aurix TriCore"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+aot_wasm = { path = ".." }
+critical-section={version="1.0",features = ["restore-state-bool"]}
+
+[features]
+address-masking = ["aot_wasm/address-masking"]
+full_instructions = ["aot_wasm/full_instructions"]
+misaligned-access = ["aot_wasm/support-misaligned-access"]
+panic-handler-callback = []
+default = ["address-masking","full_instructions","misaligned-access","panic-handler-callback"]
+

@@ -6,7 +6,8 @@ members = [
     "defmt-test",
     "tsim-semihosting",
     "probe-semihosting",
-    "tc37x-hal", 
+    "tc37x-hal",
+    "aot-wasm-c-api",
 ]
 exclude = ["demo-code","tests_generator"]
 
@@ -40,7 +41,10 @@ tsim = []
 board = []
 address-masking = []
 full_instructions = []
-default = ["address-masking"]
+default = ["address-masking","support-misaligned-access"]
+# When enabled the runtime expose `handle_misaligned_load_store` that shall be called in the trap handler 
+# when a misaligned load/store access is trapped. 
+support-misaligned-access=[] 
 
 
 [dev-dependencies]

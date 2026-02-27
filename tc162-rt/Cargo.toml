@@ -32,9 +32,9 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-support-misaligned-access=[]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# Activate support for misaligned access. This is required for the tc162-rt to be used with the tc162-htc-none target, which does not support misaligned access.
+# Requires that some crates provide `handle_misaligned_load_store` c function
+support-misaligned-access =[]
 
 [dependencies]
 critical-section={version="1.0",features = ["restore-state-bool"]}

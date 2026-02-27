@@ -2,7 +2,6 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::arch::asm;
-use defmt::panic;
 use fnv::FnvBuildHasher;
 use indexmap::IndexMap;
 
@@ -97,12 +96,14 @@ impl<'a> WasmRuntime<'a> {
         global_space: &'a mut GlobalSpace<SIZE_GLOBAL>,
         table: &'a mut [u32],
     ) -> Self {
-        Self::__new(
-            instructions,
-            &mut linear_memory.0,
-            &mut global_space.0,
-            table,
-        )
+        unsafe {
+            Self::new_raw(
+                instructions,
+                &mut linear_memory.0,
+                &mut global_space.0,
+                table,
+            )
+        }
     }
     /// Creates a new `WasmRuntime` instance.
     ///
@@ -115,8 +116,13 @@ impl<'a> WasmRuntime<'a> {
     ///
     /// # Returns
     ///
-    /// A new instance of `WasmRuntime`.    
-    fn __new(
+    /// #Safety:
+    /// - instruction,linear_memory,global_space and table shall be aligned to 4 bytes.
+    /// - Linear memory size must be a power of two plus 7 bytes for the buffer if feature  "address-masking" is enabled, otherwise it must be greater than 0 bytes for the buffer.
+    /// - Linear memory size must be greater than 7 bytes for the buffer if feature  "address-masking" is enabled, otherwise it must be greater than 0 bytes for the buffer.
+    /// - The caller must ensure that the provided slices are not concurrently accessed elsewhere while the runtime is using them, to avoid data
+    ///     
+    pub unsafe fn new_raw(
         instructions: &'a mut [u32],
         linear_memory: &'a mut [u8],
         global_space: &'a mut [u8],
@@ -142,7 +148,11 @@ impl<'a> WasmRuntime<'a> {
     ///
     /// * `index` - The index of the instruction to modify in the instructions array.
     /// * `cfg_label_map` - The CFG label map that maps each label index to the corresponding instruction index.
-    pub(crate) fn swap_target_with_disp_jump(&mut self, index: usize, cfg_label_map: &Vec<Option<usize>>) {
+    pub(crate) fn swap_target_with_disp_jump(
+        &mut self,
+        index: usize,
+        cfg_label_map: &Vec<Option<usize>>,
+    ) {
         let instruction = self.instructions[index];
         let opcode = instruction & 0xff;
         match opcode {
@@ -230,7 +240,8 @@ impl<'a> WasmRuntime<'a> {
                         .collect();
                 }
 
-                GlobalSection(global_section_reader) => { // fill the global space with globals
+                GlobalSection(global_section_reader) => {
+                    // fill the global space with globals
                     let globals_reader = global_section_reader.clone();
                     let mut offset: usize = 4;
 
@@ -286,13 +297,15 @@ impl<'a> WasmRuntime<'a> {
                     code_index += 1;
                 }
 
-                TableSection(table_section_reader) => { // define the size of the table
+                TableSection(table_section_reader) => {
+                    // define the size of the table
                     match table_section_reader.into_iter().next().map(Result::unwrap) {
                         Some(table_object) => {
-                            if !table_object.ty.element_type.is_func_ref() { // in wasm 1.0 the table is only for indirect calls
+                            if !table_object.ty.element_type.is_func_ref() {
+                                // in wasm 1.0 the table is only for indirect calls
                                 panic!("Unexpected table element type");
                             }
-                            global_translator.table_size = table_object.ty.initial as usize; 
+                            global_translator.table_size = table_object.ty.initial as usize;
                             if self.table.len() < global_translator.table_size as usize {
                                 panic!("Not enough table space allocated");
                             }
@@ -318,7 +331,8 @@ impl<'a> WasmRuntime<'a> {
                             global_translator.memory_size_limit = available_pages_count;
                             memory.maximum.map(|max| {
                                 if max as u32 <= available_pages_count {
-                                    global_translator.memory_size_limit = max as u32 // set effective max of memory size
+                                    global_translator.memory_size_limit = max as u32
+                                    // set effective max of memory size
                                 }
                             });
 
@@ -327,7 +341,7 @@ impl<'a> WasmRuntime<'a> {
                             if self.linear_memory.len() < memory_size as usize {
                                 panic!("Not enough memory allocated"); // panic if initial size is bigger than max
                             }
-                            
+
                             // first 4 bytes of the global space are reserved for memory size
                             self.global_space[0..4]
                                 .copy_from_slice(&memory_size_pages.to_le_bytes());
@@ -335,15 +349,17 @@ impl<'a> WasmRuntime<'a> {
                             self.linear_memory.fill(0);
                         });
                 }
-                
+
                 // put datasegments at the offset to initialize linear memory to custom values
                 DataSection(data_section_reader) => {
                     data_section_reader
                         .into_iter()
                         .map(Result::unwrap)
                         .for_each(|data_segment| {
-                            let offset = match data_segment.kind { // only needed because wasmparser is forward compatible
-                                wasmparser::DataKind::Active { // only Active is needed in wasm 1.0
+                            let offset = match data_segment.kind {
+                                // only needed because wasmparser is forward compatible
+                                wasmparser::DataKind::Active {
+                                    // only Active is needed in wasm 1.0
                                     memory_index,
                                     offset_expr,
                                 } => {
@@ -393,7 +409,7 @@ impl<'a> WasmRuntime<'a> {
                                     panic!("Unexpected declared element segment");
                                 }
                             };
-                            match element_segment.items { 
+                            match element_segment.items {
                                 wasmparser::ElementItems::Functions(functions) => {
                                     for (i, func) in
                                         functions.into_iter().map(Result::unwrap).enumerate()
@@ -431,7 +447,7 @@ impl<'a> WasmRuntime<'a> {
                 }
 
                 // imported functions are put first in the function maps
-                ImportSection(import_section_reader) => { 
+                ImportSection(import_section_reader) => {
                     import_section_reader
                         .into_iter()
                         .map(Result::unwrap)
@@ -460,7 +476,7 @@ impl<'a> WasmRuntime<'a> {
                 }
             }
         }
-        
+
         // swap placeholders for function calls by real function adresses
         for index in global_translator.function_call_jobs.into_iter() {
             self.replace_target_with_disp_call(index);

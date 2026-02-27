@@ -7,7 +7,11 @@ pub mod isa_model;
 pub mod parse_and_translate;
 mod translator;
 mod vb;
-
+pub use embedded_alloc::LlffHeap as Heap;
+#[cfg(feature = "support-misaligned-access")]
+mod handle_misaligned_load_store;
+#[cfg(feature = "support-misaligned-access")]
+pub use handle_misaligned_load_store::handle_misaligned_load_store;
 #[cfg(test)]
 #[defmt_test::tests]
 mod tests {

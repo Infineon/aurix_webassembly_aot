@@ -3,6 +3,14 @@
 version = 3
 
 [[package]]
+name = "aot-wasm-c-api"
+version = "0.1.0"
+dependencies = [
+ "aot_wasm",
+ "critical-section",
+]
+
+[[package]]
 name = "aot_wasm"
 version = "0.1.0"
 dependencies = [
