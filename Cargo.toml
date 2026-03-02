@@ -39,12 +39,16 @@ serde_json = "1.0.128"
 [features]
 tsim = []
 board = []
+# Enable memory sandbox by address masking.
 address-masking = []
+# Enable support for generation of Aurix assembly code for instruction that are not used by AOT translator
+# Enables it only if application need it by directly using the assembly generation API, as it increase the code size.
 full_instructions = []
-default = ["address-masking","support-misaligned-access"]
 # When enabled the runtime expose `handle_misaligned_load_store` that shall be called in the trap handler 
 # when a misaligned load/store access is trapped. 
-support-misaligned-access=[] 
+# User shall ensure in linker script that section `.ramcode` is put in PSRAM.
+support-misaligned-access=[]
+default = ["address-masking","support-misaligned-access"] 
 
 
 [dev-dependencies]
