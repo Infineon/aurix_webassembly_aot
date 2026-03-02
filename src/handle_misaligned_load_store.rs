@@ -1,7 +1,13 @@
+/// This module contains the code for handling misaligned load/store accesses. 
+/// When a misaligned access is trapped, the control is transferred to the function `handle_misaligned_load_store`, which emulates the instruction and returns to the next instruction. 
+/// This allows to support misaligned accesses without crashing the program, at the cost of performance.
+/// The code for emulating the instruction is generated at runtime and stored in the array `HANDLE_MISALIGNED_ACCESS_CODE_PATCH`, which is used as a trampoline to execute the emulation code.
 use core::arch::asm;
 use core::hint::unreachable_unchecked;
+
+
 #[link_section = ".ramcode"]
-static mut HANDLE_MISALIGNED_ACCESS_CODE_PATCH: [u32; 0x1000] = [0; 0x1000];
+static mut HANDLE_MISALIGNED_ACCESS_CODE_PATCH: [u32; 60] = [0; 60];
 
 #[derive(Clone, Copy)]
 struct AddressRegister(u8);
