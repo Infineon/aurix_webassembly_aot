@@ -36,3 +36,19 @@ pub extern "C" fn test(address: u32) -> u32 {
         }
     }
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn mul_f32_f64(a:f32,b:f64) -> f64 {
+    (a as f64) * b
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn div_f64_f64(a:f64,b:f64) -> f64 {
+    a / b
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn div_i64_i64(a:i64,b:i64) -> i64 {
+    a / b
+}
+
