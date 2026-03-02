@@ -116,7 +116,7 @@ define_instr! {
     MINU {lhs: DataRegister, rhs: RegisterOrConst, dest: DataRegister}
 
     ; // Semi colon used by macro to separate additional variants included with "full_instructions" feature
-    // These variants are not curently used by the translator but are kept "just in case"
+    // These variants are not currently used by the translator but are kept "just in case"
     
     NOP,
     MOVA{src: DataRegister, dest: AddressRegister},

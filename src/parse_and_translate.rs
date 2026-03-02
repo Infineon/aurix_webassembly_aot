@@ -598,11 +598,11 @@ impl<'a> WasmRuntime<'a> {
         return_size: Option<ValueSize>,
     ) -> Option<Immediate> {
         let function_label = self.function_labels[function_index as usize];
-        let mut arg_byte_vec = args
+        let arg_byte_vec = args
             .iter()
+            .rev() // reverse the order of the arguments because they are pushed on the stack from right to left
             .flat_map(|arg| arg.as_word_vector())
             .collect::<Vec<u32>>();
-        arg_byte_vec.reverse();
         let arg_bytes = arg_byte_vec.as_slice();
         let arg_bytes_ptr = arg_bytes.as_ptr();
         let arg_len = -((arg_bytes.len() << 2) as i32);

@@ -91,7 +91,7 @@ impl Immediate {
     pub fn as_word_vector(&self) -> Vec<u32> {
         match self {
             Immediate::Word(imm) => vec![*imm],
-            Immediate::DoubleWord(imm) => vec![ (*imm >> 32) as u32, *imm as u32],
+            Immediate::DoubleWord(imm) => vec![ *imm as u32,(*imm >> 32) as u32],
         }
     }
 
