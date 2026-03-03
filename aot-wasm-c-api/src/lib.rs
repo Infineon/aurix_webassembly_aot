@@ -15,11 +15,25 @@
 //! #include <stdint.h>
 //! #include <stddef.h>
 //!
+//! typedef enum {
+//!     WASM_OK             =  0,
+//!     WASM_ERR_NULL_PTR   = -1,
+//!     WASM_ERR_PARSE      = -2,
+//!     WASM_ERR_NOT_FOUND  = -3,
+//!     WASM_ERR_INVALID_ARG = -4,
+//! } wasm_error_t;
+//!
+//! typedef enum {
+//!     WASM_RETURN_NONE        = 0,
+//!     WASM_RETURN_WORD        = 1,
+//!     WASM_RETURN_DOUBLE_WORD = 2,
+//! } wasm_return_kind_t;
+//!
 //! /* ---- Types (opaque) ---- */
 //! typedef struct wasm_runtime wasm_runtime_t;
 //!
 //! /* ---- Environment init ---- */
-//! extern int32_t  wasm_runtime_env_init(
+//! extern wasm_error_t  wasm_runtime_env_init(
 //!     uint8_t *heap_buf, size_t heap_size);
 //!
 //! /* ---- Lifecycle ---- */
@@ -31,16 +45,16 @@
 //! extern void     wasm_runtime_destroy(wasm_runtime_t *rt);
 //!
 //! /* ---- Module loading ---- */
-//! extern int32_t  wasm_runtime_parse_and_translate(
+//! extern wasm_error_t  wasm_runtime_parse_and_translate(
 //!     wasm_runtime_t *rt,
 //!     const uint8_t  *wasm_code, size_t wasm_code_len);
 //!
 //! /* ---- Execution ---- */
-//! extern int32_t  wasm_runtime_call(
+//! extern wasm_error_t  wasm_runtime_call(
 //!     wasm_runtime_t *rt,
 //!     const char     *func_name,
 //!     const uint32_t *args_words, size_t args_words_len,
-//!     uint8_t         return_kind,
+//!     wasm_return_kind_t return_kind,
 //!     uint64_t       *out_result);
 //!
 //! /* ---- Utilities ---- */
@@ -54,14 +68,14 @@
 //! 1. **Environment initialisation must come first.**
 //!    Call [`wasm_runtime_env_init`] exactly once before any other function in
 //!    this library. The heap buffer you pass must live for the entire program
-//!    lifetime (typically a static array in `.bss`).
+//!    lifetime (typically a static array in `.bss`) and 4 bytes aligned.
 //!
-//! 2. **Memory buffers must be statically allocated.**
+//! 2. **Memory buffers**
 //!    The `instructions`, `linear_memory`, `global_space`, and `table` arrays
 //!    passed to [`wasm_runtime_create`] must remain valid and exclusively owned
 //!    by the runtime until [`wasm_runtime_destroy`] is called.
 //!    On bare-metal TriCore targets these should be placed in appropriate linker
-//!    sections (e.g. `.CPU0.ramcode` for instructions, `.CPU0.data` for data).
+//!    sections (e.g. `.CPU0.ramcode` for `instructions`, `.CPU0.data` for `linear_memory`, `global_space`, and `table`).
 //!
 //! 3. **`linear_memory` alignment when address-masking is enabled (default).**
 //!    The length of `linear_memory` **must** equal `(power_of_two) + 7`.
@@ -216,16 +230,37 @@ impl core::fmt::Write for StackWriter {
 // Return codes
 // ---------------------------------------------------------------------------
 
-/// Success.
-const WASM_OK: i32 = 0;
-/// A required pointer argument was null.
-const WASM_ERR_NULL_PTR: i32 = -1;
-/// The Wasm binary could not be parsed / translated.
-const WASM_ERR_PARSE: i32 = -2;
-/// The requested export function was not found.
-const WASM_ERR_NOT_FOUND: i32 = -3;
-/// An invalid argument value was provided.
-const WASM_ERR_INVALID_ARG: i32 = -4;
+/// Return codes for C FFI functions.
+///
+/// All C functions in this library return a `WasmError` value indicating
+/// success or the type of failure. `Ok` (0) indicates success; negative
+/// values indicate specific error conditions.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WasmError {
+    /// Operation succeeded.
+    Ok = 0,
+    /// A required pointer argument was null.
+    NullPtr = -1,
+    /// The Wasm binary could not be parsed / translated.
+    Parse = -2,
+    /// The requested export function was not found.
+    NotFound = -3,
+    /// An invalid argument value was provided.
+    InvalidArg = -4,
+}
+
+/// Return-kind encoding for [`wasm_runtime_call`].
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WasmReturnKind {
+    /// No return value (void).
+    None = 0,
+    /// 32-bit return (`i32` / `f32`).
+    Word = 1,
+    /// 64-bit return (`i64` / `f64`).
+    DoubleWord = 2,
+}
 
 // ---------------------------------------------------------------------------
 // Environment initialisation
@@ -255,23 +290,23 @@ const WASM_ERR_INVALID_ARG: i32 = -4;
 ///
 /// # Returns
 ///
-/// * `0` ([`WASM_OK`]) on success.
-/// * `-1` ([`WASM_ERR_NULL_PTR`]) if `heap_buf` is null.
-/// * `-4` ([`WASM_ERR_INVALID_ARG`]) if `heap_size` is 0.
+/// * [`WasmError::Ok`] (0) on success.
+/// * [`WasmError::NullPtr`] (-1) if `heap_buf` is null.
+/// * [`WasmError::InvalidArg`] (-4) if `heap_size` is 0.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_runtime_env_init(
     heap_buf: *mut u8,
     heap_size: usize,
-) -> i32 {
+) -> WasmError {
     if heap_buf.is_null() {
-        return WASM_ERR_NULL_PTR;
+        return WasmError::NullPtr;
     }
     if heap_size == 0 {
-        return WASM_ERR_INVALID_ARG;
+        return WasmError::InvalidArg;
     }
     // Initialize the heap allocator.
     HEAP.init(heap_buf as usize, heap_size);
-    WASM_OK
+    WasmError::Ok
 }
 
 // ---------------------------------------------------------------------------
@@ -400,24 +435,24 @@ pub unsafe extern "C" fn wasm_runtime_destroy(rt: *mut WasmRuntime<'static>) {
 ///
 /// # Returns
 ///
-/// * `0` ([`WASM_OK`]) on success.
-/// * `-1` ([`WASM_ERR_NULL_PTR`]) if any pointer is null.
-/// * `-2` ([`WASM_ERR_PARSE`]) if parsing / translation fails.
+/// * [`WasmError::Ok`] (0) on success.
+/// * [`WasmError::NullPtr`] (-1) if any pointer is null.
+/// * [`WasmError::Parse`] (-2) if parsing / translation fails.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_runtime_parse_and_translate(
     rt: *mut WasmRuntime<'static>,
     wasm_code: *const u8,
     wasm_code_len: usize,
-) -> i32 {
+) -> WasmError {
     if rt.is_null() || wasm_code.is_null() {
-        return WASM_ERR_NULL_PTR;
+        return WasmError::NullPtr;
     }
     let runtime = &mut *rt;
     let code = slice::from_raw_parts(wasm_code, wasm_code_len);
 
     match runtime.parse_and_translate(code) {
-        Ok(()) => WASM_OK,
-        Err(_) => WASM_ERR_PARSE,
+        Ok(()) => WasmError::Ok,
+        Err(_) => WasmError::Parse,
     }
 }
 
@@ -451,14 +486,14 @@ pub unsafe extern "C" fn wasm_runtime_parse_and_translate(
 ///   [`wasm_runtime_parse_and_translate`].
 /// * `func_name` must be a valid null-terminated C string.
 /// * `args_words` may be null only if `args_words_len` is 0.
-/// * `out_result` may be null if `return_kind` is 0.
+/// * `out_result` may be null if `return_kind` is [`WasmReturnKind::None`].
 ///
 /// # Returns
 ///
-/// * `0` ([`WASM_OK`]) on success.
-/// * `-1` ([`WASM_ERR_NULL_PTR`]) if `rt` or `func_name` is null.
-/// * `-3` ([`WASM_ERR_NOT_FOUND`]) if no export with the given name exists.
-/// * `-4` ([`WASM_ERR_INVALID_ARG`]) if `return_kind` is out of range or
+/// * [`WasmError::Ok`] (0) on success.
+/// * [`WasmError::NullPtr`] (-1) if `rt` or `func_name` is null.
+/// * [`WasmError::NotFound`] (-3) if no export with the given name exists.
+/// * [`WasmError::InvalidArg`] (-4) if `func_name` is not valid UTF-8 or
 ///   `out_result` is null when a return is expected.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_runtime_call(
@@ -466,14 +501,11 @@ pub unsafe extern "C" fn wasm_runtime_call(
     func_name: *const core::ffi::c_char,
     args_words: *const u32,
     args_words_len: usize,
-    return_kind: u8,
+    return_kind: WasmReturnKind,
     out_result: *mut u64,
-) -> i32 {
+) -> WasmError {
     if rt.is_null() || func_name.is_null() {
-        return WASM_ERR_NULL_PTR;
-    }
-    if return_kind > 2 {
-        return WASM_ERR_INVALID_ARG;
+        return WasmError::NullPtr;
     }
 
     let runtime = &mut *rt;
@@ -482,12 +514,12 @@ pub unsafe extern "C" fn wasm_runtime_call(
     let name_cstr = core::ffi::CStr::from_ptr(func_name);
     let name_str = match name_cstr.to_str() {
         Ok(s) => s,
-        Err(_) => return WASM_ERR_INVALID_ARG,
+        Err(_) => return WasmError::InvalidArg,
     };
 
     // Check the export exists
     if runtime.export_map.get(name_str).is_none() {
-        return WASM_ERR_NOT_FOUND;
+        return WasmError::NotFound;
     }
 
     // Build the arguments vector
@@ -499,15 +531,14 @@ pub unsafe extern "C" fn wasm_runtime_call(
     let args = words_to_immediates(words);
 
     let return_size = match return_kind {
-        0 => None,
-        1 => Some(ValueSize::Word),
-        2 => Some(ValueSize::DoubleWord),
-        _ => return WASM_ERR_INVALID_ARG,
+        WasmReturnKind::None => None,
+        WasmReturnKind::Word => Some(ValueSize::Word),
+        WasmReturnKind::DoubleWord => Some(ValueSize::DoubleWord),
     };
 
     // Validate out_result when a return is expected
     if return_size.is_some() && out_result.is_null() {
-        return WASM_ERR_INVALID_ARG;
+        return WasmError::InvalidArg;
     }
 
     let result = runtime.call_exported_function(name_str, args, return_size);
@@ -522,7 +553,7 @@ pub unsafe extern "C" fn wasm_runtime_call(
         None => {}
     }
 
-    WASM_OK
+    WasmError::Ok
 }
 
 // ---------------------------------------------------------------------------
@@ -542,8 +573,8 @@ pub unsafe extern "C" fn wasm_runtime_call(
 /// # Returns
 ///
 /// The function size in bytes on success (≥ 0), or a negative error code:
-/// * `-1` ([`WASM_ERR_NULL_PTR`]) if any pointer is null.
-/// * `-3` ([`WASM_ERR_NOT_FOUND`]) if the function is not found — however the
+/// * [`WasmError::NullPtr`] (-1) if any pointer is null.
+/// * [`WasmError::NotFound`] (-3) if the function is not found — however the
 ///   current implementation will panic in that case; prefer checking existence
 ///   first.
 #[no_mangle]
@@ -552,18 +583,18 @@ pub unsafe extern "C" fn wasm_runtime_get_function_size(
     func_name: *const core::ffi::c_char,
 ) -> i32 {
     if rt.is_null() || func_name.is_null() {
-        return WASM_ERR_NULL_PTR;
+        return WasmError::NullPtr as i32;
     }
     let runtime = &*rt;
 
     let name_cstr = core::ffi::CStr::from_ptr(func_name);
     let name_str = match name_cstr.to_str() {
         Ok(s) => s,
-        Err(_) => return WASM_ERR_INVALID_ARG,
+        Err(_) => return WasmError::InvalidArg as i32,
     };
 
     if runtime.export_map.get(name_str).is_none() {
-        return WASM_ERR_NOT_FOUND;
+        return WasmError::NotFound as i32;
     }
 
     runtime.get_function_size(name_str)

@@ -17,6 +17,7 @@ The static library will be located under `target/<triple>/release/libaot_wasm_c_
 ## C Header
 
 A ready-to-use C header is provided at [`include/aot_wasm_c_api.h`](include/aot_wasm_c_api.h).
+Error-returning API functions return `wasm_error_t` (C enum) instead of raw `int32_t`.
 
 ## API Summary
 
@@ -33,9 +34,8 @@ A ready-to-use C header is provided at [`include/aot_wasm_c_api.h`](include/aot_
 
 | Feature                   | Default | Description                                                                                         |
 |---------------------------|---------|-----------------------------------------------------------------------------------------------------|
-| `address-masking`         | yes     | Enable address-masking bounds checking (requires `linear_memory_len == 2^k + 7`).                  |
-| `full_instructions`       | yes     | Enable the full Wasm instruction set.                                                               |
-| `misaligned-access`       | yes     | Allow misaligned memory accesses in translated code.                                                |
+| `address-masking`         | yes     | Enable address-masking bounds checking (requires `linear_memory_len == 2^k + 7`).                  |                                                            |
+| `misaligned-access`       | yes     | Allow misaligned memory accesses in translated code. When enabled the user shall ensure in linker script that section `.ramcode` is a RAM where executable code can be placed. e.g. PSRAM                                                |
 | `panic-handler-callback`  | yes     | On panic, call the external C symbol `void panic_handler(const uint8_t*, size_t)` you must define. |
 
 ## Constraints

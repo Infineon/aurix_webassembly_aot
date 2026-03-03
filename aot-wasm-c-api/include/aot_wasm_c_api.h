@@ -51,7 +51,7 @@
  *         table, sizeof(table) / sizeof(table[0]));
  *
  *     // Step 3 — load module
- *     int32_t err = wasm_runtime_parse_and_translate(rt, wasm_binary, wasm_len);
+ *     wasm_error_t err = wasm_runtime_parse_and_translate(rt, wasm_binary, wasm_len);
  *     if (err != WASM_OK) {  handle error  }
  *
  *     // Step 4 — call an exported function
@@ -102,7 +102,7 @@
  * 8. **Argument encoding for @ref wasm_runtime_call.**
  *    Arguments are a flat `uint32_t` array.
  *    - i32/f32 → 1 word
- *    - i64/f64 → 2 words (little-endian, low word first)
+ *    - i64/f64 → 2 words (little-endian, high word first because they are pushed on the stack from right to left)
  *
  * 9. **Panic handler (link-time symbol).**
  *    When the library is built with the `panic-handler-callback` Cargo
@@ -127,27 +127,37 @@ extern "C" {
  * Error codes
  * ----------------------------------------------------------------------- */
 
-/** Operation succeeded. */
-#define WASM_OK             ( 0)
-/** A required pointer argument was NULL. */
-#define WASM_ERR_NULL_PTR   (-1)
-/** The Wasm binary could not be parsed or translated. */
-#define WASM_ERR_PARSE      (-2)
-/** The requested exported function was not found. */
-#define WASM_ERR_NOT_FOUND  (-3)
-/** An invalid argument value was provided. */
-#define WASM_ERR_INVALID_ARG (-4)
+/**
+ * @enum wasm_error_t
+ * @brief Return codes for C FFI functions.
+ *
+ * All C functions in this library return a `wasm_error_t` value indicating
+ * success or the type of failure. `WASM_OK` (0) indicates success; negative
+ * values indicate specific error conditions.
+ */
+typedef enum
+{
+    WASM_OK = 0,               /**< Operation succeeded. */
+    WASM_ERR_NULL_PTR = -1,    /**< A required pointer argument was NULL. */
+    WASM_ERR_PARSE = -2,       /**< The Wasm binary could not be parsed or translated. */
+    WASM_ERR_NOT_FOUND = -3,   /**< The requested exported function was not found. */
+    WASM_ERR_INVALID_ARG = -4, /**< An invalid argument value was provided. */
+} wasm_error_t;
 
 /* -----------------------------------------------------------------------
  * Return-kind constants for wasm_runtime_call
  * ----------------------------------------------------------------------- */
 
-/** No return value (void). */
-#define WASM_RETURN_NONE        0
-/** 32-bit return (i32 / f32). */
-#define WASM_RETURN_WORD        1
-/** 64-bit return (i64 / f64). */
-#define WASM_RETURN_DOUBLE_WORD 2
+/**
+ * @enum wasm_return_kind_t
+ * @brief Return-kind values for @ref wasm_runtime_call.
+ */
+typedef enum
+{
+    WASM_RETURN_NONE = 0,        /**< No return value (void). */
+    WASM_RETURN_WORD = 1,        /**< 32-bit return (i32 / f32). */
+    WASM_RETURN_DOUBLE_WORD = 2, /**< 64-bit return (i64 / f64). */
+} wasm_return_kind_t;
 
 /* -----------------------------------------------------------------------
  * Panic handler callback type
@@ -208,7 +218,7 @@ typedef struct wasm_runtime wasm_runtime_t;
  *                       Must remain valid for the program's lifetime.
  * @param[in] heap_size  Size of the heap buffer in bytes.
  *
- * @return WASM_OK on success, or a negative error code:
+ * @return A @ref wasm_error_t value:
  *         - @c WASM_ERR_NULL_PTR if @p heap_buf is NULL.
  *         - @c WASM_ERR_INVALID_ARG if @p heap_size is 0.
  *
@@ -216,7 +226,7 @@ typedef struct wasm_runtime wasm_runtime_t;
  *       @c panic_handler (see @ref wasm_panic_handler_t) in your application
  *       and build the library with the @c panic-handler-callback feature.
  */
-int32_t wasm_runtime_env_init(
+wasm_error_t wasm_runtime_env_init(
     uint8_t *heap_buf, size_t heap_size);
 
 /* -----------------------------------------------------------------------
@@ -279,11 +289,11 @@ void wasm_runtime_destroy(wasm_runtime_t *rt);
  * @param[in] wasm_code     Pointer to the Wasm binary.
  * @param[in] wasm_code_len Length of the Wasm binary in bytes.
  *
- * @return WASM_OK on success, or a negative error code.
+ * @return A @ref wasm_error_t value.
  */
-int32_t wasm_runtime_parse_and_translate(
+wasm_error_t wasm_runtime_parse_and_translate(
     wasm_runtime_t *rt,
-    const uint8_t  *wasm_code, size_t wasm_code_len);
+    const uint8_t *wasm_code, size_t wasm_code_len);
 
 /* -----------------------------------------------------------------------
  * Execution
@@ -297,20 +307,19 @@ int32_t wasm_runtime_parse_and_translate(
  * @param[in]  args_words     Flat array of uint32_t argument words.
  *                            May be NULL if args_words_len is 0.
  * @param[in]  args_words_len Number of words in args_words.
- * @param[in]  return_kind    One of WASM_RETURN_NONE, WASM_RETURN_WORD,
- *                            or WASM_RETURN_DOUBLE_WORD.
+ * @param[in]  return_kind    One of @ref wasm_return_kind_t values.
  * @param[out] out_result     Receives the return value. For 32-bit returns
  *                            the upper 32 bits are zero. May be NULL when
  *                            return_kind is WASM_RETURN_NONE.
  *
- * @return WASM_OK on success, or a negative error code.
+ * @return A @ref wasm_error_t value.
  */
-int32_t wasm_runtime_call(
+wasm_error_t wasm_runtime_call(
     wasm_runtime_t *rt,
-    const char     *func_name,
+    const char *func_name,
     const uint32_t *args_words, size_t args_words_len,
-    uint8_t         return_kind,
-    uint64_t       *out_result);
+    wasm_return_kind_t return_kind,
+    uint64_t *out_result);
 
 /* -----------------------------------------------------------------------
  * Utilities
