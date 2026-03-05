@@ -258,7 +258,25 @@ fn _push_transition(
 
 /// The function will emulate the instruction and return to the next instruction. 
 /// This allows to support misaligned accesses without crashing the program, at the cost of performance.
-/// Safety: This function shall only be called from the trap handler `Data Address Aligment` when a misaligned load/store access is trapped.
+/// Safety: This function shall only be called from the trap handler `Data Address Alignment` when a misaligned load/store access is trapped.
+/// 
+/// Example usage in C
+/// ```c
+/// void exception_handler(void) {
+///    const uint32_t MISALIGNED_ACCESS_EXCEPTION_CODE = 0x204;
+///     uint32_t status;
+///    
+///     __asm__ volatile("SVLCX" : "=d" (status) : : );
+///    
+///     if (status == MISALIGNED_ACCESS_EXCEPTION_CODE) {
+///        __asm__ volatile("RSLCX");
+///         handle_misaligned_load_store();
+///     }
+///    
+///     __asm__ volatile("RSLCX");
+///    ...
+/// ```
+/// }
 #[no_mangle]
 pub unsafe extern "C" fn handle_misaligned_load_store() -> ! {
     unsafe { asm!("SVLCX") };

@@ -129,6 +129,8 @@ use core::{slice};
 use aot_wasm::isa_model::{Immediate, ValueSize};
 use aot_wasm::parse_and_translate::WasmRuntime;
 use aot_wasm::Heap;
+#[cfg(feature = "support-misaligned-access")]
+pub use aot_wasm::handle_misaligned_load_store;
 
 // ---------------------------------------------------------------------------
 // Global allocator — initialised once via `wasm_runtime_env_init`.

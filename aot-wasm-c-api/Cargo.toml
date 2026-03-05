@@ -14,7 +14,7 @@ critical-section={version="1.0",features = ["restore-state-bool"]}
 
 [features]
 address-masking = ["aot_wasm/address-masking"]
-misaligned-access = ["aot_wasm/support-misaligned-access"]
+support-misaligned-access = ["aot_wasm/support-misaligned-access"]
 panic-handler-callback = []
-default = ["address-masking","misaligned-access","panic-handler-callback"]
+default = ["address-masking","panic-handler-callback"]
 

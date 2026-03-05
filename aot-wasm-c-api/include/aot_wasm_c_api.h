@@ -111,6 +111,27 @@
  *    **caller must define and link**. See @ref wasm_panic_handler_t for
  *    the required signature and contract. If the feature is disabled,
  *    panics loop silently.
+ *
+ * 10. **Misaligned access handling (feature `support-misaligned-access`).**
+ *    If feature `support-misaligned-access` is enabled, the user shall call the function `handle_misaligned_load_store` from their code when a Data Address Alignment (DAA) trap occurs.
+ *    The function will emulate the misaligned load/store and return to the caller. If the feature is disabled, misaligned accesses will trap and cannot be handled.
+ *    Example usage in C
+ *      ```c
+ *    void exception_handler(void) {
+ *    const uint32_t MISALIGNED_ACCESS_EXCEPTION_CODE = 0x204;
+ *    uint32_t status;
+ *
+ *    __asm__ volatile("SVLCX" : "=d" (status) : : );
+ *
+ *    if (status == MISALIGNED_ACCESS_EXCEPTION_CODE) {
+ *        __asm__ volatile("RSLCX");
+ *        handle_misaligned_load_store();
+ *    }
+ *
+ *    __asm__ volatile("RSLCX");
+ *    ...
+ *    }```
+ *
  */
 
 #ifndef AOT_WASM_C_API_H
