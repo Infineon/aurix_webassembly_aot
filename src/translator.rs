@@ -421,4 +421,13 @@ impl<'a, 'b> Translator<'a, 'b> {
             offset: Const10(offset as i16),
         })
     }
+
+    pub fn load_u32_immediate(&mut self, dest: DataRegister, value: u32) {
+        let lower = value as u16;
+        let upper = (value >> 16) as u16;
+        self.push_instruction(Instr::MOVU { src: Const16::new(lower), dest });
+        if upper != 0 {
+            self.push_instruction(Instr::ADDIH { lhs: dest, rhs: Const16(upper), dest });
+        }
+    }
 }
