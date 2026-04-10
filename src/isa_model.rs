@@ -10,11 +10,7 @@ use wasmparser::ValType;
 use crate::isa_model::machine_instructions::Instr;
 use crate::translator::Translator;
 
-#[derive(Copy,Clone, PartialEq, Debug)]
-pub enum Immediate {
-    Word(u32),
-    DoubleWord(u64),
-}
+
 const LINEAR_MEMORY_BASE : AddressRegister = AddressRegister(6);
 pub(crate) const GLOBAL_BASE : AddressRegister = AddressRegister(5);
 pub(crate) const STACK_POINTER : AddressRegister = AddressRegister(10);
@@ -22,6 +18,13 @@ pub(crate) const FRAME_POINTER : AddressRegister = AddressRegister(12);
 pub(crate) const STACK_BASE : AddressRegister = AddressRegister(13); // stack pointer at the beginning of the function
 pub(crate) const TABLE_BASE : AddressRegister = AddressRegister(4);
 pub(crate) const ADDRESS_ACCUMULATOR: AddressRegister = AddressRegister(2);
+
+
+#[derive(Copy,Clone, PartialEq, Debug)]
+pub enum Immediate {
+    Word(u32),
+    DoubleWord(u64),
+}
 
 impl Immediate {
     pub fn as_i32(&self) -> i32 {
