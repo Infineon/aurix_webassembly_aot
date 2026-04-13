@@ -102,3 +102,7 @@ This is software is licensed under MIT(Infineon) and BOOST license (Hightec)
 This is software includes part of software developed by Hightec
 
 [License text available here](./LICENSE.txt)
+
+# Alternatives
+
+- [A WASM AoT traslator implemented in C++ and supporting Aurix/x86_64/aarch64](https://github.com/wasm-ecosystem/wasm-compiler)
