@@ -1,9 +1,16 @@
+[workspace]
+members = ["tc37xpd"]
 [package]
 name = "demo-code"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tc37xpd = { path = "./tc37xpd", features = ["stm0", "stm1", "stm2"] }
+heapless = "*"
+crc = "*"
 
 [lib]
 crate-type = ["cdylib"]
@@ -15,3 +22,4 @@ opt-level = "z"
 
 [profile.release]
 strip = "symbols"
+opt-level = "z"

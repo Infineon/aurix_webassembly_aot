@@ -68,7 +68,7 @@ fn main() {
     }
     runtime
         .parse_and_translate(include_bytes!(concat!(
-            "../demo-code/target/wasm32v1-none/debug/",
+            "../demo-code/target/wasm32v1-none/release/",
             "demo_code.wasm"
         )))
         .unwrap();

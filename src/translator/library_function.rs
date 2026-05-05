@@ -1,12 +1,15 @@
 use env_wrapper::wrap_env;
 
+use crate::isa_model::machine_instructions::Instr;
+use crate::isa_model::{
+    Const10, Const16, DataRegister, ExtendedRegister, MapperLocation, ValueSize,
+    ADDRESS_ACCUMULATOR, STACK_POINTER,
+};
+use crate::parse_and_translate::WasmRuntime;
+use crate::translator::Translator;
 use alloc::vec;
 use alloc::vec::Vec;
 use defmt::Format;
-use crate::isa_model::{Const10, Const16, DataRegister, ExtendedRegister, MapperLocation, ValueSize, ADDRESS_ACCUMULATOR, STACK_POINTER};
-use crate::isa_model::machine_instructions::Instr;
-use crate::parse_and_translate::WasmRuntime;
-use crate::translator::Translator;
 use wasmparser::SubType;
 
 #[derive(Debug, Clone, Format)]
@@ -85,11 +88,10 @@ impl<'a> Operands<'a> {
     }
 }
 
-impl <'a,'b> Translator<'a,'b>{
-
+impl<'a, 'b> Translator<'a, 'b> {
     /// generates machine code for calling a runtime function from the translated wasm functions. This is to be used in code generation for subroutines that are not supported through a short sequence of machine instructions.
     /// It is assumed that the runtime function takes at most 2 arguments from the same size (32-bit word or 64-bit double-word) and returns one result.
-    /// 
+    ///
     /// ### Parameters:
     /// - **target**: the result is moved to the target location if available, otherwise placed in a scratch register
     /// - **function**: runtime function to be called
@@ -97,10 +99,18 @@ impl <'a,'b> Translator<'a,'b>{
     /// - **op_size**: size of the operand(s)
     /// - **result_size**: size of the result
     /// - **scratch_variable_map**: needs to be passed down in order to allocate a free register for the result, in case no target location is specified.
-    /// 
+    ///
     /// ### Return value:
     ///  location of the result value
-    pub(crate) fn call_library_function(&mut self, target: Option<&MapperLocation>, function:LibraryFunction, ops: Operands, op_size: ValueSize, result_size: ValueSize, scratch_variable_map : &mut Vec<MapperLocation>) -> MapperLocation {
+    pub(crate) fn call_library_function(
+        &mut self,
+        target: Option<&MapperLocation>,
+        function: LibraryFunction,
+        ops: Operands,
+        op_size: ValueSize,
+        result_size: ValueSize,
+        scratch_variable_map: &mut Vec<MapperLocation>,
+    ) -> MapperLocation {
         self.setup_ops(op_size, ops, scratch_variable_map);
         self.perform_external_call(function);
         self.process_external_result(target, result_size, scratch_variable_map)
@@ -108,42 +118,70 @@ impl <'a,'b> Translator<'a,'b>{
 
     /// generates machine code to obtain the result returned by the runtime function from the return register (according to the C ABI calling conventions for TriCore (D[2] or E[2]))
     /// and moves it to the target location if available, otherwise to an available scratch register.
-    /// 
+    ///
     /// Note that the call for the runtime function saves the lower context that needs to be therefore restored. Therefore if the result is to be stored in a lower context register,
-    /// it is first saved temporarily into the stack until the lower context is restored and is then retrieved to be loaded in its target. 
+    /// it is first saved temporarily into the stack until the lower context is restored and is then retrieved to be loaded in its target.
     ///  
-    fn process_external_result(&mut self, target: Option<&MapperLocation>, result_size: ValueSize, scratch_variable_map: &mut Vec<MapperLocation>) -> MapperLocation {
-        let target = target.cloned().unwrap_or_else(|| self.next_available_register(result_size, scratch_variable_map).as_location());
-        let intermediate_target =  match &target {
-            MapperLocation::DataRegister(DataRegister(index)) if *index < 8 => MapperLocation::Stack { size: result_size },
-            MapperLocation::ExtendedRegister(ExtendedRegister(index)) if *index < 8 => MapperLocation::Stack { size: result_size },
-            _ => target.clone()
+    fn process_external_result(
+        &mut self,
+        target: Option<&MapperLocation>,
+        result_size: ValueSize,
+        scratch_variable_map: &mut Vec<MapperLocation>,
+    ) -> MapperLocation {
+        let target = target.cloned().unwrap_or_else(|| {
+            self.next_available_register(result_size, scratch_variable_map)
+                .as_location()
+        });
+        let intermediate_target = match &target {
+            MapperLocation::DataRegister(DataRegister(index)) if *index < 8 => {
+                MapperLocation::Stack { size: result_size }
+            }
+            MapperLocation::ExtendedRegister(ExtendedRegister(index)) if *index < 8 => {
+                MapperLocation::Stack { size: result_size }
+            }
+            _ => target.clone(),
         };
-        match result_size{
-            ValueSize::Word => DataRegister(2).map_to_location(Some(&intermediate_target), self, scratch_variable_map),
-            ValueSize::DoubleWord => ExtendedRegister(2).map_to_location(Some(&intermediate_target), self, scratch_variable_map),
+        match result_size {
+            ValueSize::Word => DataRegister(2).map_to_location(
+                Some(&intermediate_target),
+                self,
+                scratch_variable_map,
+            ),
+            ValueSize::DoubleWord => ExtendedRegister(2).map_to_location(
+                Some(&intermediate_target),
+                self,
+                scratch_variable_map,
+            ),
         };
         self.push_instruction(Instr::RSLCX);
         match target {
             MapperLocation::DataRegister(DataRegister(index)) if index < 8 => {
-                self.push_instruction(Instr::LDWPI { dest: DataRegister(index), base: STACK_POINTER, offset: Const10(4) });
-            },
+                self.push_instruction(Instr::LDWPI {
+                    dest: DataRegister(index),
+                    base: STACK_POINTER,
+                    offset: Const10(4),
+                });
+            }
             MapperLocation::ExtendedRegister(ExtendedRegister(index)) if index < 8 => {
-                self.push_instruction(Instr::LDDPI { dest: ExtendedRegister(index), base: STACK_POINTER, offset: Const10(8) });
-            },
-            _ => ()
+                self.push_instruction(Instr::LDDPI {
+                    dest: ExtendedRegister(index),
+                    base: STACK_POINTER,
+                    offset: Const10(8),
+                });
+            }
+            _ => (),
         }
         target
     }
 
     /// helper method that maps the function to be called to its address and generates the machine code that performs the actual call.
-    /// 
+    ///
     /// Here direct calls are not an option because absolute addressing is only available for a portion of the address space (First 2MiB of every segment).
     /// Relative addressing can also not be implemented given that it requires the displacement to be less than 32 MiB.
-    /// 
+    ///
     /// Therefore indirect calls are implemented. The jump address is loaded in the address accumulator (over 2 steps given that immediates are 16-bit wide)
-    /// 
-    /// 
+    ///
+    ///
     fn perform_external_call(&mut self, function: LibraryFunction) {
         let library_function_ptr = match function {
             LibraryFunction::F32Sqrt => libm::sqrtf as u32,
@@ -198,57 +236,113 @@ impl <'a,'b> Translator<'a,'b>{
             LibraryFunction::I64Clz => WasmRuntime::i64_clz as u32,
             LibraryFunction::I64Ctz => WasmRuntime::i64_ctz as u32,
         };
-        let fun_ptr_lower =  library_function_ptr as u16;
-        let fun_ptr_upper = (library_function_ptr.wrapping_add(0x8000) >> 16) as u16; // From Aurix manual volume 2 1.7 Address arithmetic, solves sign extension for the lower offset 
-        self.push_instruction(Instr::MOVHA { src: Const16(fun_ptr_upper), dest: ADDRESS_ACCUMULATOR });
-        self.push_instruction(Instr::LEA { base:ADDRESS_ACCUMULATOR,  offset: Const16(fun_ptr_lower), dest: ADDRESS_ACCUMULATOR });
-        self.push_instruction(Instr::CALLI { target: ADDRESS_ACCUMULATOR });
+        let fun_ptr_lower = library_function_ptr as u16;
+        let fun_ptr_upper = (library_function_ptr.wrapping_add(0x8000) >> 16) as u16; // From Aurix manual volume 2 1.7 Address arithmetic, solves sign extension for the lower offset
+        self.push_instruction(Instr::MOVHA {
+            src: Const16(fun_ptr_upper),
+            dest: ADDRESS_ACCUMULATOR,
+        });
+        self.push_instruction(Instr::LEA {
+            base: ADDRESS_ACCUMULATOR,
+            offset: Const16(fun_ptr_lower),
+            dest: ADDRESS_ACCUMULATOR,
+        });
+        self.push_instruction(Instr::CALLI {
+            target: ADDRESS_ACCUMULATOR,
+        });
     }
 
     /// helper function to load the operands in the respective registers according to the TriCore C ABI calling convention:
     /// If the arguments are 32-bit wide. The first argument is placed in D[4], while the second if existent will be in D[5].
     /// Otherwise if the arguments are 64-bit wide. The first is placed in E[4], while the second if existent will be in E[6].
-    /// 
+    ///
     /// Note that we need to account for the scenario where we have multiple arguments and one exists already in the target of the other one.
-    fn setup_ops(&mut self, arg_size: ValueSize, args: Operands, scratch_variable_map: &mut Vec<MapperLocation>) {
+    fn setup_ops(
+        &mut self,
+        arg_size: ValueSize,
+        args: Operands,
+        scratch_variable_map: &mut Vec<MapperLocation>,
+    ) {
         self.push_instruction(Instr::SVLCX);
         if args.second.is_none() {
             match arg_size {
-                ValueSize::Word => {args.first.map_to_data_register(Some(DataRegister(4)), self, scratch_variable_map, &vec![]);},
-                ValueSize::DoubleWord => {args.first.map_to_extended_register(Some(ExtendedRegister(4)), self, scratch_variable_map, &vec![]);},
+                ValueSize::Word => {
+                    args.first.map_to_data_register(
+                        Some(DataRegister(4)),
+                        self,
+                        scratch_variable_map,
+                        &vec![],
+                    );
+                }
+                ValueSize::DoubleWord => {
+                    args.first.map_to_extended_register(
+                        Some(ExtendedRegister(4)),
+                        self,
+                        scratch_variable_map,
+                        &vec![],
+                    );
+                }
             }
-        }
-        else {
+        } else {
             let (target_0, target_1) = match arg_size {
-                ValueSize::Word => (MapperLocation::DataRegister(DataRegister(4)), MapperLocation::DataRegister(DataRegister(5))),
-                ValueSize::DoubleWord => (MapperLocation::ExtendedRegister(ExtendedRegister(4)), MapperLocation::ExtendedRegister(ExtendedRegister(6))),
+                ValueSize::Word => (
+                    MapperLocation::DataRegister(DataRegister(4)),
+                    MapperLocation::DataRegister(DataRegister(5)),
+                ),
+                ValueSize::DoubleWord => (
+                    MapperLocation::ExtendedRegister(ExtendedRegister(4)),
+                    MapperLocation::ExtendedRegister(ExtendedRegister(6)),
+                ),
             };
 
             if args.first == &target_1 && args.second.unwrap() == &target_0 {
                 // need to swap the two arguments using a temporary register
-                let temp = match arg_size { // Using D[2] or E[2] as temporary register because it will be used for the result anyway
+                let temp = match arg_size {
+                    // Using D[2] or E[2] as temporary register because it will be used for the result anyway
                     ValueSize::Word => MapperLocation::DataRegister(DataRegister(2)),
                     ValueSize::DoubleWord => MapperLocation::ExtendedRegister(ExtendedRegister(2)),
                 };
-                args.first.map_to_location(&temp, self, scratch_variable_map, &vec![]);
-                args.second.unwrap().map_to_location(&target_1, self, scratch_variable_map, &vec![]);
+                args.first
+                    .map_to_location(&temp, self, scratch_variable_map, &vec![]);
+                args.second.unwrap().map_to_location(
+                    &target_1,
+                    self,
+                    scratch_variable_map,
+                    &vec![],
+                );
                 temp.map_to_location(&target_0, self, scratch_variable_map, &vec![]);
             } else if args.second.unwrap() == &target_0 {
                 // map args[1] to target_1 first
-                args.second.unwrap().map_to_location(&target_1, self, scratch_variable_map, &vec![]);
-                args.first.map_to_location(&target_0, self, scratch_variable_map, &vec![]);
+                args.second.unwrap().map_to_location(
+                    &target_1,
+                    self,
+                    scratch_variable_map,
+                    &vec![],
+                );
+                args.first
+                    .map_to_location(&target_0, self, scratch_variable_map, &vec![]);
             } else {
                 // no conflicts, can load directly
-                args.first.map_to_location(&target_0, self, scratch_variable_map, &vec![]);
-                args.second.unwrap().map_to_location(&target_1, self, scratch_variable_map, &vec![]);
+                args.first
+                    .map_to_location(&target_0, self, scratch_variable_map, &vec![]);
+                args.second.unwrap().map_to_location(
+                    &target_1,
+                    self,
+                    scratch_variable_map,
+                    &vec![],
+                );
             }
         }
     }
 }
 
-impl <'a> WasmRuntime <'a> {
+impl<'a> WasmRuntime<'a> {
     pub extern "C" fn f64_eq(x: f64, y: f64) -> u32 {
-        if x == y {1} else {0}
+        if x == y {
+            1
+        } else {
+            0
+        }
     }
 
     pub extern "C" fn f64_sub(x: f64, y: f64) -> f64 {
@@ -256,7 +350,11 @@ impl <'a> WasmRuntime <'a> {
     }
 
     pub extern "C" fn f64_le(x: f64, y: f64) -> u32 {
-        if x <= y {1} else {0}
+        if x <= y {
+            1
+        } else {
+            0
+        }
     }
 
     pub extern "C" fn f64_add(x: f64, y: f64) -> f64 {
@@ -264,15 +362,27 @@ impl <'a> WasmRuntime <'a> {
     }
 
     pub extern "C" fn f64_ge(x: f64, y: f64) -> u32 {
-        if x >= y {1} else {0}
+        if x >= y {
+            1
+        } else {
+            0
+        }
     }
 
     pub extern "C" fn f64_lt(x: f64, y: f64) -> u32 {
-        if x < y {1} else {0}
+        if x < y {
+            1
+        } else {
+            0
+        }
     }
 
     pub extern "C" fn f64_ne(x: f64, y: f64) -> u32 {
-        if x != y {1} else {0}
+        if x != y {
+            1
+        } else {
+            0
+        }
     }
 
     pub extern "C" fn f64_div(x: f64, y: f64) -> f64 {
@@ -356,7 +466,11 @@ impl <'a> WasmRuntime <'a> {
     }
 
     pub extern "C" fn f64_gt(x: f64, y: f64) -> u32 {
-        if x > y {1} else {0}
+        if x > y {
+            1
+        } else {
+            0
+        }
     }
 
     pub extern "C" fn i64_shl(x: u64, y: u64) -> u64 {
@@ -392,7 +506,7 @@ impl <'a> WasmRuntime <'a> {
             return f32::NAN;
         }
 
-        if x == 0.0 && y == 0.0  &&  (x.is_sign_positive() || y.is_sign_positive()) {
+        if x == 0.0 && y == 0.0 && (x.is_sign_positive() || y.is_sign_positive()) {
             return 0.0;
         }
 
@@ -408,7 +522,7 @@ impl <'a> WasmRuntime <'a> {
             return f32::NAN;
         }
 
-        if x == 0.0 && y == 0.0  &&  (x.is_sign_negative() || y.is_sign_negative()) {
+        if x == 0.0 && y == 0.0 && (x.is_sign_negative() || y.is_sign_negative()) {
             return -0.0;
         }
 
@@ -424,7 +538,7 @@ impl <'a> WasmRuntime <'a> {
             return f64::NAN;
         }
 
-        if x == 0.0 && y == 0.0  &&  (x.is_sign_positive() || y.is_sign_positive()) {
+        if x == 0.0 && y == 0.0 && (x.is_sign_positive() || y.is_sign_positive()) {
             return 0.0;
         }
 
@@ -440,7 +554,7 @@ impl <'a> WasmRuntime <'a> {
             return f64::NAN;
         }
 
-        if x == 0.0 && y == 0.0  &&  (x.is_sign_negative() || y.is_sign_negative()) {
+        if x == 0.0 && y == 0.0 && (x.is_sign_negative() || y.is_sign_negative()) {
             return -0.0;
         }
 
@@ -450,7 +564,7 @@ impl <'a> WasmRuntime <'a> {
             y
         }
     }
-    
+
     pub extern "C" fn i64_clz(x: u64) -> u64 {
         x.leading_zeros() as u64
     }
@@ -462,33 +576,41 @@ impl <'a> WasmRuntime <'a> {
     /// This subroutine is to be called prior to an indirect call in a wasm function. It performs the necessary checks before running the indirect call to ensure
     /// type safety. It checks that the provided table offset does not exceed the table size (in case sandboxing is enabled) and checks whether the referenced function
     /// matches the statically annotated type.
-    pub extern "C" fn compare_subtypes(types: *const SubType, table_type_indices: *const u32, table_offset :u32, target_type_index : u32, _table_size: u32)  {
-        #[cfg(feature="address-masking")]
+    pub extern "C" fn compare_subtypes(
+        types: *const SubType,
+        table_type_indices: *const u32,
+        table_offset: u32,
+        target_type_index: u32,
+        _table_size: u32,
+    ) {
+        #[cfg(feature = "address-masking")]
         assert!(table_offset < _table_size);
-        let type_index =  unsafe{ *table_type_indices.wrapping_add(table_offset as usize)};
+        let type_index = unsafe { *table_type_indices.wrapping_add(table_offset as usize) };
         let ty = types.wrapping_add(type_index as usize);
         let target_ty = types.wrapping_add(target_type_index as usize);
-        unsafe {
-            assert_eq!((*ty).composite_type, (*target_ty).composite_type)
-        }
+        unsafe { assert_eq!((*ty).composite_type, (*target_ty).composite_type) }
     }
 
     /// This subroutine is to be called for implementing the memory.grow instruction.
     /// It checks whether the new expected size of the memory (in pages) exceeds the maximum size allowed.
     /// The maximum allowed size is dependent both of the allocated space for the linear memory and the maximum indicated by the wasm module.
-    pub extern "C" fn grow_memory(current_size: &mut u32, grow_size:u32, maximum_size:u32) -> u32 {
+    pub extern "C" fn grow_memory(
+        current_size: &mut u32,
+        grow_size: u32,
+        maximum_size: u32,
+    ) -> u32 {
         let previous_size = *current_size;
-        match previous_size.checked_add(grow_size){
-            Some (new_size) if new_size <= maximum_size => {
+        match previous_size.checked_add(grow_size) {
+            Some(new_size) if new_size <= maximum_size => {
                 *current_size = new_size;
                 previous_size
             }
-            _ => u32::MAX
+            _ => u32::MAX,
         }
     }
 
-    wrap_env!{
-        fn __write__(address: u32, value: u32){
+    wrap_env! {
+        fn __write__(_:u32,address: u32, value: u32){
             unsafe {
                 let mem_ptr = address as *mut u32;
                 *mem_ptr = value;
@@ -496,13 +618,21 @@ impl <'a> WasmRuntime <'a> {
         }
     }
 
-    wrap_env!{
-        fn __read__(address:u32) -> u32 {
+    wrap_env! {
+        fn __read__(_:u32,address:u32) -> u32 {
             unsafe {
                 let mem_ptr = address as *const u32;
                 *mem_ptr
             }
         }
     }
+    wrap_env! {
+        fn __write_str__(linear_base_addr:u32, address: u32, length: u32){ {
+            let slice = unsafe {
+                core::slice::from_raw_parts((linear_base_addr+address) as *const u8, length as usize)
+            };
+            defmt::println!("WASM module: {=str}", core::str::from_utf8(slice).unwrap());
+        }}
 
+    }
 }

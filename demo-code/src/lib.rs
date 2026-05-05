@@ -1,11 +1,13 @@
 #![no_std]
 #![no_main]
 mod led;
+mod utils;
 use core::panic::PanicInfo;
 
 unsafe extern "C" {
     pub fn __write__(address: u32, value: u32);
     pub fn __read__(address: u32) -> u32;
+    pub fn __write_str__(address: u32, length: u32);
 }
 // #[unsafe(no_mangle)]
 // pub extern "C" fn _start() {
@@ -26,6 +28,10 @@ fn panic(_info: &PanicInfo) -> ! {
 #[unsafe(no_mangle)]
 pub extern "C" fn test(address: u32) -> u32 {
     let value = 0xdeadbeef;
+    ext_println!(
+        "Executing test function in env wrapper with address: {}",
+        address
+    );
     unsafe {
         __write__(address, value);
         let read_value = __read__(address);
@@ -38,17 +44,16 @@ pub extern "C" fn test(address: u32) -> u32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn mul_f32_f64(a:f32,b:f64) -> f64 {
+pub extern "C" fn mul_f32_f64(a: f32, b: f64) -> f64 {
     (a as f64) * b
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn div_f64_f64(a:f64,b:f64) -> f64 {
+pub extern "C" fn div_f64_f64(a: f64, b: f64) -> f64 {
     a / b
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn div_i64_i64(a:i64,b:i64) -> i64 {
+pub extern "C" fn div_i64_i64(a: i64, b: i64) -> i64 {
     a / b
 }
-

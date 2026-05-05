@@ -1,6 +1,6 @@
 const BASE_ADDR_P00: u32 = 0xF003A000;
-
 use super::*;
+use utils::Timer;
 fn configure_pin() {
     // Configure P00.5 and P00.6
     let addr_iocr4 = BASE_ADDR_P00 + 0x14;
@@ -34,13 +34,33 @@ fn write_led2(value: u32) {
     }
 }
 
+const AUTOSAR: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_AUTOSAR);
+
 #[no_mangle]
 pub extern "C" fn _led1() -> ! {
     configure_pin();
+    let mut timer = Timer::new();
 
+    timer.read_timer();
+    let result = AUTOSAR.checksum(b"123456789123456789");
+    ext_println!(
+        "Time to check CRC32 20 bytes: {} result={:x}",
+        timer.get_delta(),
+        result
+    );
     loop {
         let val = read_button();
-        write_led1(val);
-        write_led2(!val);
+        if val == 0 {
+            write_led1(1);
+            write_led2(0);
+        } else {
+            ext_println!("Button not pressed val={}", timer.get_delta());
+            write_led1(0);
+            write_led2(1);
+            timer.wait(25_000_000); // wait for 1 second (assuming 100MHz timer)
+            write_led1(1);
+            write_led2(0);
+            timer.wait(25_000_000); // wait for 1 second (assuming 100MHz timer)
+        }
     }
 }

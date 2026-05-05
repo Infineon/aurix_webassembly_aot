@@ -455,6 +455,7 @@ impl<'a> WasmRuntime<'a> {
                             let address = match (import.module, import.name) {
                                 ("env", "__write__") => Some(WasmRuntime::__write__ as u32),
                                 ("env", "__read__") => Some(WasmRuntime::__read__ as u32),
+                                ("env", "__write_str__") => Some(WasmRuntime::__write_str__ as u32),
                                 _ => None,
                             };
 
@@ -462,7 +463,7 @@ impl<'a> WasmRuntime<'a> {
                                 wasmparser::TypeRef::Func(func_type) => {
                                     global_translator.function_type_map.push(func_type)
                                 }
-                                _ => panic!("unspported import type"),
+                                _ => panic!("unsupported import type"),
                             };
 
                             code_index += 1;

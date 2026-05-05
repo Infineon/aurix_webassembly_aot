@@ -72,7 +72,6 @@ opt-level = "z"
 [lib]
 harness = false
 
-
 [[example]]
 name = "benchmark"
 harness = false
