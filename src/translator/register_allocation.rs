@@ -64,6 +64,7 @@ impl <'a,'b> Translator<'a,'b> {
         data_register_allocation_vec[0] = true;
         }
 
+        // mark all occupied registers as used in a list of booleans indexed by the register index
         self.locals_map.iter().chain(scratch_variable_map.iter()).map(location_to_register).chain(iter::once(self.locked_register.clone())).for_each(|register| {
             match register {
                 Some(Register::DataRegister(DataRegister(index))) => data_register_allocation_vec[index as usize] = true,
@@ -75,6 +76,7 @@ impl <'a,'b> Translator<'a,'b> {
             }
         });
 
+        // search for an available register in order in the list, if none is found
         loop {
             match valsize {
                 ValueSize::Word => {
@@ -92,7 +94,7 @@ impl <'a,'b> Translator<'a,'b> {
                     }
                 }
             }
-
+            // TODO: here we spill the oldest value in scratch_variable_map, even if it's not the right size.
             for location in scratch_variable_map.iter_mut() {
                 if self.spill_location(location, &mut data_register_allocation_vec) {
                     break;

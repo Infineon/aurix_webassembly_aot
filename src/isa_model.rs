@@ -10,11 +10,7 @@ use wasmparser::ValType;
 use crate::isa_model::machine_instructions::Instr;
 use crate::translator::Translator;
 
-#[derive(Copy,Clone, PartialEq, Debug)]
-pub enum Immediate {
-    Word(u32),
-    DoubleWord(u64),
-}
+
 const LINEAR_MEMORY_BASE : AddressRegister = AddressRegister(6);
 pub(crate) const GLOBAL_BASE : AddressRegister = AddressRegister(5);
 pub(crate) const STACK_POINTER : AddressRegister = AddressRegister(10);
@@ -23,17 +19,11 @@ pub(crate) const STACK_BASE : AddressRegister = AddressRegister(13); // stack po
 pub(crate) const TABLE_BASE : AddressRegister = AddressRegister(4);
 pub(crate) const ADDRESS_ACCUMULATOR: AddressRegister = AddressRegister(2);
 
-fn immediate_fits (imm:u32, is_signed:SignValue) -> bool {
-    match is_signed {
-        SignValue::Signed => {
-            let shifted_imm = imm as i32 >> 8;
-            shifted_imm == 0 || shifted_imm == -1
-        },
-        SignValue::Unsigned => {
-            let shifted_imm = imm >> 9;
-            shifted_imm == 0
-        }
-    }
+
+#[derive(Copy,Clone, PartialEq, Debug)]
+pub enum Immediate {
+    Word(u32),
+    DoubleWord(u64),
 }
 
 impl Immediate {
@@ -66,16 +56,11 @@ impl Immediate {
 
     pub(crate) fn map_to_register_or_const(&self, is_immediate_signed: SignValue, translator : &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation> ) -> RegisterOrConst {
         let imm = self.as_u32();
-        if immediate_fits(imm, is_immediate_signed) {
+        if self.fits_as_comparison_immediate(is_immediate_signed) {
             return RegisterOrConst::Const9(Const9::new(imm as u16));
         }
         let register = translator.next_available_data_register(scratch_variable_map, used_registers);
-        let lower_immediate = imm as u16;
-        let upper_immediate = (imm >> 16) as u16;
-        translator.push_instruction(Instr::MOVU { src: Const16::new(lower_immediate), dest: register});
-        if upper_immediate != 0 {
-                translator.push_instruction(Instr::ADDIH { lhs: register, rhs: Const16(upper_immediate), dest: register } );
-        }
+        translator.load_u32_immediate(register, imm);
         RegisterOrConst::DataRegister(register)
     }
 
@@ -118,6 +103,17 @@ pub(crate) struct DataRegister(pub u8);
 impl DataRegister {
     pub fn new(register:u8) -> Self {
         DataRegister(register & 0xF)
+    }
+
+    pub fn move_to(self, target: Option<DataRegister>, translator: &mut Translator) -> DataRegister {
+        match target {
+            None => self,
+            Some(t) if t == self => self,
+            Some(t) => {
+                translator.push_instruction(Instr::MOV { src: RegisterOrLargeConst::DataRegister(self), dest: Register::DataRegister(t) });
+                t
+            }
+        }
     }
 
     pub fn map_to_location (&self, target: Option<&MapperLocation> ,translator: &mut Translator, scratch_variable_map: &mut Vec<MapperLocation> ) -> MapperLocation {
@@ -228,6 +224,18 @@ pub(crate) struct ExtendedRegister(pub u8);
 impl ExtendedRegister {
     pub fn new(register:u8) -> Self {
         ExtendedRegister(register & 0xE)
+    }
+
+    pub fn move_to(self, target: Option<ExtendedRegister>, translator: &mut Translator) -> ExtendedRegister {
+        match target {
+            None => self,
+            Some(t) if t == self => self,
+            Some(t) => {
+                let ExtendedRegister(index) = self;
+                translator.push_instruction(Instr::MOV { src: RegisterOrLargeConst::RegisterCouple { lower: DataRegister(index), upper: DataRegister(index + 1) }, dest: Register::ExtendedRegister(t) });
+                t
+            }
+        }
     }
 
     pub fn map_to_location (&self, target: Option<&MapperLocation>, translator: &mut Translator, scratch_variable_map: &mut Vec<MapperLocation>) -> MapperLocation {
@@ -469,22 +477,8 @@ impl MapperLocation {
 
     pub fn map_to_data_register(&self, target: Option<DataRegister>, translator : &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>) -> DataRegister {
         match self {
-            MapperLocation::DataRegister(register) => match target {
-            None => *register,
-            Some(target_register) if target_register == *register => *register,
-            Some(target_register) => {
-                    translator.push_instruction(Instr::MOV { src: RegisterOrLargeConst::DataRegister(*register), dest: Register::DataRegister(target_register)});
-                    target_register
-                }
-            },
-            MapperLocation::ExtendedRegister(ExtendedRegister(index)) => match target{
-            None => DataRegister(*index),
-            Some (target_register) if target_register == DataRegister(*index) => DataRegister(*index),
-            Some (target_register) => {
-                    translator.push_instruction(Instr::MOV { src: RegisterOrLargeConst::DataRegister(DataRegister(*index)), dest: Register::DataRegister(target_register)});
-                    target_register
-                }
-            },
+            MapperLocation::DataRegister(register) => register.move_to(target, translator),
+            MapperLocation::ExtendedRegister(ExtendedRegister(index)) => DataRegister(*index).move_to(target, translator),
             MapperLocation::LinearMemory { static_offset, dynamic_offset, src_size, ext_sign, align } => {
                 let (offset, base) = process_memory_access_offset(dynamic_offset, static_offset, translator, scratch_variable_map, used_registers);
                 let register =  target.unwrap_or_else(|| translator.next_available_data_register(scratch_variable_map, used_registers));
@@ -498,14 +492,8 @@ impl MapperLocation {
             },
             MapperLocation::Immediate(imm) => {
                 let immediate =  imm.as_u32();
-                let immediate_lower: u16 = immediate  as u16;
-                let immediate_upper: u16 = (immediate >> 16) as u16;
                 let register = target.unwrap_or_else(|| translator.next_available_data_register(scratch_variable_map, used_registers));
-
-                translator.push_instruction(Instr::MOVU { src: Const16::new(immediate_lower) , dest: register});
-                if immediate_upper != 0 {
-                     translator.push_instruction(Instr::ADDIH { lhs: register, rhs: Const16(immediate_upper), dest: register } );
-                }
+                translator.load_u32_immediate(register, immediate);
                 register
             },
             MapperLocation::Frame { offset, .. } => {
@@ -530,15 +518,7 @@ impl MapperLocation {
 
     pub fn map_to_extended_register(&self, target: Option<ExtendedRegister>, translator: &mut Translator, scratch_variable_map : &mut Vec<MapperLocation>, used_registers: &Vec<MapperLocation>) -> ExtendedRegister {
         match self {
-            MapperLocation::ExtendedRegister(register) => match target {
-               None => *register,
-               Some (target_register) if target_register == *register => *register,
-               Some (target_register) => {
-                    let ExtendedRegister(index) = register;
-                      translator.push_instruction(Instr::MOV { src: RegisterOrLargeConst::RegisterCouple { lower: DataRegister::new(*index), upper: DataRegister::new(*index+1) }, dest: Register::ExtendedRegister(target_register)});
-                      target_register
-                 }
-            },
+            MapperLocation::ExtendedRegister(register) => register.move_to(target, translator),
             MapperLocation::DataRegister(DataRegister(index)) => match target {
                 None => ExtendedRegister::new(*index),
                 Some(target_register) => {
@@ -655,30 +635,17 @@ impl MapperLocation {
         match self {
             MapperLocation::DataRegister(register) => register.map_to_location(Some(target), translator, scratch_variable_map),
             MapperLocation::ExtendedRegister(register) => register.map_to_location(Some(target), translator, scratch_variable_map),
-            MapperLocation::Frame { size, .. } => match size {
-                ValueSize::Word =>  self.map_to_data_register( target_data_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map),
-                ValueSize::DoubleWord => self.map_to_extended_register(target_extended_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map),
-            },
-            MapperLocation::Stack { size } => match size {
-                ValueSize::Word =>  self.map_to_data_register( target_data_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map),
-                ValueSize::DoubleWord => self.map_to_extended_register(target_extended_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map),
-            },
-            MapperLocation::LinearMemory { src_size, .. } => {
-                if *src_size == Memsize::DoubleWord || target.get_size() == ValueSize::DoubleWord {
+            other => {
+                let use_extended = match other {
+                    MapperLocation::LinearMemory { src_size, .. } => *src_size == Memsize::DoubleWord || target.get_size() == ValueSize::DoubleWord,
+                    _ => other.get_size() == ValueSize::DoubleWord,
+                };
+                if use_extended {
                     self.map_to_extended_register(target_extended_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map)
                 } else {
-                    self.map_to_data_register( target_data_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map)
+                    self.map_to_data_register(target_data_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map)
                 }
-            },
-            MapperLocation::Immediate(imm) => match imm {
-                Immediate::Word(_) => self.map_to_data_register( target_data_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map),
-                Immediate::DoubleWord(_) => self.map_to_extended_register(target_extended_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map),
-            },
-            MapperLocation::Global { size , ..} => match size {
-                ValueSize::Word =>  self.map_to_data_register( target_data_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map),
-                ValueSize::DoubleWord => self.map_to_extended_register(target_extended_register, translator, scratch_variable_map, used_registers).map_to_location(Some(target), translator, scratch_variable_map),
-            },
-
+            }
         }
             
     }
@@ -701,12 +668,7 @@ impl MapperLocation {
                     return RegisterOrConst::Const9(Const9::new(immediate as u16));
                 }
                 let register = translator.next_available_data_register(scratch_variable_map, used_registers);
-                let lower_immediate = immediate as u16;
-                let upper_immediate = (immediate >> 16) as u16;
-                translator.push_instruction(Instr::MOVU { src: Const16::new(lower_immediate), dest: register});
-                if upper_immediate != 0 {
-                    translator.push_instruction(Instr::ADDIH { lhs: register, rhs: Const16(upper_immediate), dest: register } );
-                }
+                translator.load_u32_immediate(register, immediate);
                 RegisterOrConst::DataRegister(register)
 
             },

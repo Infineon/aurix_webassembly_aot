@@ -12,3 +12,4 @@
 *.profraw
 /demo-code/target/
 /tests_generator/target/
+/documentation/book/

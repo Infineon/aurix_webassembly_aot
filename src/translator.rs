@@ -149,21 +149,16 @@ impl<'a, 'b> Translator<'a, 'b> {
         // initialize the locals offset vector
         // it contains the initial offset of each local variable wrt. the frame pointer before moving them (partially) to registers
         let params_offset: Vec<i16> = {
-            if params_size.len() == 0 {
-                vec![]
-            } else {
-                let mut params_offset_inner: Vec<i16> = Vec::new();
-                for v in params_size.iter().skip(1) {
-                    params_offset_inner.push(v.as_bytes() as i16);
-                }
-                params_offset_inner.push(0);
-                if params_offset_inner.len() > 1 {
-                    for i in (0..params_offset_inner.len() - 2).rev() {
-                        params_offset_inner[i] += params_offset_inner[i + 1];
-                    }
-                }
-                params_offset_inner
+            let mut params_offset = vec![0i16; params_size.len()];
+            let mut offset = 0;
+
+            // params_offset[i] = total size (in bytes) of params to the right of i
+            for i in (0..params_size.len()).rev() {
+                params_offset[i] = offset;
+                offset += params_size[i].as_bytes() as i16;
             }
+
+            params_offset
         };
 
         // if we do bimasking D0 is for the bitmask
@@ -425,5 +420,14 @@ impl<'a, 'b> Translator<'a, 'b> {
             base: GLOBAL_BASE,
             offset: Const10(offset as i16),
         })
+    }
+
+    pub fn load_u32_immediate(&mut self, dest: DataRegister, value: u32) {
+        let lower = value as u16;
+        let upper = (value >> 16) as u16;
+        self.push_instruction(Instr::MOVU { src: Const16::new(lower), dest });
+        if upper != 0 {
+            self.push_instruction(Instr::ADDIH { lhs: dest, rhs: Const16(upper), dest });
+        }
     }
 }
