@@ -6,20 +6,20 @@
 - [cargo-make](https://crates.io/crates/cargo-make)
 - [wat2json included in WABT tools 1.36](https://github.com/WebAssembly/wabt/releases/tag/1.0.36) (Optional: Required if it is required to regenerate test cases from wast files store in wast_tests)
 
-
 ### Using instruction simulator
 
 - Tricore Instruction simulator version >= 1.18.196
-  - TSIM is included in PLS debugger. 
+  - TSIM is included in PLS debugger.
   - [A standalone free distribution is available from Infineon Developer center](https://softwaretools.infineon.com/tools/com.ifx.tb.tool.tsimtricoreinstructionsetsimulator). This is not automatically installed by `cargo make`
   - folder `<TSIM_path>/bin/<host architecture>` shall be added to the `PATH`
 - [rustfilt](https://crates.io/crates/rustfilt)
   - This is installed automatically by `cargo-make` when running `cargo make test-board` or `cargo make test-tsim`
-- [defmt-print](https://crates.io/crates/defmt-print) 
+- [defmt-print](https://crates.io/crates/defmt-print)
   - Install using latest rust stable version (no Hightec 1.0.0 because it is too old)
   - This is installed automatically by `cargo-make` when running `cargo make test-board` or `cargo make test-tsim`
 
 ### Using Aurix lite kit v2 board
+
 - [Board Aurix lite kit v2 board](https://www.infineon.com/cms/en/product/promopages/AURIX-microcontroller-boards/low-cost-arduino-kits/aurix-tc375-lite-kit/)
 - [tricore-probe version >= 2.1](https://github.com/veecle/tricore-probe)
   - This is not automatically installed by `cargo make` but it will check for its availability
@@ -36,16 +36,16 @@ For your convenience generated files are stored in the repository to simply the 
 
 In case you need to regenerate tests, `wast2json` tool proper version need to be available in the path.(see previous section for required tools.)
 
-`cargo-make` will take care to regenerate required files in case of any change in `.wast` files when `cargo make <test-tsim|test-board>` are invoked 
+`cargo-make` will take care to regenerate required files in case of any change in `.wast` files when `cargo make <test-tsim|test-board>` are invoked
 
-Which test files are skipped and motivations are described [wast_tests/README.md](./wast_tests/README.md) and in *.wast file comments.
-
-
+Which test files are skipped and motivations are described [wast_tests/README.md](./wast_tests/README.md) and in \*.wast file comments.
 
 ### How to run regression tests
+
 Given the multitude of existing regression tests, it is recommended to run the tests on the instruction simulator rather than on physical hardware, especially if all or many tests are to be run. The regression tests do not test any performance and are used only to test the soundness of the implementation. Given that each test file/module is in a seperate binary, running all the tests involves flashing thousands of binaries to the memory.
 
 To run all the tests:
+
 ```
 cargo make <test-tsim|test-board>
 ```
@@ -57,9 +57,11 @@ cargo make <test-tsim|test-board> --test <name of integration test>
 ```
 
 ## How to run benchmark tests
+
 The benchmark aims to provide time measures of running different algorithms. Hence, it is recommended to run it on the hardware.
 
 To run the benchmark use the following command:
+
 ```
 cargo make <run-benchmark-tsim|run-benchmark-board>
 ```
@@ -70,7 +72,7 @@ cargo make <run-benchmark-tsim|run-benchmark-board>
 
 The `WasmRuntime` trait provides 3 API functions that should be called in the listed order:
 
-- `new`: a constructor that returns a `WasmRuntime` after being provided of memory arrays that will be used to host the main components of the runtime : compiled machine instructions, linear memory, (extern calls) table and global space. 
+- `new`: a constructor that returns a `WasmRuntime` after being provided of memory arrays that will be used to host the main components of the runtime : compiled machine instructions, linear memory, (extern calls) table and global space.
 - `parse_and_translate`: given a Wasm module in binary form as a `&[u8]` as input, the method instantiates the module. Currently, the runtime does not support instantiating more than one module at a time. Therefore, once called, the function removes any existing module instance. The instantiation of a module initializes the linear memory, the table and the global space and compiles the WebAssembly functions to native code. Currently, the function supposes that the WASM module is valid and uses only features of the MVP. The instantiation does also run the start function if existent.
 - `call_exported_function` given a function name, arguments and an expected result type, this method runs the function that is exported with the given name, after providing it with the arguments. Depending on the expected result type, the method returns the result provided by the function. Arguments and results are represented as unsigned integers with the same bit-size as their respective value type. i.e: `i32` and `f32` are represented as `u32` integers wrapped in a `Immediate::Word` constructor and `i64` and `f64` are represented as `f64` integers wrapped in a `Immediate::DoubleWord` constructor. Currently, the runtime assumes that an exported function under the given name exists and that the provided arguments and result type correspond to that function's type.
 
@@ -83,19 +85,32 @@ The benchmark code provides an example for constructing the Wasm Runtime, instan
 Not all features of standard Webassembly runtime and translator are implemented.
 Below a list of major limitation and deviation from Webassembly standard
 
-* No features beyond WebAssembly 1.0 (exception for page size 64KB)
-* No trap e.g:
-  * Load and store sandbox implemented by address masking. No trap generated code continue to be executed.
-  * Division by zero
-  * ....
-* No time protection. It is not possible to limit the execution time of a Webassembly function.
-* Denormal floating point are not supported. Denormal floating point are not supported by Aurix FPU
-* No module linking. 
-  * Limited support for calling host function (only for demo purpose)
-* Presently the generated code calls functions in libm and the core library.
+- No features beyond WebAssembly 1.0 (exception for page size 64KB)
+- No trap e.g:
+  - Load and store sandbox implemented by address masking. No trap generated code continue to be executed.
+  - Division by zero
+  - ....
+- No time protection. It is not possible to limit the execution time of a WebAssembly function.
+- Denormal floating point are not supported. Denormal floating point are not supported by Aurix FPU
+- No module linking.
+  - Limited support for calling host function (only for demo purpose)
+- Presently the generated code calls functions in libm and the core library.
 
+# Benchmarks
 
-# License 
+| Benchmark      | WASM(-O3) clock cycles | GCC Native(-O3) clock cycles | WASM vs Native clock cycles | Native code size after translated from WASM | GCC Native(-O3) code size | WASM(Native) vs Native code size |
+| -------------- | ---------------------: | ---------------------------: | --------------------------: | ------------------------------------------: | ------------------------: | -------------------------------: |
+| correlation    |                 123570 |                       140567 |                     -12.09% |                                        5832 |                      1250 |                         +366.56% |
+| floyd-warshall |                3484449 |                       429744 |                    +710.84% |                                         348 |                       262 |                          +32.82% |
+| jacobi-1d      |                  11686 |                         2171 |                    +438.28% |                                        3520 |                      1910 |                          +84.29% |
+| nussinov       |                 528905 |                        87967 |                    +501.23% |                                         820 |                       512 |                          +60.16% |
+
+The code size for WASM compilation is referring to the native code generated by AoT from WASM code.
+
+The correlation has an apparently unexpected behavior. The reason is the different unrolling behavior of Emscripten toolchain compared to regular GCC. Emscripten compiler unroll much more ofr -O3 comapred to GCC included in Aurix ADS IDE.
+This explain also the much better performance.
+
+# License
 
 This is software is licensed under MIT(Infineon) and BOOST license (Hightec)
 
