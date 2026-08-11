@@ -94,7 +94,6 @@ impl <'a,'b> Translator<'a,'b> {
                     }
                 }
             }
-            // TODO: here we spill the oldest value in scratch_variable_map, even if it's not the right size.
             for location in scratch_variable_map.iter_mut() {
                 if self.spill_location(location, &mut data_register_allocation_vec) {
                     break;

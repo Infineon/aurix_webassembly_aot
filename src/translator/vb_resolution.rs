@@ -931,6 +931,7 @@ impl<'a,'b> Translator<'a,'b> {
                 let sign_extension = if (immediate as i16) < 0 { 0xffff } else { 0 };
                 let upper_immediate = (immediate >> 16) as u16 - sign_extension;
 
+                // TODO: If the immediate is 0, no operation is emitted, but if there is a potential target, the operand should be moved to the target register. This is not currently handled.
                 if lower_immediate != 0 {
                     self.push_instruction(Instr::ADDI { lhs: operand_register, rhs: Const16::new(lower_immediate), dest: dest_register });
                 }

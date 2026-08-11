@@ -183,7 +183,7 @@ struct VBTreeLocation (VB, ContextVB);
 
 impl VBTreeLocation{
     
-    /// Move the cursor to the parent of the current node. The current subtree is replaced by a placeholder node 
+    /// Move the cursor to the parent of the current node 
     fn move_up(self) -> Option<Self>{
         match self {
             VBTreeLocation(_ , ContextVB::Top) => None,
